@@ -1,0 +1,23 @@
+# Codex starter config for Expo projects.
+# Keep secrets in environment variables, not in this file.
+
+[mcp_servers.gluestack-mcp]
+command = "node"
+args = ["./mcp-servers/gluestack-mcp/index.js"]
+
+[mcp_servers.open-library]
+command = "node"
+args = ["./mcp-servers/open-library-wrapper.mjs"]
+
+[mcp_servers.context7]
+command = "npx"
+args = ["-y", "@upstash/context7-mcp"]
+# Required: export CONTEXT7_API_KEY=ctx7sk_xxx
+
+# Example Supabase remote MCP endpoint.
+# Replace YOUR_PROJECT_REF with your own project reference.
+[mcp_servers.supabase]
+url = "https://mcp.supabase.com/mcp?project_ref=YOUR_PROJECT_REF"
+
+[features]
+rmcp_client = true

@@ -1,0 +1,23 @@
+# Node
+node_modules/
+
+# Env
+.env
+.env.*
+!.env.example
+
+# OS/editor
+.DS_Store
+.vscode/
+
+# Logs/reports
+*.log
+coverage/
+
+# Codex runtime artifacts
+.codex/review-results/*.txt
+.codex/review-results/*.log
+.codex/review-prompts/agent-*-prompt.md
+
+# Local overrides
+.codex/config.local.toml
