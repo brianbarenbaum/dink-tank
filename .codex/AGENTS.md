@@ -120,6 +120,10 @@ Runtime verification is also required for code/config changes per `.codex/memori
 * Input validation and output hardening
 * Security headers, secrets handling, and sensitive logging
 
+**Required checklist:**
+
+* `docs/security/vibecoder-review.md` (applicable sections)
+
 **Rules:**
 
 * Findings must include **Attack path -> Impact -> Mitigation/Fix -> Files**
