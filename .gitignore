@@ -2,6 +2,17 @@
 node_modules/
 .worktrees/
 
+# Build outputs
+dist/
+.vite/
+*.tsbuildinfo
+
+# Test outputs
+coverage/
+playwright-report/
+test-results/
+validation_screenshots/
+
 # Env
 .env
 .env.*
@@ -11,9 +22,8 @@ node_modules/
 .DS_Store
 .vscode/
 
-# Logs/reports
+# Logs
 *.log
-coverage/
 
 # Codex runtime artifacts
 .codex/review-results/*.txt

@@ -8,6 +8,9 @@ Review scope:
 - Input validation, output handling, and sensitive data exposure
 - Security headers, secrets usage, logging, and configuration risks
 
+Required checklist:
+- `docs/security/vibecoder-review.md` (applicable sections)
+
 Each finding must include:
 - Severity (Blocker/Major/Minor)
 - File:line

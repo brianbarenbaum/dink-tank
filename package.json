@@ -1,19 +1,43 @@
 {
-  "name": "codex-vue-starter",
-  "private": true,
-  "version": "0.1.0",
-  "description": "Starter template for Vite + Vue 3 projects using a Codex agent-engineering workflow.",
-  "scripts": {
-    "setup": "bash scripts/setup.sh",
-    "format:check": "biome check .",
-    "lint:check": "biome check .",
-    "typecheck": "vue-tsc --noEmit",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
-    "test:e2e": "playwright test",
-    "review:dispatch": "bash scripts/review-dispatch.sh",
-    "review:base": "bash scripts/review-run-all.sh --mode base",
-    "review:uncommitted": "bash scripts/review-run-all.sh --mode uncommitted",
-    "review:full": "bash scripts/review-run-all.sh --mode full"
-  }
+	"name": "codex-vue-starter",
+	"private": true,
+	"version": "0.1.0",
+	"description": "Starter template for Vite + Vue 3 + Tailwind 4 + shadcn-vue projects using a Codex agent-engineering workflow.",
+	"type": "module",
+	"scripts": {
+		"setup": "bash scripts/setup.sh",
+		"dev": "vite",
+		"build": "vite build",
+		"preview": "vite preview",
+		"format": "biome format --write .",
+		"format:check": "biome check .",
+		"lint:check": "biome check .",
+		"typecheck": "vue-tsc --noEmit",
+		"test": "vitest run --passWithNoTests",
+		"test:coverage": "vitest run --coverage --passWithNoTests",
+		"test:e2e": "playwright test --pass-with-no-tests",
+		"review:dispatch": "bash scripts/review-dispatch.sh",
+		"review:base": "bash scripts/review-run-all.sh --mode base",
+		"review:uncommitted": "bash scripts/review-run-all.sh --mode uncommitted",
+		"review:full": "bash scripts/review-run-all.sh --mode full"
+	},
+	"dependencies": {
+		"pinia": "^3.0.3",
+		"vue": "^3.5.18"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^1.9.4",
+		"@playwright/test": "^1.55.0",
+    "@tailwindcss/vite": "^4.1.12",
+    "@types/node": "^24.3.0",
+    "@vitejs/plugin-vue": "^6.0.1",
+		"@vitest/coverage-v8": "^3.2.4",
+		"jsdom": "^26.1.0",
+		"shadcn-vue": "^2.4.3",
+		"tailwindcss": "^4.1.12",
+		"typescript": "^5.9.2",
+		"vite": "^7.1.3",
+		"vitest": "^3.2.4",
+		"vue-tsc": "^3.1.0"
+	}
 }

@@ -12,6 +12,7 @@ fi
 
 echo "Starter setup complete."
 echo "Next steps:"
-echo "1) Update .codex/config.toml (Context7/Supabase as needed)"
-echo "2) Export env vars from .env.example"
-echo "3) Customize .codex/AGENTS.md and memories for your project domain"
+echo "1) Set this repo's origin to your new project URL"
+echo "2) Update .codex/config.toml (Context7/Supabase as needed)"
+echo "3) Export env vars from .env.example"
+echo "4) Customize .codex/AGENTS.md and memories for your project domain"

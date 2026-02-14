@@ -1,31 +1,53 @@
 # codex-vue-starter
 
-Template repository for new Vite + Vue 3 projects that start with a Codex-first agent engineering workflow.
+Starter repository for **Vite + Vue 3 + Tailwind 4 + shadcn-vue + Vitest + Playwright** projects with a Codex-first multi-agent workflow.
 
 ## Included
 
-- `.codex/AGENTS.md` multi-agent review workflow and verification gates
-- `.codex/memories/` reusable engineering standards
-- `.codex/prompt-templates/review/` reusable reviewer prompts
-- `.codex/config.toml` MCP server config template
-- `mcp-servers/` local MCP wrappers (project-specific, optional)
-- `scripts/review-dispatch.sh` and `scripts/review-run-all.sh` automation
+- `.codex/AGENTS.md` agent workflow, review gates, dispatch rules
+- `.codex/memories/` stack-specific engineering guidance (Vue, Pinia, testing, UI, runtime verification)
+- `.codex/prompt-templates/review/` reviewer prompt templates
+- `.codex/config.toml` MCP config starter (Context7/Supabase)
+- `scripts/review-dispatch.sh`, `scripts/review-run-all.sh` review automation
+- Minimal runnable Vite + Vue app scaffold (`src/`, `vite.config.ts`, `vitest.config.ts`, `playwright.config.ts`)
 
-## Quick start
+## Bootstrap A New Project (Clone-Based)
 
-1. Create a new repo from this template.
-2. Run setup:
+This starter is meant to be cloned directly. Do **not** run `npm create vite@latest` after cloning.
+
+1. Clone this repository into your new project folder.
+2. Change `origin` to your own repo:
+   - `git remote set-url origin <your-new-repo-url>`
+3. Install dependencies:
+   - `npm install`
+4. Run setup helper:
    - `npm run setup`
-3. Configure MCPs:
-   - update `.codex/config.toml` (especially Supabase `project_ref`)
-4. Add secrets/env vars:
-   - copy `.env.example` values into your local env
-5. Run reviews:
-   - `npm run review:dispatch`
-   - `npm run review:base`
+5. Update project metadata/config:
+   - `package.json` name/description/version
+   - `.env.example` placeholders
+   - `.codex/config.toml` MCP settings (for example Supabase project ref)
+6. Initialize shadcn-vue in your app if needed:
+   - `npx shadcn-vue@latest init`
+7. Run verification gates:
+   - `npm run format:check`
+   - `npm run lint:check`
+   - `npm run typecheck`
+   - `npm run test`
+   - `npm run test:coverage`
+   - `npm run test:e2e`
+
+## Common Commands
+
+- `npm run dev` start Vite dev server
+- `npm run build` build for production
+- `npm run preview` preview production build
+- `npm run review:dispatch` identify required reviewer agents from changed files
+- `npm run review:base` run reviewer prompts against branch diff
 
 ## Notes
 
-- Keep runtime artifacts out of git (`.codex/review-results`, generated prompts).
-- Keep secrets out of git; use env vars.
-- Adapt `.codex/AGENTS.md` and memories per project before heavy implementation.
+- Tailwind v4 is configured via `@tailwindcss/vite`; no `autoprefixer` dependency is required.
+- Keep runtime artifacts out of git (`.codex/review-results`, generated prompts, Playwright/test artifacts).
+- Keep secrets out of git; use environment variables.
+- Adapt `.codex/AGENTS.md` and relevant memories before heavy implementation.
+- See `docs/template-customization-checklist.md` and `docs/checklists/` for project readiness checks.
