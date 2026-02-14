@@ -12,6 +12,6 @@
 
 ## Project standards
 - Keep component logic composable and move shared logic to `composables/`.
-- Prefer local component state before introducing global stores.
+- Prefer local component/composable state first; adopt Pinia when state becomes cross-route, multi-component, or mutation-heavy.
 - Avoid dynamic imports unless they provide clear route or performance value.
 - Ensure changes remain compatible with strict TypeScript mode.

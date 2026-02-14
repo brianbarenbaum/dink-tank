@@ -26,7 +26,7 @@
 - Use camelCase for variables and functions
 - Use UPPER_CASE for constants
 - Use descriptive names with auxiliary verbs (e.g., isLoading, hasError)
-- Prefix interfaces for React props with 'Props' (e.g., ButtonProps)
+- Prefix component prop interfaces with `Props` (e.g., `ButtonProps`)
 
 ## Code Organization
 
@@ -52,7 +52,7 @@
 - Use type guards for runtime type checking
 - Implement proper null checking
 - Avoid type assertions unless necessary
-- When using React Native or React Native Web style types that do not allow certain web-only values (e.g. `position: "fixed"`), use a type assertion (e.g. `("fixed" as "absolute")`) and add a one-line comment explaining the runtime behavior (e.g. web needs fixed for overlay positioning). Prefer the narrowest assertion that satisfies the type checker.
+- When a library type excludes a runtime-supported value, use the narrowest possible type assertion and add a one-line comment explaining why runtime behavior is safe.
 
 ## Error Handling
 

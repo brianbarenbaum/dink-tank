@@ -61,6 +61,7 @@ Runtime verification is also required for code/config changes per `.codex/memori
 
 * `vite-vue.md`
 * `vue-composition-api.md`
+* `pinia.md` when introducing or changing shared state stores
 * `tailwind-shadcn-vue.md`
 * `typescript.md`
 * `async-effects.md`

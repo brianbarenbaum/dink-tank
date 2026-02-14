@@ -1,6 +1,8 @@
-# Async work from useEffect
+# Async Effects in Vue
 
-When triggering async work (e.g. API search) from `useEffect` in response to user input or a debounced value, prevent stale results from updating state after the effect has been torn down or dependencies have changed.
+When triggering async work from `watch`, `watchEffect`, lifecycle hooks, or composables, prevent stale requests from mutating reactive state after dependencies change.
 
-- Use a **cancellation guard**: set a boolean (e.g. `cancelled`) or use `AbortController` inside the effect, and in the effect's cleanup set `cancelled = true` (or `abort()`). In the async callback (e.g. `.then()`), only call state setters if `!cancelled` (or the request was not aborted).
-- Example: `app/add-book.tsx` (search effect with `cancelled` and cleanup return).
+- Use `AbortController` (preferred) or an invalidation flag and cancel/ignore outdated requests.
+- In `watch`/`watchEffect`, use cleanup (`onInvalidate`) to cancel pending work before next run.
+- Update reactive state only for the latest active request.
+- Keep async logic in composables when reused by multiple components.
