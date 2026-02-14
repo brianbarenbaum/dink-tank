@@ -5,7 +5,7 @@ Starter repository for **Vite + Vue 3 + Tailwind 4 + shadcn-vue + Vitest + Playw
 ## Included
 
 - `.codex/AGENTS.md` agent workflow, review gates, dispatch rules
-- `.codex/memories/` stack-specific engineering guidance (Vue, Pinia, testing, UI, runtime verification)
+- `.codex/skills/` stack-specific engineering guidance (Vue, Pinia, testing, UI, runtime verification)
 - `.codex/prompt-templates/review/` reviewer prompt templates
 - `.codex/config.toml` MCP config starter (Context7/Supabase)
 - `scripts/review-dispatch.sh`, `scripts/review-run-all.sh` review automation

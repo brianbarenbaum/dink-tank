@@ -5,7 +5,7 @@ Before starting feature work in a cloned project:
 1. Repoint git `origin` to your own repository.
 2. Update `package.json` project metadata.
 3. Update `.codex/AGENTS.md` for your architecture, verification gates, and reviewer mapping.
-4. Prune/adjust `.codex/memories/*.md` to match your app domain.
+4. Prune/adjust `.codex/skills/*.md` to match your app domain.
 5. Update `.codex/config.toml`:
    - set Supabase `project_ref` if used
    - remove MCP servers you do not use
