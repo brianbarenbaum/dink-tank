@@ -1,0 +1,38 @@
+alter table public.regions enable row level security;
+alter table public.divisions enable row level security;
+alter table public.clubs enable row level security;
+alter table public.teams enable row level security;
+alter table public.players enable row level security;
+alter table public.team_standings enable row level security;
+alter table public.player_division_stats enable row level security;
+alter table public.matchups enable row level security;
+alter table public.matchup_player_stats enable row level security;
+alter table public.lineups enable row level security;
+alter table public.lineup_slots enable row level security;
+alter table public.api_raw_ingest enable row level security;
+alter table public.ingest_runs enable row level security;
+alter table public.ingest_checkpoints enable row level security;
+
+drop policy if exists public_read_regions on public.regions;
+drop policy if exists public_read_divisions on public.divisions;
+drop policy if exists public_read_clubs on public.clubs;
+drop policy if exists public_read_teams on public.teams;
+drop policy if exists public_read_players on public.players;
+drop policy if exists public_read_team_standings on public.team_standings;
+drop policy if exists public_read_player_division_stats on public.player_division_stats;
+drop policy if exists public_read_matchups on public.matchups;
+drop policy if exists public_read_matchup_player_stats on public.matchup_player_stats;
+drop policy if exists public_read_lineups on public.lineups;
+drop policy if exists public_read_lineup_slots on public.lineup_slots;
+
+create policy public_read_regions on public.regions for select to anon, authenticated using (true);
+create policy public_read_divisions on public.divisions for select to anon, authenticated using (true);
+create policy public_read_clubs on public.clubs for select to anon, authenticated using (true);
+create policy public_read_teams on public.teams for select to anon, authenticated using (true);
+create policy public_read_players on public.players for select to anon, authenticated using (true);
+create policy public_read_team_standings on public.team_standings for select to anon, authenticated using (true);
+create policy public_read_player_division_stats on public.player_division_stats for select to anon, authenticated using (true);
+create policy public_read_matchups on public.matchups for select to anon, authenticated using (true);
+create policy public_read_matchup_player_stats on public.matchup_player_stats for select to anon, authenticated using (true);
+create policy public_read_lineups on public.lineups for select to anon, authenticated using (true);
+create policy public_read_lineup_slots on public.lineup_slots for select to anon, authenticated using (true);
