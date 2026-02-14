@@ -1,6 +1,6 @@
-# codex-expo-starter
+# codex-vue-starter
 
-Template repository for new Expo projects that should start with a Codex-first agent engineering workflow.
+Template repository for new Vite + Vue 3 projects that start with a Codex-first agent engineering workflow.
 
 ## Included
 
@@ -8,7 +8,7 @@ Template repository for new Expo projects that should start with a Codex-first a
 - `.codex/memories/` reusable engineering standards
 - `.codex/prompt-templates/review/` reusable reviewer prompts
 - `.codex/config.toml` MCP server config template
-- `mcp-servers/` local MCP wrappers and Gluestack MCP server source
+- `mcp-servers/` local MCP wrappers (project-specific, optional)
 - `scripts/review-dispatch.sh` and `scripts/review-run-all.sh` automation
 
 ## Quick start

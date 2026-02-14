@@ -1,10 +1,16 @@
 {
-  "name": "codex-expo-starter",
+  "name": "codex-vue-starter",
   "private": true,
   "version": "0.1.0",
-  "description": "Starter template for Vue projects using a Codex agent-engineering workflow.",
+  "description": "Starter template for Vite + Vue 3 projects using a Codex agent-engineering workflow.",
   "scripts": {
     "setup": "bash scripts/setup.sh",
+    "format:check": "biome check .",
+    "lint:check": "biome check .",
+    "typecheck": "vue-tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
     "review:dispatch": "bash scripts/review-dispatch.sh",
     "review:base": "bash scripts/review-run-all.sh --mode base",
     "review:uncommitted": "bash scripts/review-run-all.sh --mode uncommitted",

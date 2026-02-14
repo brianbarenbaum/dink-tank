@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_NAME="${1:-codex-expo-starter}"
+REPO_NAME="${1:-codex-vue-starter}"
 
 if ! command -v gh >/dev/null 2>&1; then
   echo "gh CLI is required. Install: https://cli.github.com/"
@@ -14,7 +14,7 @@ if [[ ! -d .git ]]; then
 fi
 
 git add .
-git commit -m "chore: initialize codex expo starter" || true
+git commit -m "chore: initialize codex vite vue starter" || true
 git branch -M main
 
 gh repo create "$REPO_NAME" --private --source=. --remote=origin --push
