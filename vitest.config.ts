@@ -1,6 +1,8 @@
+import vue from "@vitejs/plugin-vue";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+	plugins: [vue()],
 	test: {
 		environment: "jsdom",
 		include: ["tests/**/*.test.ts"],
@@ -8,6 +10,12 @@ export default defineConfig({
 			provider: "v8",
 			reporter: ["text", "html"],
 			reportsDirectory: "coverage",
+			include: ["src/**/*.{ts,vue}"],
+			exclude: ["src/env.d.ts"],
+			thresholds: {
+				lines: 20,
+				statements: 20,
+			},
 		},
 	},
 });

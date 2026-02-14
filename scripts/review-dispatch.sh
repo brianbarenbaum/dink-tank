@@ -80,7 +80,7 @@ AGENT_NAME[4]="Agent 4 - LLM Integration Reviewer"
 AGENT_NAME[5]="Agent 5 - Test & Quality Gatekeeper"
 AGENT_NAME[6]="Agent 6 - UI Screenshot & Design Parity Reviewer"
 AGENT_NAME[7]="Agent 7 - Docs & Architecture Reviewer"
-AGENT_NAME[8]="Agent 8 - Web Delivery & Accessibility Compliance Reviewer"
+AGENT_NAME[8]="Agent 8 - Web Security, Privacy & Accessibility Reviewer"
 
 AGENT_TEMPLATE[1]=".codex/prompt-templates/review/agent-1-web-ui.md"
 AGENT_TEMPLATE[2]=".codex/prompt-templates/review/agent-2-supabase-dba.md"
@@ -89,7 +89,7 @@ AGENT_TEMPLATE[4]=".codex/prompt-templates/review/agent-4-llm-integration.md"
 AGENT_TEMPLATE[5]=".codex/prompt-templates/review/agent-5-test-quality.md"
 AGENT_TEMPLATE[6]=".codex/prompt-templates/review/agent-6-ui-parity.md"
 AGENT_TEMPLATE[7]=".codex/prompt-templates/review/agent-7-docs-architecture.md"
-AGENT_TEMPLATE[8]=".codex/prompt-templates/review/agent-8-appstore-compliance.md"
+AGENT_TEMPLATE[8]=".codex/prompt-templates/review/agent-8-web-security-privacy-accessibility.md"
 
 add_agent() {
   local agent_id="$1"
@@ -134,7 +134,7 @@ while IFS= read -r file; do
     add_agent 5 "Tests/config/tooling changed"
   fi
 
-  if [[ "$file" == docs/* || "$file" == README.md || "$file" == .codex/AGENTS.md || "$file" == .codex/memories/* || "$file" == .codex/prompt-templates/* || "$file" == .codex/config.toml ]]; then
+  if [[ "$file" == docs/* || "$file" == README.md || "$file" == .codex/AGENTS.md || "$file" == .codex/skills/* || "$file" == .codex/prompt-templates/* || "$file" == .codex/config.toml ]]; then
     add_agent 7 "Docs/architecture guidance changed"
   fi
 

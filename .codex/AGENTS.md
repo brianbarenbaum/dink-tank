@@ -47,7 +47,7 @@ npm run typecheck
 ```
 
 If a command cannot be run, the reason must be explicitly documented.
-Runtime verification is also required for code/config changes per `.codex/memories/verify-runtime-before-complete.md`.
+Runtime verification is also required for code/config changes per `.codex/skills/testing-quality-gate/SKILL.md`.
 
 ---
 
@@ -57,16 +57,13 @@ Runtime verification is also required for code/config changes per `.codex/memori
 
 **Role:** Senior engineer responsible for all implementation changes.
 
-**Required memories:**
-
-* `vite-vue.md`
-* `vue-composition-api.md`
-* `pinia.md` when introducing or changing shared state stores
-* `tailwind-shadcn-vue.md`
-* `typescript.md`
-* `async-effects.md`
-* `verify-runtime-before-complete.md`
-* `testing-vitest-playwright.md` when adding or modifying tests
+**Skill Routing:**
+- Trigger `vue-vite-core` for `.vue` and composable/runtime architecture changes.
+- Trigger `state-management-pinia` for store logic.
+- Trigger `typescript-development` for TypeScript-heavy logic changes.
+- Trigger `ui-component-creation` for structure/composition/accessibility of components.
+- Trigger `responsive-ui` for breakpoint/layout/touch-target behavior.
+- Trigger `testing-quality-gate` before finalizing any task.
 
 **Responsibilities:**
 
@@ -82,15 +79,9 @@ Runtime verification is also required for code/config changes per `.codex/memori
 
 **Role:** Reviewer for UI correctness, responsiveness, accessibility, and design parity.
 
-**Required memories:**
-
-* `vite-vue.md`
-* `tailwind-shadcn-vue.md`
-* `web-accessibility-ui-checklist.md`
-* `ui-screenshot-verification.md`
+**Instructions:** Whenever a component is changed, review against `responsive-ui` and `ui-component-creation` criteria.
 
 **Scope:**
-
 * Vue SFC components
 * Tailwind utility usage
 * shadcn-vue component composition
@@ -145,31 +136,13 @@ Runtime verification is also required for code/config changes per `.codex/memori
 ### Agent 5 - Test & Quality Gatekeeper
 
 **Role:** Enforces verifiability and maintainability.
-
-**Required memories:**
-
-* `testing-vitest-playwright.md`
-* `verify-runtime-before-complete.md`
-
-**Checklist:**
-
-* `npm run format:check` passes
-* `npm run lint:check` passes
-* `npm run test` passes
-* `npm run test:coverage` passes
-* `npm run test:e2e` passes (or documented rationale if intentionally skipped)
-* `npm run typecheck` passes
+**Directive:** Invoke `testing-quality-gate`. Ensure all unit and E2E suites pass with no regressions.
 
 ---
 
 ### Agent 6 - UI Screenshot & Design Parity Reviewer
-
-**Role:** Reviewer for visual regressions and design fidelity.
-
-**Required memories:**
-
-* `ui-screenshot-verification.md`
-* `web-accessibility-ui-checklist.md`
+**Role:** Reviewer for visual regressions.
+**Directive:** Follow visual regression criteria in `testing-quality-gate` and compare `validation_screenshots/` against design references.
 
 ---
 
@@ -182,11 +155,11 @@ Runtime verification is also required for code/config changes per `.codex/memori
 * README
 * Architecture docs
 * ADRs
-* Agent/memory docs
+* Agent/skill docs
 
 ---
 
-### Agent 8 - Web Delivery & Accessibility Compliance Reviewer
+### Agent 8 - Web Security, Privacy & Accessibility Reviewer
 
 **Role:** Reviewer for web release safety and policy-aligned delivery posture.
 
@@ -247,29 +220,3 @@ npm run review:base
 ```
 
 Results are written to `.codex/review-results/`.
-
----
-
-## Security Automation Gate
-
-For backend/auth/database changes, run security checks before completion:
-
-```bash
-rg -n "api[_-]?key|secret|token|password|private[_-]?key|BEGIN (RSA|EC|OPENSSH)" . --glob '!node_modules/**'
-npm audit --omit=dev
-```
-
-If security commands cannot run, document why and provide manual review evidence.
-
----
-
-## Merge Readiness Gate
-
-A change is merge-ready only when all applicable items are satisfied:
-
-* Verification commands pass (format, lint, tests, coverage, e2e, typecheck)
-* Runtime verification completed when required
-* Required reviewer agents dispatched for changed scopes
-* Security automation gate completed for sensitive changes
-* UI screenshot/design parity checks completed for visual changes
-* Known risks and follow-ups documented

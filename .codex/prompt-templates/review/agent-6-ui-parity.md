@@ -7,9 +7,9 @@ Review scope:
 - Playwright screenshot verification coverage
 - Design parity across mobile and desktop breakpoints
 
-Required memories/checklists:
-- `.codex/memories/ui-screenshot-verification.md`
-- `.codex/memories/web-accessibility-ui-checklist.md`
+Required skills/checklists:
+- `.codex/skills/testing-quality-gate/SKILL.md`
+- `.codex/skills/responsive-ui/SKILL.md`
 
 Output format for each finding:
 - Severity (Blocker/Major/Minor)

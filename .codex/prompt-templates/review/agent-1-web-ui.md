@@ -8,10 +8,10 @@ Review scope:
 - Tailwind styling patterns and responsive behavior
 - Accessibility, state ownership, and UI performance risks
 
-Required memories/checklists:
-- `.codex/memories/vite-vue.md`
-- `.codex/memories/tailwind-shadcn-vue.md`
-- `.codex/memories/web-accessibility-ui-checklist.md`
+Required skills/checklists:
+- `.codex/skills/vue-vite-core/SKILL.md`
+- `.codex/skills/ui-component-creation/SKILL.md`
+- `.codex/skills/responsive-ui/SKILL.md`
 
 Output format for each finding:
 - Severity (Blocker/Major/Minor)

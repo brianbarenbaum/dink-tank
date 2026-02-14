@@ -123,7 +123,7 @@ AGENT_TEMPLATE[4]=".codex/prompt-templates/review/agent-4-llm-integration.md"
 AGENT_TEMPLATE[5]=".codex/prompt-templates/review/agent-5-test-quality.md"
 AGENT_TEMPLATE[6]=".codex/prompt-templates/review/agent-6-ui-parity.md"
 AGENT_TEMPLATE[7]=".codex/prompt-templates/review/agent-7-docs-architecture.md"
-AGENT_TEMPLATE[8]=".codex/prompt-templates/review/agent-8-appstore-compliance.md"
+AGENT_TEMPLATE[8]=".codex/prompt-templates/review/agent-8-web-security-privacy-accessibility.md"
 
 selected_agents() {
   local filter="$1"

@@ -56,7 +56,7 @@ git commit -m "chore: align starter identity and base scripts for vite vue"
 **Step 1: Replace stack-bound sections in `.codex/AGENTS.md`**
 - Update Agent 0 required memories from Expo to Vue/Vite/Tailwind/testing memories.
 - Replace Agent 1 from “Mobile UI Specialist” to “Web UI Specialist (Vue + shadcn-vue + Tailwind)”.
-- Replace App Store compliance agent with a relevant web-focused reviewer (e.g., “Web Delivery & Accessibility Compliance Reviewer”) or explicitly mark optional/removable if not used.
+- Replace App Store compliance agent with a relevant web-focused reviewer (e.g., “Web Security, Privacy & Accessibility Reviewer”) or explicitly mark optional/removable if not used.
 
 **Step 2: Update mandatory dispatch rules**
 - Replace `app/**`/mobile paths with Vue paths (`src/**`, `components/**`, `pages/**`, `composables/**`, `tests/**`, `e2e/**`, config files).
@@ -125,7 +125,7 @@ git commit -m "docs: replace expo memories with vite vue and testing standards"
 - Modify: `.codex/prompt-templates/review/agent-1-mobile-ui.md`
 - Modify: `.codex/prompt-templates/review/agent-5-test-quality.md`
 - Modify: `.codex/prompt-templates/review/agent-6-ui-parity.md`
-- Modify: `.codex/prompt-templates/review/agent-8-appstore-compliance.md` (replace or repurpose)
+- Modify: `.codex/prompt-templates/review/agent-8-web-security-privacy-accessibility.md` (replace or repurpose)
 - Review and keep as-needed: agents 2/3/4/7 templates
 
 **Step 1: Update stack-specific review scope text**

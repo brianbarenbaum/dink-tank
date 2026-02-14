@@ -49,5 +49,6 @@ This starter is meant to be cloned directly. Do **not** run `npm create vite@lat
 - Tailwind v4 is configured via `@tailwindcss/vite`; no `autoprefixer` dependency is required.
 - Keep runtime artifacts out of git (`.codex/review-results`, generated prompts, Playwright/test artifacts).
 - Keep secrets out of git; use environment variables.
+- Apply `docs/security/web-baseline.md` before production deployment.
 - Adapt `.codex/AGENTS.md` and relevant memories before heavy implementation.
 - See `docs/template-customization-checklist.md` and `docs/checklists/` for project readiness checks.

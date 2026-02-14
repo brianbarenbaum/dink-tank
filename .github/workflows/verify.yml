@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -21,4 +23,10 @@ jobs:
       - run: npm run test
       - run: npm run test:coverage
       - run: npm run test:e2e
-      - run: npm run review:dispatch
+      - name: Dispatch required reviewers
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            npm run review:dispatch -- --base "origin/${{ github.base_ref }}"
+          else
+            npm run review:dispatch -- --base origin/main
+          fi
