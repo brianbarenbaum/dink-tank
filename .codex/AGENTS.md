@@ -78,7 +78,7 @@ Runtime verification is also required for code/config changes per `.codex/memori
 
 ---
 
-### Agent 1 - Web UI Specialist (Vue + shadcn-vue + Tailwind)
+### Agent 1 - Frontend UI & UX Reviewer (Vue + shadcn-vue + Tailwind)
 
 **Role:** Reviewer for UI correctness, responsiveness, accessibility, and design parity.
 
@@ -109,15 +109,16 @@ Runtime verification is also required for code/config changes per `.codex/memori
 
 ---
 
-### Agent 3 - Worker / API Security Reviewer
+### Agent 3 - Application Security Reviewer
 
-**Role:** Security gate for backend boundaries.
+**Role:** Security gate across the full application surface.
 
 **Scope:**
 
-* API handlers
-* Auth and input validation
-* Rate limiting, logging, secrets
+* Frontend auth/session flows and route protection
+* API and backend boundaries
+* Input validation and output hardening
+* Security headers, secrets handling, and sensitive logging
 
 **Rules:**
 
@@ -219,7 +220,7 @@ The Lead Builder must trigger the following reviewers based on changed files:
 
 * `src/components/**`, `src/pages/**`, `src/layouts/**`, `src/App.vue` -> Agent 1 and Agent 6
 * `supabase/**`, SQL migrations, repository SQL changes -> Agent 2
-* `api/**`, `backend/**`, `server/**`, auth boundary changes -> Agent 3
+* `api/**`, `backend/**`, `server/**`, `src/lib/auth/**`, `src/router/**`, `middleware/**`, `docs/security/**`, auth/session/security config changes -> Agent 3
 * OpenAI/LLM prompt or response parsing changes -> Agent 4
 * Any test/config/tooling changes -> Agent 5
 * Docs and architecture updates -> Agent 7

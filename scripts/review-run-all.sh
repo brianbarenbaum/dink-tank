@@ -116,9 +116,9 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
 declare -A AGENT_TEMPLATE
-AGENT_TEMPLATE[1]=".codex/prompt-templates/review/agent-1-mobile-ui.md"
+AGENT_TEMPLATE[1]=".codex/prompt-templates/review/agent-1-web-ui.md"
 AGENT_TEMPLATE[2]=".codex/prompt-templates/review/agent-2-supabase-dba.md"
-AGENT_TEMPLATE[3]=".codex/prompt-templates/review/agent-3-worker-security.md"
+AGENT_TEMPLATE[3]=".codex/prompt-templates/review/agent-3-app-security.md"
 AGENT_TEMPLATE[4]=".codex/prompt-templates/review/agent-4-llm-integration.md"
 AGENT_TEMPLATE[5]=".codex/prompt-templates/review/agent-5-test-quality.md"
 AGENT_TEMPLATE[6]=".codex/prompt-templates/review/agent-6-ui-parity.md"

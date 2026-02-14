@@ -73,18 +73,18 @@ declare -A AGENT_TEMPLATE
 declare -A AGENT_REQUIRED
 declare -A AGENT_REASONS
 
-AGENT_NAME[1]="Agent 1 - Web UI Specialist"
+AGENT_NAME[1]="Agent 1 - Frontend UI & UX Reviewer"
 AGENT_NAME[2]="Agent 2 - Supabase DBA"
-AGENT_NAME[3]="Agent 3 - Worker/API Security Reviewer"
+AGENT_NAME[3]="Agent 3 - Application Security Reviewer"
 AGENT_NAME[4]="Agent 4 - LLM Integration Reviewer"
 AGENT_NAME[5]="Agent 5 - Test & Quality Gatekeeper"
 AGENT_NAME[6]="Agent 6 - UI Screenshot & Design Parity Reviewer"
 AGENT_NAME[7]="Agent 7 - Docs & Architecture Reviewer"
 AGENT_NAME[8]="Agent 8 - Web Delivery & Accessibility Compliance Reviewer"
 
-AGENT_TEMPLATE[1]=".codex/prompt-templates/review/agent-1-mobile-ui.md"
+AGENT_TEMPLATE[1]=".codex/prompt-templates/review/agent-1-web-ui.md"
 AGENT_TEMPLATE[2]=".codex/prompt-templates/review/agent-2-supabase-dba.md"
-AGENT_TEMPLATE[3]=".codex/prompt-templates/review/agent-3-worker-security.md"
+AGENT_TEMPLATE[3]=".codex/prompt-templates/review/agent-3-app-security.md"
 AGENT_TEMPLATE[4]=".codex/prompt-templates/review/agent-4-llm-integration.md"
 AGENT_TEMPLATE[5]=".codex/prompt-templates/review/agent-5-test-quality.md"
 AGENT_TEMPLATE[6]=".codex/prompt-templates/review/agent-6-ui-parity.md"
@@ -122,11 +122,11 @@ while IFS= read -r file; do
     add_agent 2 "DB schema/migration/query surface changed"
   fi
 
-  if [[ "$file" == api/* || "$file" == backend/* || "$file" == server/* || "$file" == supabase/functions/* || "$file" == lib/auth/* || "$file" == src/server/* ]]; then
-    add_agent 3 "Backend/auth boundary changed"
+  if [[ "$file" == api/* || "$file" == backend/* || "$file" == server/* || "$file" == supabase/functions/* || "$file" == lib/auth/* || "$file" == src/server/* || "$file" == src/lib/auth/* || "$file" == src/router/* || "$file" == middleware/* || "$file" == docs/security/* || "$file" == vite.config.ts || "$file" == vite.config.js || "$file" == .env.example ]]; then
+    add_agent 3 "Application security boundary or config changed"
   fi
 
-  if [[ "$file" == *openai* || "$file" == *prompt* || "$file" == backend/*llm* || "$file" == src/lib/llm/* ]]; then
+  if [[ "$file" == *openai* || "$file" == backend/*llm* || "$file" == backend/*prompts/* || "$file" == src/lib/llm/* || "$file" == src/prompts/* ]]; then
     add_agent 4 "LLM integration surface changed"
   fi
 
