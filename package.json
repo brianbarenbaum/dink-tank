@@ -2,7 +2,7 @@
   "name": "codex-expo-starter",
   "private": true,
   "version": "0.1.0",
-  "description": "Starter template for Expo projects using a Codex agent-engineering workflow.",
+  "description": "Starter template for Vue projects using a Codex agent-engineering workflow.",
   "scripts": {
     "setup": "bash scripts/setup.sh",
     "review:dispatch": "bash scripts/review-dispatch.sh",

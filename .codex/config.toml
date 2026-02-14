@@ -1,14 +1,6 @@
 # Codex starter config for Expo projects.
 # Keep secrets in environment variables, not in this file.
 
-[mcp_servers.gluestack-mcp]
-command = "node"
-args = ["./mcp-servers/gluestack-mcp/index.js"]
-
-[mcp_servers.open-library]
-command = "node"
-args = ["./mcp-servers/open-library-wrapper.mjs"]
-
 [mcp_servers.context7]
 command = "npx"
 args = ["-y", "@upstash/context7-mcp"]
