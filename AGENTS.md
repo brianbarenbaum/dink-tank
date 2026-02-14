@@ -1,4 +1,4 @@
-# Agent Workflow Entry Point
+# Agent Workflow Entry Point (Vite + Vue Starter)
 
 This repository keeps Codex workflow rules under `.codex/AGENTS.md`.
 
