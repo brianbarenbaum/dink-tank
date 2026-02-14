@@ -7,7 +7,7 @@ Usage:
   scripts/review-run-all.sh [--mode <base|uncommitted|full>] [--base <git-ref>] [--agents <ids>] [--prompts-dir <dir>] [--results-dir <dir>]
 
 Description:
-  1) Runs review dispatch with --write-prompts
+  1) Runs review dispatch with --write-prompts (using current project path rules)
   2) Runs codex reviewers for each generated agent prompt in parallel
   3) Writes one result file per agent
 

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  cat <<'EOF'
+  cat <<'USAGE'
 Usage:
   scripts/review-dispatch.sh [--base <git-ref>] [--write-prompts] [--out-dir <dir>]
 
@@ -16,7 +16,7 @@ Examples:
   scripts/review-dispatch.sh
   scripts/review-dispatch.sh --base origin/main
   scripts/review-dispatch.sh --base origin/main --write-prompts
-EOF
+USAGE
 }
 
 BASE_REF=""
@@ -73,14 +73,14 @@ declare -A AGENT_TEMPLATE
 declare -A AGENT_REQUIRED
 declare -A AGENT_REASONS
 
-AGENT_NAME[1]="Agent 1 - Mobile UI Specialist"
+AGENT_NAME[1]="Agent 1 - Web UI Specialist"
 AGENT_NAME[2]="Agent 2 - Supabase DBA"
 AGENT_NAME[3]="Agent 3 - Worker/API Security Reviewer"
 AGENT_NAME[4]="Agent 4 - LLM Integration Reviewer"
 AGENT_NAME[5]="Agent 5 - Test & Quality Gatekeeper"
 AGENT_NAME[6]="Agent 6 - UI Screenshot & Design Parity Reviewer"
 AGENT_NAME[7]="Agent 7 - Docs & Architecture Reviewer"
-AGENT_NAME[8]="Agent 8 - App Store Compliance Reviewer"
+AGENT_NAME[8]="Agent 8 - Web Delivery & Accessibility Compliance Reviewer"
 
 AGENT_TEMPLATE[1]=".codex/prompt-templates/review/agent-1-mobile-ui.md"
 AGENT_TEMPLATE[2]=".codex/prompt-templates/review/agent-2-supabase-dba.md"
@@ -113,8 +113,8 @@ fi
 while IFS= read -r file; do
   [[ -z "$file" ]] && continue
 
-  if [[ "$file" == app/* || "$file" == components/* || "$file" == designs/* ]]; then
-    add_agent 1 "UI/app surface changed"
+  if [[ "$file" == src/components/* || "$file" == src/pages/* || "$file" == src/layouts/* || "$file" == src/App.vue || "$file" == src/views/* || "$file" == components/* || "$file" == pages/* || "$file" == layouts/* ]]; then
+    add_agent 1 "UI surface changed"
     add_agent 6 "Visual UI flow changed"
   fi
 
@@ -122,15 +122,15 @@ while IFS= read -r file; do
     add_agent 2 "DB schema/migration/query surface changed"
   fi
 
-  if [[ "$file" == backend/ocr-worker/* || "$file" == supabase/functions/* || "$file" == lib/auth/* || "$file" == app/auth/* ]]; then
+  if [[ "$file" == api/* || "$file" == backend/* || "$file" == server/* || "$file" == supabase/functions/* || "$file" == lib/auth/* || "$file" == src/server/* ]]; then
     add_agent 3 "Backend/auth boundary changed"
   fi
 
-  if [[ "$file" == backend/ocr-worker/src/ocr/* || "$file" == backend/ocr-worker/src/prompts/* || "$file" == lib/ocr/* || "$file" == *openai* ]]; then
+  if [[ "$file" == *openai* || "$file" == *prompt* || "$file" == backend/*llm* || "$file" == src/lib/llm/* ]]; then
     add_agent 4 "LLM integration surface changed"
   fi
 
-  if [[ "$file" == *__tests__* || "$file" == *.test.ts || "$file" == *.test.tsx || "$file" == package.json || "$file" == tsconfig.json || "$file" == biome.json || "$file" == jest.config.js || "$file" == playwright.config.ts || "$file" == babel.config.js || "$file" == .devcontainer/* || "$file" == .cursor/* || "$file" == scripts/* ]]; then
+  if [[ "$file" == *__tests__* || "$file" == *.test.ts || "$file" == *.test.tsx || "$file" == *.spec.ts || "$file" == *.spec.tsx || "$file" == e2e/* || "$file" == package.json || "$file" == tsconfig.json || "$file" == tsconfig.* || "$file" == biome.json || "$file" == vitest.config.ts || "$file" == vitest.config.mts || "$file" == playwright.config.ts || "$file" == tailwind.config.ts || "$file" == tailwind.config.js || "$file" == postcss.config.js || "$file" == vite.config.ts || "$file" == vite.config.js || "$file" == components.json || "$file" == scripts/* || "$file" == .devcontainer/* || "$file" == .cursor/* ]]; then
     add_agent 5 "Tests/config/tooling changed"
   fi
 
@@ -138,8 +138,8 @@ while IFS= read -r file; do
     add_agent 7 "Docs/architecture guidance changed"
   fi
 
-  if [[ "$file" == app.json || "$file" == eas.json || "$file" == app.config.js || "$file" == app.config.ts || "$file" == docs/ops/app-store-readiness-checklist.md || "$file" == docs/ops/privacy-data-disclosure.md || "$file" == lib/auth/accountDeletion.ts || "$file" == lib/auth/completeAuthCallback.ts || "$file" == supabase/functions/delete-account/* || "$file" == app/settings.tsx ]]; then
-    add_agent 8 "App Store policy/compliance surface changed"
+  if [[ "$file" == vite.config.ts || "$file" == vite.config.js || "$file" == nginx.conf || "$file" == caddy/* || "$file" == server/* || "$file" == docs/ops/privacy-data-disclosure.md || "$file" == docs/security/* || "$file" == src/pages/login* || "$file" == src/pages/settings* || "$file" == src/router/* ]]; then
+    add_agent 8 "Web delivery/compliance surface changed"
   fi
 done <<< "$CHANGED_FILES"
 
@@ -187,7 +187,7 @@ if [[ "$WRITE_PROMPTS" -eq 1 ]]; then
 
     out_file="$OUT_DIR/agent-${id}-prompt.md"
     cat "$template" > "$out_file"
-    cat >> "$out_file" <<EOF
+    cat >> "$out_file" <<PROMPT
 
 ## Dispatch Context
 
@@ -196,7 +196,7 @@ ${AGENT_REASONS[$id]}
 
 Changed files:
 ${changed_files_bullets}
-EOF
+PROMPT
     echo "- Wrote $out_file"
   done
 fi
