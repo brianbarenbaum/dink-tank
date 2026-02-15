@@ -10,5 +10,6 @@ describe("ChatShell", () => {
     expect(wrapper.find("[data-testid='chat-sidebar']").exists()).toBe(true);
     expect(wrapper.find("[data-testid='chat-transcript']").exists()).toBe(true);
     expect(wrapper.find("[data-testid='chat-composer']").exists()).toBe(true);
+    expect(wrapper.get("button[type='submit']").classes()).toContain("cursor-pointer");
   });
 });

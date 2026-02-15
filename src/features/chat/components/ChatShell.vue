@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import { ChevronRight } from "lucide-vue-next";
+import { ChevronRight, Pencil } from "lucide-vue-next";
 
 import ChatComposer from "./ChatComposer.vue";
 import ChatSidebar from "./ChatSidebar.vue";
@@ -55,7 +55,7 @@ const desktopSidebarOpen = ref(true);
     <aside
       v-else
       data-testid="desktop-sidebar-rail"
-      class="hidden border-r p-2 lg:flex lg:items-start lg:justify-center"
+      class="hidden border-r p-2 lg:flex lg:flex-col lg:items-center lg:justify-start"
       aria-label="Collapsed sidebar"
     >
       <button
@@ -63,9 +63,19 @@ const desktopSidebarOpen = ref(true);
         data-testid="desktop-sidebar-open-icon"
         class="mt-2 inline-flex h-9 w-9 items-center justify-center rounded-md border cursor-pointer"
         aria-label="Open sidebar"
+        title="Expand sidebar"
         @click="desktopSidebarOpen = true"
       >
         <ChevronRight class="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        data-testid="desktop-rail-new-chat"
+        class="mt-2 inline-flex h-9 w-9 items-center justify-center rounded-md border cursor-pointer"
+        aria-label="New chat"
+        title="New chat"
+      >
+        <Pencil class="h-4 w-4" />
       </button>
     </aside>
 
@@ -89,7 +99,7 @@ const desktopSidebarOpen = ref(true);
         <div class="flex items-center gap-3">
           <button
             type="button"
-            class="h-11 rounded-md border px-3 text-xs font-semibold uppercase tracking-wide lg:hidden"
+            class="h-11 rounded-md border px-3 text-xs font-semibold uppercase tracking-wide cursor-pointer lg:hidden"
             data-testid="mobile-sidebar-toggle"
             aria-label="Open sidebar"
             @click="mobileSidebarOpen = true"

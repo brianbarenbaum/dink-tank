@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronLeft } from "lucide-vue-next";
+import { ChevronLeft, Pencil } from "lucide-vue-next";
 
 interface ChatSidebarProps {
   mobile?: boolean;
@@ -38,6 +38,7 @@ defineEmits<{
           data-testid="desktop-sidebar-close-icon"
           class="inline-flex h-9 w-9 items-center justify-center rounded-md border cursor-pointer"
           aria-label="Collapse sidebar"
+          title="Collapse sidebar"
           @click="$emit('toggleDesktop')"
         >
           <ChevronLeft class="h-4 w-4" />
@@ -46,16 +47,19 @@ defineEmits<{
       <div v-if="mobile" class="flex items-center gap-3">
         <button
           type="button"
-          data-testid="mobile-new-session"
-          class="h-12 flex-1 rounded-md border px-4 text-left text-sm font-semibold uppercase tracking-wide"
+          data-testid="mobile-new-chat"
+          class="inline-flex h-12 flex-1 items-center gap-2 rounded-md px-4 text-left text-sm font-semibold tracking-wide cursor-pointer"
+          title="New chat"
         >
+          <Pencil class="h-4 w-4" />
           New Chat
         </button>
         <button
           type="button"
           data-testid="mobile-close-sidebar"
-          class="h-12 rounded-md border px-4 text-xs font-semibold uppercase tracking-wide"
+          class="h-12 rounded-md border px-4 text-xs font-semibold uppercase tracking-wide cursor-pointer"
           aria-label="Close sidebar"
+          title="Close sidebar"
           @click="$emit('close')"
         >
           Close
@@ -64,14 +68,17 @@ defineEmits<{
       <button
         v-else
         type="button"
-        class="h-12 rounded-md border px-4 text-left text-sm font-semibold uppercase tracking-wide cursor-pointer"
+        data-testid="desktop-new-chat"
+        class="inline-flex h-12 items-center gap-2 rounded-md px-1 text-left text-sm font-semibold tracking-wide cursor-pointer"
+        title="New chat"
       >
+        <Pencil class="h-4 w-4" />
         New Chat
       </button>
     </section>
 
     <section class="space-y-2">
-      <h2 class="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--chat-muted)]">Recent Logs</h2>
+      <h2 class="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--chat-muted)]">Your Chats</h2>
       <ul class="space-y-2 text-sm text-[var(--chat-muted)]">
         <li>Team A vs Team B</li>
         <li>Q3 Performance Review</li>

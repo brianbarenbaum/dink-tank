@@ -40,7 +40,7 @@ const onSubmit = () => {
       />
       <button
         type="submit"
-        class="h-12 rounded-md border px-4 text-sm font-semibold uppercase tracking-wide"
+        class="h-12 rounded-md border px-4 text-sm font-semibold uppercase tracking-wide cursor-pointer"
         :disabled="isSending"
       >
         Send
