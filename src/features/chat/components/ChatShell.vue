@@ -19,7 +19,7 @@ const props = withDefaults(defineProps<ChatShellProps>(), {
 			id: "seed-assistant",
 			role: "assistant",
 			content:
-				"Welcome back, Coach. Database synced. Match results from the weekend tournament processed.",
+				"Welcome back, Captain.  What do you need help with today?",
 			createdAt: new Date(0).toISOString(),
 		},
 		{
