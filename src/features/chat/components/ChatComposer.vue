@@ -27,7 +27,11 @@ const onSubmit = () => {
 </script>
 
 <template>
-  <form data-testid="chat-composer" class="rounded-lg border p-3" @submit.prevent="onSubmit">
+  <form
+    data-testid="chat-composer"
+    class="sticky bottom-0 z-10 shrink-0 rounded-lg border p-3 backdrop-blur-xs"
+    @submit.prevent="onSubmit"
+  >
     <label for="chat-command" class="sr-only">Enter command</label>
     <div class="flex items-center gap-3">
       <input

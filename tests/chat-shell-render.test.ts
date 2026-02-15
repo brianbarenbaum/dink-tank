@@ -14,4 +14,39 @@ describe("ChatShell", () => {
 			"cursor-pointer",
 		);
 	});
+
+	it("keeps transcript scrollable while composer stays visible", () => {
+		const wrapper = mount(ChatShell);
+
+		expect(wrapper.get("[data-testid='chat-main']").classes()).toContain(
+			"overflow-hidden",
+		);
+		expect(wrapper.get("[data-testid='chat-transcript']").classes()).toContain(
+			"overflow-y-auto",
+		);
+		expect(wrapper.get("[data-testid='chat-transcript']").classes()).toContain(
+			"chat-scrollbar",
+		);
+		expect(wrapper.get("[data-testid='chat-transcript']").classes()).toContain(
+			"min-h-0",
+		);
+		expect(wrapper.get("[data-testid='chat-composer']").classes()).toContain(
+			"sticky",
+		);
+	});
+
+	it("shows a pulsing assistant indicator while waiting for a reply", () => {
+		const wrapper = mount(ChatShell, {
+			props: {
+				isSending: true,
+			},
+		});
+
+		expect(
+			wrapper.find("[data-testid='assistant-loading-indicator']").exists(),
+		).toBe(true);
+		expect(
+			wrapper.get("[data-testid='assistant-loading-indicator']").classes(),
+		).toContain("chat-loading-dot");
+	});
 });

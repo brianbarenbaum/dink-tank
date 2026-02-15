@@ -18,8 +18,7 @@ const props = withDefaults(defineProps<ChatShellProps>(), {
 		{
 			id: "seed-assistant",
 			role: "assistant",
-			content:
-				"Welcome back, Captain.  What do you need help with today?",
+			content: "Welcome back, Captain.  What do you need help with today?",
 			createdAt: new Date(0).toISOString(),
 		},
 		{
@@ -91,7 +90,10 @@ const desktopSidebarOpen = ref(true);
       @close="mobileSidebarOpen = false"
     />
 
-    <section class="relative flex min-h-screen flex-col gap-4 p-3 md:p-4 lg:p-6">
+    <section
+      data-testid="chat-main"
+      class="relative flex h-screen min-h-0 flex-col gap-4 overflow-hidden p-3 md:p-4 lg:p-6"
+    >
       <header
         data-testid="mobile-top-bar"
         class="flex items-center justify-between rounded-lg border px-4 py-3 lg:hidden"
@@ -111,7 +113,7 @@ const desktopSidebarOpen = ref(true);
         <p class="text-xs uppercase tracking-[0.18em] text-[var(--chat-muted)]">Today</p>
       </header>
 
-      <ChatTranscript :messages="props.messages" />
+      <ChatTranscript :messages="props.messages" :is-sending="props.isSending" />
       <ChatComposer :is-sending="props.isSending" @submit="emit('submit', $event)" />
     </section>
   </main>
