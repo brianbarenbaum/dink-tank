@@ -12,5 +12,7 @@ describe("chat responsive layout", () => {
     expect(classList.includes("lg:grid-cols-[18rem_1fr]")).toBe(true);
 
     expect(wrapper.find("[data-testid='mobile-sidebar-toggle']").exists()).toBe(true);
+    expect(wrapper.find("[data-testid='mobile-top-bar']").classes()).toContain("lg:hidden");
+    expect(wrapper.find("[data-testid='mobile-sidebar']").classes()).toContain("chat-sidebar-surface");
   });
 });

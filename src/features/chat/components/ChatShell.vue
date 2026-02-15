@@ -52,12 +52,16 @@ const mobileSidebarOpen = ref(false);
     />
     <ChatSidebar
       mobile
+      data-testid="mobile-sidebar"
       :open="mobileSidebarOpen"
       @close="mobileSidebarOpen = false"
     />
 
     <section class="flex min-h-screen flex-col gap-4 p-3 md:p-4 lg:p-6">
-      <header class="flex items-center justify-between rounded-lg border px-4 py-3">
+      <header
+        data-testid="mobile-top-bar"
+        class="flex items-center justify-between rounded-lg border px-4 py-3 lg:hidden"
+      >
         <div class="flex items-center gap-3">
           <button
             type="button"

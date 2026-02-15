@@ -20,7 +20,7 @@ defineEmits<{
     :class="
       mobile
         ? [
-            'fixed inset-y-0 left-0 z-40 flex w-72 flex-col gap-6 border-r p-4 transition-transform duration-150 ease-out lg:hidden',
+            'chat-sidebar-surface fixed inset-y-0 left-0 z-40 flex w-72 flex-col gap-6 border-r p-4 transition-transform duration-150 ease-out lg:hidden',
             open ? 'translate-x-0' : '-translate-x-full',
           ]
         : 'hidden border-r p-4 lg:flex lg:flex-col lg:gap-6'

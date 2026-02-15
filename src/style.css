@@ -160,6 +160,10 @@
   border-color: color-mix(in oklab, var(--chat-glow), black 30%);
 }
 
+.chat-sidebar-surface {
+  background-color: var(--chat-bg);
+}
+
 .chat-scanline::before {
   content: "";
   position: absolute;
