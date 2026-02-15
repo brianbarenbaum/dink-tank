@@ -14,5 +14,8 @@ describe("chat responsive layout", () => {
     expect(wrapper.find("[data-testid='mobile-sidebar-toggle']").exists()).toBe(true);
     expect(wrapper.find("[data-testid='mobile-top-bar']").classes()).toContain("lg:hidden");
     expect(wrapper.find("[data-testid='mobile-sidebar']").classes()).toContain("chat-sidebar-surface");
+    expect(wrapper.find("[data-testid='mobile-sidebar']").text()).not.toContain("Dink Tank");
+    expect(wrapper.find("[data-testid='mobile-new-session']").exists()).toBe(true);
+    expect(wrapper.find("[data-testid='mobile-close-sidebar']").exists()).toBe(true);
   });
 });

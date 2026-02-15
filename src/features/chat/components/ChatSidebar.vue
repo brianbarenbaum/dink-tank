@@ -27,19 +27,31 @@ defineEmits<{
     "
     aria-label="Session sidebar"
   >
-    <button
-      v-if="mobile"
-      type="button"
-      class="h-11 self-end rounded-md border px-3 text-xs font-semibold uppercase tracking-wide"
-      aria-label="Close sidebar"
-      @click="$emit('close')"
-    >
-      Close
-    </button>
-
     <section class="space-y-3">
-      <h1 class="text-lg font-semibold uppercase tracking-[0.24em]">Dink Tank</h1>
-      <button type="button" class="h-12 rounded-md border px-4 text-left text-sm font-semibold uppercase tracking-wide">
+      <h1 v-if="!mobile" class="text-lg font-semibold uppercase tracking-[0.24em]">Dink Tank</h1>
+      <div v-if="mobile" class="flex items-center gap-3">
+        <button
+          type="button"
+          data-testid="mobile-new-session"
+          class="h-12 flex-1 rounded-md border px-4 text-left text-sm font-semibold uppercase tracking-wide"
+        >
+          New Session
+        </button>
+        <button
+          type="button"
+          data-testid="mobile-close-sidebar"
+          class="h-12 rounded-md border px-4 text-xs font-semibold uppercase tracking-wide"
+          aria-label="Close sidebar"
+          @click="$emit('close')"
+        >
+          Close
+        </button>
+      </div>
+      <button
+        v-else
+        type="button"
+        class="h-12 rounded-md border px-4 text-left text-sm font-semibold uppercase tracking-wide"
+      >
         New Session
       </button>
     </section>
