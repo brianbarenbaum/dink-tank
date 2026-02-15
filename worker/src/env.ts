@@ -1,8 +1,10 @@
 export interface WorkerEnv {
 	OPENAI_API_KEY: string;
 	SUPABASE_DB_URL: string;
+	SUPABASE_DB_SSL_NO_VERIFY: boolean;
 	LLM_MODEL: string;
 	SQL_QUERY_TIMEOUT_MS: number;
+	EXPOSE_ERROR_DETAILS: boolean;
 }
 
 interface ParseEnvSuccess {
@@ -19,6 +21,7 @@ export type ParseEnvResult = ParseEnvSuccess | ParseEnvFailure;
 
 const DEFAULT_MODEL = "gpt-4.1-mini";
 const DEFAULT_SQL_TIMEOUT_MS = 10_000;
+const TRUE_VALUES = new Set(["1", "true", "yes", "on"]);
 
 export const parseWorkerEnv = (
 	env: Record<string, string | undefined>,
@@ -51,8 +54,14 @@ export const parseWorkerEnv = (
 		value: {
 			OPENAI_API_KEY,
 			SUPABASE_DB_URL,
+			SUPABASE_DB_SSL_NO_VERIFY: TRUE_VALUES.has(
+				env.SUPABASE_DB_SSL_NO_VERIFY?.trim().toLowerCase() ?? "",
+			),
 			LLM_MODEL: env.LLM_MODEL?.trim() || DEFAULT_MODEL,
 			SQL_QUERY_TIMEOUT_MS,
+			EXPOSE_ERROR_DETAILS: TRUE_VALUES.has(
+				env.EXPOSE_ERROR_DETAILS?.trim().toLowerCase() ?? "",
+			),
 		},
 	};
 };

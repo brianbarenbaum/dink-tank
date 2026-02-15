@@ -1,7 +1,14 @@
 name = "dink-tank-chat-worker"
 main = "src/index.ts"
 compatibility_date = "2026-02-15"
+compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
 [dev]
 port = 8787
+
+# Production recommendation: configure Hyperdrive for Supabase Postgres and
+# set the generated ID below.
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "cbf8f04710db4376aa7fb2774371973a"

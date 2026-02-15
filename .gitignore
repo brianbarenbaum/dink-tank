@@ -17,6 +17,7 @@ validation_screenshots/
 .env
 .env.*
 !.env.example
+.dev.vars*
 
 # OS/editor
 .DS_Store

@@ -50,6 +50,8 @@ export const handleChatRequest = async (
 		const reply = await runAgent(env, parsed.value.messages);
 		return json({ reply }, 200);
 	} catch (error) {
+		console.error("chat request failed", error);
+
 		if (isSqlSafetyError(error)) {
 			return json(
 				{
@@ -60,9 +62,10 @@ export const handleChatRequest = async (
 			);
 		}
 
-		return json(
-			{ error: "chat_failed", message: "Unable to process request." },
-			500,
-		);
+		const message =
+			env.EXPOSE_ERROR_DETAILS && error instanceof Error
+				? error.message
+				: "Unable to process request.";
+		return json({ error: "chat_failed", message }, 500);
 	}
 };

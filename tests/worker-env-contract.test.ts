@@ -12,6 +12,7 @@ describe("worker env contract", () => {
 		expect(parsed.ok).toBe(true);
 		if (parsed.ok) {
 			expect(parsed.value.LLM_MODEL).toBeTruthy();
+			expect(parsed.value.SUPABASE_DB_SSL_NO_VERIFY).toBe(false);
 		}
 	});
 

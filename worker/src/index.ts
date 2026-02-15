@@ -3,10 +3,15 @@ import { handleChatRequest } from "./chat/handler";
 import { runSqlAgent } from "./chat/sqlAgent";
 
 export interface Env {
+	HYPERDRIVE?: {
+		connectionString?: string;
+	};
 	OPENAI_API_KEY?: string;
 	SUPABASE_DB_URL?: string;
+	SUPABASE_DB_SSL_NO_VERIFY?: string;
 	LLM_MODEL?: string;
 	SQL_QUERY_TIMEOUT_MS?: string;
+	EXPOSE_ERROR_DETAILS?: string;
 }
 
 const json = (body: unknown, status = 200): Response =>
@@ -26,9 +31,11 @@ export const handleFetch = async (
 	if (url.pathname === "/api/chat" && request.method === "POST") {
 		const envResult = parseWorkerEnv({
 			OPENAI_API_KEY: env.OPENAI_API_KEY,
-			SUPABASE_DB_URL: env.SUPABASE_DB_URL,
+			SUPABASE_DB_URL: env.HYPERDRIVE?.connectionString ?? env.SUPABASE_DB_URL,
+			SUPABASE_DB_SSL_NO_VERIFY: env.SUPABASE_DB_SSL_NO_VERIFY,
 			LLM_MODEL: env.LLM_MODEL,
 			SQL_QUERY_TIMEOUT_MS: env.SQL_QUERY_TIMEOUT_MS,
+			EXPOSE_ERROR_DETAILS: env.EXPOSE_ERROR_DETAILS,
 		});
 		if (!envResult.ok) {
 			return json(
