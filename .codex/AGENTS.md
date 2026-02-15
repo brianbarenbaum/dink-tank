@@ -65,6 +65,7 @@ Runtime verification is also required for code/config changes per `.codex/skills
 - Trigger `responsive-ui` for breakpoint/layout/touch-target behavior.
 - Trigger `testing-quality-gate` before finalizing any task.
 - Trigger `stat-scraper-playwright` for data ingestion tasks.
+- Trigger `context-7` for third-party library/framework docs and version-specific API usage.
 
 **Responsibilities:**
 

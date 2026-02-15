@@ -2,7 +2,7 @@ import {
 	ingestCrossClub,
 	type IngestPhase,
 	type SyncMode,
-} from "../src/lib/crossclub-ingest.ts";
+} from "./pipeline.ts";
 
 const VALID_PHASES: IngestPhase[] = [
 	"all",
@@ -38,8 +38,32 @@ const readPhaseArg = (): IngestPhase => {
 const readDryRunFlag = (): boolean => process.argv.includes("--dry-run");
 const readStrictDependencyGuardFlag = (): boolean =>
 	process.argv.includes("--strict-dependency-guard");
+const hasHelpFlag = (): boolean =>
+	process.argv.includes("--help") || process.argv.includes("-h");
+
+const printHelp = (): void => {
+	console.log(`CrossClub ingestion runner
+
+Usage:
+  node --experimental-strip-types data-ingestion/run.ts [bootstrap|weekly] [phase] [--dry-run] [--strict-dependency-guard]
+
+Phases:
+  all | players | standings | teams | matchups | playoff-matchups | details
+
+Examples:
+  npm run ingest:crossclub
+  npm run ingest:crossclub:players
+  npm run ingest:crossclub:details:strict
+  npm run ingest:crossclub:dry-run
+`);
+};
 
 const main = async (): Promise<void> => {
+	if (hasHelpFlag()) {
+		printHelp();
+		return;
+	}
+
 	const mode = readModeArg();
 	const phase = readPhaseArg();
 	const dryRun = readDryRunFlag();
@@ -62,6 +86,8 @@ const main = async (): Promise<void> => {
 		lat: process.env.CROSSCLUB_LAT ?? "40.2202",
 		lng: process.env.CROSSCLUB_LNG ?? "-74.7642",
 		weeklyWindowDays: Number(process.env.CROSSCLUB_WEEKLY_WINDOW_DAYS ?? 120),
+		regionLocationFilter: process.env.CROSSCLUB_REGION_FILTER,
+		divisionNameFilter: process.env.CROSSCLUB_DIVISION_FILTER,
 	});
 };
 

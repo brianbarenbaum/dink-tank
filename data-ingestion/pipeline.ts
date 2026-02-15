@@ -27,6 +27,7 @@ export interface CheckpointKeyInput {
 
 export interface RegionDivision {
 	regionId: string;
+	regionLocation?: string;
 	divisionId: string;
 	divisionName: string;
 	seasonNumber: number;
@@ -36,6 +37,8 @@ export interface RegionDivision {
 export interface DetailMatchupCandidate {
 	matchupId: string;
 	scheduledTime?: string | null;
+	homeTeamId?: string | null;
+	awayTeamId?: string | null;
 }
 
 export interface IngestConfig {
@@ -54,6 +57,8 @@ export interface IngestConfig {
 	retryAttempts?: number;
 	retryBaseDelayMs?: number;
 	retryJitterRatio?: number;
+	regionLocationFilter?: string;
+	divisionNameFilter?: string;
 }
 
 interface RegionApiRecord {
@@ -62,7 +67,7 @@ interface RegionApiRecord {
 	latitude?: number;
 	longitude?: number;
 	active?: boolean;
-	divisions?: RegionDivisionCollection;
+	divisions?: RegionDivisionCollection | RegionDivisionApiRecord[];
 }
 
 interface RegionDivisionCollection {
@@ -118,6 +123,26 @@ const delay = async (ms: number): Promise<void> =>
 		setTimeout(resolve, ms);
 	});
 
+export const parseJsonResponseSafely = async (
+	response: Response,
+): Promise<unknown | null> => {
+	if (response.status === 204) {
+		return null;
+	}
+
+	const contentLength = response.headers.get("content-length");
+	if (contentLength === "0") {
+		return null;
+	}
+
+	const raw = await response.text();
+	if (!raw.trim()) {
+		return null;
+	}
+
+	return JSON.parse(raw);
+};
+
 const toObject = (value: unknown): Record<string, unknown> => {
 	if (value && typeof value === "object" && !Array.isArray(value)) {
 		return value as Record<string, unknown>;
@@ -127,6 +152,16 @@ const toObject = (value: unknown): Record<string, unknown> => {
 
 const valueAsString = (value: unknown): string | null =>
 	typeof value === "string" ? value : null;
+
+const ZERO_UUID = "00000000-0000-0000-0000-000000000000";
+
+export const sanitizeTeamForeignKey = (value: unknown): string | null => {
+	const raw = valueAsString(value)?.trim();
+	if (!raw) {
+		return null;
+	}
+	return raw.toLowerCase() === ZERO_UUID ? null : raw;
+};
 
 const valueAsNumber = (value: unknown): number | null => {
 	if (typeof value === "number") {
@@ -166,6 +201,252 @@ export const denormalizeDotNetJson = (value: unknown): unknown => {
 const toArray = <T>(payload: unknown): T[] => {
 	const clean = denormalizeDotNetJson(payload);
 	return Array.isArray(clean) ? (clean as T[]) : [];
+};
+
+const toArrayFlexible = <T>(payload: unknown): T[] => {
+	if (Array.isArray(payload)) {
+		return payload as T[];
+	}
+	if (payload && typeof payload === "object") {
+		const values = (payload as { $values?: unknown }).$values;
+		if (Array.isArray(values)) {
+			return values as T[];
+		}
+	}
+	return [];
+};
+
+interface LineupNormalizationInput {
+	detailObject: Record<string, unknown>;
+	matchupId: string;
+	homeTeamId?: string | null;
+	awayTeamId?: string | null;
+	snapshotDate: string;
+}
+
+interface LineupNormalizationOutput {
+	lineups: Record<string, unknown>[];
+	slots: Record<string, unknown>[];
+}
+
+const extractRawLineupsFromDetail = (
+	detailObject: Record<string, unknown>,
+): Record<string, unknown>[] => {
+	const rootLineups = detailObject.lineups;
+	if (Array.isArray(rootLineups)) {
+		return rootLineups as Record<string, unknown>[];
+	}
+	const lineupsObject = toObject(rootLineups);
+	if (Array.isArray(lineupsObject.lineups)) {
+		return lineupsObject.lineups as Record<string, unknown>[];
+	}
+	const nested = toObject(lineupsObject.lineups);
+	return toArrayFlexible<Record<string, unknown>>(nested);
+};
+
+export const normalizeLineupsFromDetail = (
+	input: LineupNormalizationInput,
+): LineupNormalizationOutput => {
+	const rawLineups = extractRawLineupsFromDetail(input.detailObject);
+	if (!rawLineups.length) {
+		return { lineups: [], slots: [] };
+	}
+
+	const hasTeamLineupShape = rawLineups.some(
+		(lineup) => sanitizeTeamForeignKey(lineup.teamId) !== null,
+	);
+
+	if (hasTeamLineupShape) {
+		const lineups = rawLineups
+			.map((lineup) => {
+				const teamId = sanitizeTeamForeignKey(lineup.teamId);
+				if (!teamId) {
+					return null;
+				}
+				const lineupId =
+					valueAsString(lineup.lineupId) ??
+					deterministicUuidFromSeed(`${input.matchupId}:${teamId}:${input.snapshotDate}`);
+				return {
+					lineup_id: lineupId,
+					matchup_id: input.matchupId,
+					team_id: teamId,
+					submitted_at:
+						valueAsString(lineup.submittedAt) ?? valueAsString(lineup.updatedAt) ?? null,
+					locked: Boolean(lineup.locked ?? lineup.isLocked ?? false),
+					raw_json: lineup,
+					snapshot_date: input.snapshotDate,
+				};
+			})
+			.filter((lineup) => lineup !== null);
+
+		const slots: Record<string, unknown>[] = [];
+		for (const lineup of rawLineups) {
+			const teamId = sanitizeTeamForeignKey(lineup.teamId);
+			if (!teamId) {
+				continue;
+			}
+			const lineupId =
+				valueAsString(lineup.lineupId) ??
+				deterministicUuidFromSeed(`${input.matchupId}:${teamId}:${input.snapshotDate}`);
+			const lineupSlots = Array.isArray(lineup.lineupSlots)
+				? (lineup.lineupSlots as Record<string, unknown>[])
+				: [];
+			for (let index = 0; index < lineupSlots.length; index += 1) {
+				const slot = lineupSlots[index] ?? {};
+				slots.push({
+					lineup_id: lineupId,
+					slot_no: valueAsNumber(slot.slotNo) ?? index + 1,
+					player_id: valueAsString(slot.playerId),
+					partner_player_id:
+						valueAsString(slot.partnerPlayerId) ?? valueAsString(slot.partnerId),
+					court_no: valueAsNumber(slot.courtNo) ?? valueAsNumber(slot.courtNumber),
+					role: valueAsString(slot.role),
+					raw_json: slot,
+				});
+			}
+		}
+
+		return {
+			lineups: uniqueByCompositeKey(lineups, ["matchup_id", "team_id", "snapshot_date"]),
+			slots: uniqueByCompositeKey(slots, ["lineup_id", "slot_no"]),
+		};
+	}
+
+	const homeTeamId = sanitizeTeamForeignKey(
+		input.homeTeamId ?? input.detailObject.homeTeamId,
+	);
+	const awayTeamId = sanitizeTeamForeignKey(
+		input.awayTeamId ?? input.detailObject.awayTeamId,
+	);
+
+	const lineups: Record<string, unknown>[] = [];
+	if (homeTeamId) {
+		lineups.push({
+			lineup_id: deterministicUuidFromSeed(
+				`${input.matchupId}:home:${homeTeamId}:${input.snapshotDate}`,
+			),
+			matchup_id: input.matchupId,
+			team_id: homeTeamId,
+			submitted_at: null,
+			locked: false,
+			raw_json: input.detailObject.lineups ?? null,
+			snapshot_date: input.snapshotDate,
+		});
+	}
+	if (awayTeamId) {
+		lineups.push({
+			lineup_id: deterministicUuidFromSeed(
+				`${input.matchupId}:away:${awayTeamId}:${input.snapshotDate}`,
+			),
+			matchup_id: input.matchupId,
+			team_id: awayTeamId,
+			submitted_at: null,
+			locked: false,
+			raw_json: input.detailObject.lineups ?? null,
+			snapshot_date: input.snapshotDate,
+		});
+	}
+
+	const slots: Record<string, unknown>[] = [];
+	for (let index = 0; index < rawLineups.length; index += 1) {
+		const game = rawLineups[index] ?? {};
+		const gameNumber = valueAsNumber(game.gameNumber) ?? index;
+		const awayLineupId = awayTeamId
+			? deterministicUuidFromSeed(
+					`${input.matchupId}:away:${awayTeamId}:${input.snapshotDate}`,
+				)
+			: null;
+		const homeLineupId = homeTeamId
+			? deterministicUuidFromSeed(
+					`${input.matchupId}:home:${homeTeamId}:${input.snapshotDate}`,
+				)
+			: null;
+
+		const awayPlayers = [
+			valueAsString(game.awayPlayerId1),
+			valueAsString(game.awayPlayerId2),
+		].filter((playerId) => playerId) as string[];
+		const homePlayers = [
+			valueAsString(game.homePlayerId1),
+			valueAsString(game.homePlayerId2),
+		].filter((playerId) => playerId) as string[];
+
+		if (awayLineupId) {
+			for (let awayIndex = 0; awayIndex < awayPlayers.length; awayIndex += 1) {
+				slots.push({
+					lineup_id: awayLineupId,
+					slot_no: gameNumber * 2 + awayIndex + 1,
+					player_id: awayPlayers[awayIndex],
+					partner_player_id: null,
+					court_no: null,
+					role: "away",
+					raw_json: game,
+				});
+			}
+		}
+		if (homeLineupId) {
+			for (let homeIndex = 0; homeIndex < homePlayers.length; homeIndex += 1) {
+				slots.push({
+					lineup_id: homeLineupId,
+					slot_no: gameNumber * 2 + homeIndex + 1,
+					player_id: homePlayers[homeIndex],
+					partner_player_id: null,
+					court_no: null,
+					role: "home",
+					raw_json: game,
+				});
+			}
+		}
+	}
+
+	return {
+		lineups: uniqueByCompositeKey(lineups, ["matchup_id", "team_id", "snapshot_date"]),
+		slots: uniqueByCompositeKey(slots, ["lineup_id", "slot_no"]),
+	};
+};
+
+interface DivisionFilterInput {
+	regionLocationFilter?: string;
+	divisionNameFilter?: string;
+}
+
+export const extractDivisionsFromRegions = (
+	regions: RegionApiRecord[],
+	filter: DivisionFilterInput = {},
+): RegionDivision[] => {
+	const regionLocationFilter = filter.regionLocationFilter?.trim().toLowerCase();
+	const divisionNameFilter = filter.divisionNameFilter?.trim().toLowerCase();
+	const divisions: RegionDivision[] = [];
+
+	for (const region of regions) {
+		const regionLocation = region.location ?? "";
+		if (
+			regionLocationFilter &&
+			regionLocation.trim().toLowerCase() !== regionLocationFilter
+		) {
+			continue;
+		}
+
+		const divisionItems = toArrayFlexible<RegionDivisionApiRecord>(region.divisions);
+		for (const division of divisionItems) {
+			if (
+				divisionNameFilter &&
+				division.divisionName.trim().toLowerCase() !== divisionNameFilter
+			) {
+				continue;
+			}
+			divisions.push({
+				regionId: division.regionId,
+				regionLocation,
+				divisionId: division.divisionId,
+				divisionName: division.divisionName,
+				seasonNumber: division.seasonNumber,
+				seasonYear: division.seasonYear,
+			});
+		}
+	}
+
+	return divisions;
 };
 
 export const createCheckpointKey = (input: CheckpointKeyInput): string =>
@@ -309,10 +590,7 @@ class SupabaseRestClient {
 			const message = await response.text();
 			throw new Error(`Supabase REST ${method} ${path} failed: ${message}`);
 		}
-		if (response.status === 204) {
-			return null;
-		}
-		return response.json();
+		return parseJsonResponseSafely(response);
 	}
 }
 
@@ -352,7 +630,7 @@ const fetchJson = async (
 			if (!response.ok) {
 				throw new Error(`CrossClub fetch failed (${url}) status ${response.status}`);
 			}
-			return response.json();
+			return parseJsonResponseSafely(response);
 		} catch (error) {
 			if (attempt >= maxAttempts) {
 				throw error;
@@ -378,6 +656,111 @@ const uniqueByMatchupId = (items: DetailMatchupCandidate[]): DetailMatchupCandid
 	return Array.from(deduped.values());
 };
 
+export const uniqueByCompositeKey = <T extends Record<string, unknown>>(
+	rows: T[],
+	keys: string[],
+): T[] => {
+	const deduped = new Map<string, T>();
+	for (const row of rows) {
+		const composite = keys.map((key) => String(row[key] ?? "")).join("::");
+		deduped.set(composite, row);
+	}
+	return Array.from(deduped.values());
+};
+
+interface SeasonContextInput {
+	seasonNumber: number;
+	seasonYear: number;
+	snapshotDate: string;
+}
+
+export const buildPlayerRosterRows = (
+	players: Record<string, unknown>[],
+	seasonContext: SeasonContextInput,
+): Record<string, unknown>[] =>
+	uniqueByCompositeKey(
+		players.map((player) => ({
+			player_id: player.playerId,
+			division_id: player.divisionId,
+			team_id: sanitizeTeamForeignKey(player.teamId),
+			season_number: seasonContext.seasonNumber,
+			season_year: seasonContext.seasonYear,
+			is_captain: player.isCaptain ?? false,
+			is_sub: player.isSub ?? false,
+			club_id: player.clubId ?? null,
+			club_name: player.clubName ?? null,
+			club_logo: player.clubLogo ?? null,
+			club_color: player.clubColor ?? null,
+			snapshot_date: seasonContext.snapshotDate,
+		})),
+		["player_id", "division_id", "season_number", "season_year", "snapshot_date"],
+	);
+
+interface TeamSeasonContextInput extends SeasonContextInput {
+	divisionId: string;
+}
+
+export const buildTeamSeasonRows = (
+	teams: Record<string, unknown>[],
+	seasonContext: TeamSeasonContextInput,
+): Record<string, unknown>[] =>
+	uniqueByCompositeKey(
+		teams
+			.filter((team) => sanitizeTeamForeignKey(team.teamId))
+			.map((team) => ({
+				team_id: sanitizeTeamForeignKey(team.teamId),
+				division_id: seasonContext.divisionId,
+				club_id: team.clubId ?? null,
+				team_name: team.teamName,
+				season_number: seasonContext.seasonNumber,
+				season_year: seasonContext.seasonYear,
+				snapshot_date: seasonContext.snapshotDate,
+			})),
+		["team_id", "division_id", "season_number", "season_year", "snapshot_date"],
+	);
+
+export const buildClubRowsFromPlayers = (
+	players: Record<string, unknown>[],
+): Record<string, unknown>[] =>
+	uniqueByCompositeKey(
+		players
+			.filter((player) => valueAsString(player.clubId))
+			.map((player) => ({
+				club_id: player.clubId,
+				name: player.clubName ?? "Unknown Club",
+				logo: player.clubLogo ?? null,
+				color: player.clubColor ?? null,
+				website: null,
+				facebook: null,
+				instagram: null,
+				twitter: null,
+				youtube: null,
+				address: null,
+				phone: null,
+			})),
+		["club_id"],
+	);
+
+export const buildTeamRowsFromPlayers = (
+	players: Record<string, unknown>[],
+): Record<string, unknown>[] =>
+	uniqueByCompositeKey(
+		players
+			.filter(
+				(player) =>
+					sanitizeTeamForeignKey(player.teamId) &&
+					valueAsString(player.divisionId) &&
+					valueAsString(player.clubId),
+			)
+			.map((player) => ({
+				team_id: sanitizeTeamForeignKey(player.teamId),
+				division_id: player.divisionId,
+				club_id: player.clubId,
+				team_name: player.teamName ?? "Unknown Team",
+			})),
+		["team_id"],
+	);
+
 const incrementCounter = (
 	map: Record<string, number>,
 	key: string,
@@ -400,6 +783,8 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 	const retryAttempts = config.retryAttempts ?? 3;
 	const retryBaseDelayMs = config.retryBaseDelayMs ?? 500;
 	const retryJitterRatio = config.retryJitterRatio ?? 0.2;
+	const regionLocationFilter = config.regionLocationFilter;
+	const divisionNameFilter = config.divisionNameFilter;
 	const snapshotDate = new Date().toISOString().slice(0, 10);
 	let retries = 0;
 	let warnings = 0;
@@ -456,19 +841,10 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 		}
 
 		const regions = toArray<RegionApiRecord>(rawRegionsPayload);
-		const divisions: RegionDivision[] = [];
-		for (const region of regions) {
-			const divisionItems = region.divisions?.$values ?? [];
-			for (const division of divisionItems) {
-				divisions.push({
-					regionId: division.regionId,
-					divisionId: division.divisionId,
-					divisionName: division.divisionName,
-					seasonNumber: division.seasonNumber,
-					seasonYear: division.seasonYear,
-				});
-			}
-		}
+		const divisions = extractDivisionsFromRegions(regions, {
+			regionLocationFilter,
+			divisionNameFilter,
+		});
 
 		if (supabase) {
 			await supabase.upsert(
@@ -606,32 +982,32 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 							const rawMatchupStats = Array.isArray(detailObject.matchupPlayerStats)
 								? (detailObject.matchupPlayerStats as Record<string, unknown>[])
 								: [];
-							const rawLineups = Array.isArray(detailObject.lineups)
-								? (detailObject.lineups as Record<string, unknown>[])
-								: [];
 
 							if (supabase && rawMatchupStats.length) {
-								await supabase.upsert(
-									"players",
+								const playerRows = uniqueByCompositeKey(
 									rawMatchupStats.map((stat) => ({
 										player_id: stat.playerId,
 										division_id: stat.divisionId ?? divisionId,
-										team_id: stat.teamId ?? null,
+										team_id: null,
 										first_name: stat.firstName ?? "Unknown",
 										middle_name: stat.middleName ?? null,
 										last_name: stat.lastName ?? "Unknown",
 										gender: stat.gender ?? null,
 										is_sub: stat.isSub ?? false,
 									})),
+									["player_id"],
+								);
+								await supabase.upsert(
+									"players",
+									playerRows,
 									{ onConflict: "player_id" },
 								);
 
-								await supabase.upsert(
-									"matchup_player_stats",
+								const matchupPlayerStatRows = uniqueByCompositeKey(
 									rawMatchupStats.map((stat) => ({
 										matchup_id: stat.matchupId,
 										player_id: stat.playerId,
-										team_id: stat.teamId ?? null,
+										team_id: sanitizeTeamForeignKey(stat.teamId),
 										division_id: stat.divisionId ?? divisionId,
 										first_name: stat.firstName ?? null,
 										middle_name: stat.middleName ?? null,
@@ -661,85 +1037,49 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 										strength_of_opponent: stat.strengthOfOpponent ?? null,
 										snapshot_date: snapshotDate,
 									})),
+									["matchup_id", "player_id", "snapshot_date"],
+								);
+								await supabase.upsert(
+									"matchup_player_stats",
+									matchupPlayerStatRows,
 									{ onConflict: "matchup_id,player_id,snapshot_date" },
 								);
-								rowsWritten += rawMatchupStats.length;
+								rowsWritten += matchupPlayerStatRows.length;
 								incrementCounter(
 									rowsByTable,
 									"matchup_player_stats",
-									rawMatchupStats.length,
+									matchupPlayerStatRows.length,
 								);
 							}
 
-							if (supabase && rawLineups.length) {
-								const lineups = rawLineups
-									.map((lineup) => {
-										const teamId = valueAsString(lineup.teamId);
-										if (!teamId) {
-											return null;
-										}
-										const lineupId =
-											valueAsString(lineup.lineupId) ??
-											deterministicUuidFromSeed(
-												`${target.matchupId}:${teamId}:${snapshotDate}`,
-											);
-										return {
-											lineup_id: lineupId,
-											matchup_id: target.matchupId,
-											team_id: teamId,
-											submitted_at:
-												valueAsString(lineup.submittedAt) ??
-												valueAsString(lineup.updatedAt) ??
-												null,
-											locked: Boolean(lineup.locked ?? lineup.isLocked ?? false),
-											raw_json: lineup,
-											snapshot_date: snapshotDate,
-										};
-									})
-									.filter((lineup) => lineup !== null);
-
-								await supabase.upsert("lineups", lineups, {
-									onConflict: "matchup_id,team_id,snapshot_date",
+							if (supabase) {
+								const normalizedLineups = normalizeLineupsFromDetail({
+									detailObject,
+									matchupId: target.matchupId,
+									homeTeamId: target.homeTeamId,
+									awayTeamId: target.awayTeamId,
+									snapshotDate,
 								});
-								incrementCounter(rowsByTable, "lineups", lineups.length);
-
-								const slots: Record<string, unknown>[] = [];
-								for (const lineup of rawLineups) {
-									const teamId = valueAsString(lineup.teamId);
-									if (!teamId) {
-										continue;
-									}
-									const lineupId =
-										valueAsString(lineup.lineupId) ??
-										deterministicUuidFromSeed(
-											`${target.matchupId}:${teamId}:${snapshotDate}`,
-										);
-									const lineupSlots = Array.isArray(lineup.lineupSlots)
-										? (lineup.lineupSlots as Record<string, unknown>[])
-										: [];
-									for (let index = 0; index < lineupSlots.length; index += 1) {
-										const slot = lineupSlots[index] ?? {};
-										slots.push({
-											lineup_id: lineupId,
-											slot_no: valueAsNumber(slot.slotNo) ?? index + 1,
-											player_id: valueAsString(slot.playerId),
-											partner_player_id:
-												valueAsString(slot.partnerPlayerId) ??
-												valueAsString(slot.partnerId),
-											court_no:
-												valueAsNumber(slot.courtNo) ??
-												valueAsNumber(slot.courtNumber),
-											role: valueAsString(slot.role),
-											raw_json: slot,
-										});
-									}
+								if (normalizedLineups.lineups.length) {
+									await supabase.upsert("lineups", normalizedLineups.lineups, {
+										onConflict: "matchup_id,team_id,snapshot_date",
+									});
+									incrementCounter(
+										rowsByTable,
+										"lineups",
+										normalizedLineups.lineups.length,
+									);
 								}
-								if (slots.length) {
-									await supabase.upsert("lineup_slots", slots, {
+								if (normalizedLineups.slots.length) {
+									await supabase.upsert("lineup_slots", normalizedLineups.slots, {
 										onConflict: "lineup_id,slot_no",
 									});
-									rowsWritten += slots.length;
-									incrementCounter(rowsByTable, "lineup_slots", slots.length);
+									rowsWritten += normalizedLineups.slots.length;
+									incrementCounter(
+										rowsByTable,
+										"lineup_slots",
+										normalizedLineups.slots.length,
+									);
 								}
 							}
 						}
@@ -772,12 +1112,21 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 
 						if (endpointName === "players" && supabase) {
 							const players = toArray<Record<string, unknown>>(payload);
-							await supabase.upsert(
-								"players",
+							const clubRows = buildClubRowsFromPlayers(players);
+							if (clubRows.length) {
+								await supabase.upsert("clubs", clubRows, { onConflict: "club_id" });
+							}
+							const teamRowsFromPlayers = buildTeamRowsFromPlayers(players);
+							if (teamRowsFromPlayers.length) {
+								await supabase.upsert("teams", teamRowsFromPlayers, {
+									onConflict: "team_id",
+								});
+							}
+							const playerRows = uniqueByCompositeKey(
 								players.map((player) => ({
 									player_id: player.playerId,
 									division_id: player.divisionId,
-									team_id: player.teamId ?? null,
+									team_id: null,
 									first_name: player.firstName,
 									middle_name: player.middleName ?? null,
 									last_name: player.lastName,
@@ -791,14 +1140,18 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 									club_logo: player.clubLogo ?? null,
 									club_color: player.clubColor ?? null,
 								})),
-								{ onConflict: "player_id" },
+								["player_id"],
 							);
 							await supabase.upsert(
-								"player_division_stats",
+								"players",
+								playerRows,
+								{ onConflict: "player_id" },
+							);
+							const playerDivisionStatRows = uniqueByCompositeKey(
 								players.map((player) => ({
 									division_id: player.divisionId,
 									player_id: player.playerId,
-									team_id: player.teamId ?? null,
+									team_id: sanitizeTeamForeignKey(player.teamId),
 									ranking: player.ranking ?? null,
 									wins: player.wins ?? null,
 									losses: player.losses ?? null,
@@ -826,78 +1179,114 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 									last_week_ranking: player.lastWeekRanking ?? null,
 									snapshot_date: snapshotDate,
 								})),
+								["division_id", "player_id", "snapshot_date"],
+							);
+							await supabase.upsert(
+								"player_division_stats",
+								playerDivisionStatRows,
 								{ onConflict: "division_id,player_id,snapshot_date" },
 							);
-							rowsWritten += players.length;
-							incrementCounter(rowsByTable, "players", players.length);
-							incrementCounter(rowsByTable, "player_division_stats", players.length);
+							const playerRosterRows = buildPlayerRosterRows(players, {
+								seasonNumber: division.seasonNumber,
+								seasonYear: division.seasonYear,
+								snapshotDate,
+							});
+							await supabase.upsert("player_rosters", playerRosterRows, {
+								onConflict:
+									"player_id,division_id,season_number,season_year,snapshot_date",
+							});
+							rowsWritten += playerDivisionStatRows.length;
+							incrementCounter(rowsByTable, "players", playerRows.length);
+							incrementCounter(
+								rowsByTable,
+								"player_division_stats",
+								playerDivisionStatRows.length,
+							);
+							incrementCounter(
+								rowsByTable,
+								"player_rosters",
+								playerRosterRows.length,
+							);
+							incrementCounter(rowsByTable, "clubs", clubRows.length);
+							incrementCounter(rowsByTable, "teams", teamRowsFromPlayers.length);
 						}
 
 						if (endpointName === "standings" && supabase) {
 							const standings = toArray<Record<string, unknown>>(payload);
+							const standingsRows = uniqueByCompositeKey(
+								standings
+									.map((standing) => {
+										const teamId = sanitizeTeamForeignKey(standing.teamId);
+										if (!teamId) {
+											return null;
+										}
+										return {
+											division_id: standing.divisionId,
+											team_id: teamId,
+											season_number: standing.seasonNumber,
+											season_year: standing.seasonYear,
+											ranking: standing.ranking ?? null,
+											pod: standing.pod ?? null,
+											wins: standing.wins ?? null,
+											losses: standing.losses ?? null,
+											draws: standing.draws ?? null,
+											mixed_wins: standing.mixedWins ?? null,
+											women_wins: standing.womenWins ?? null,
+											men_wins: standing.menWins ?? null,
+											mixed_losses: standing.mixedLosses ?? null,
+											women_losses: standing.womenLosses ?? null,
+											men_losses: standing.menLosses ?? null,
+											total_points_won: standing.totalPointsWon ?? null,
+											team_point_diff: standing.teamPointDiff ?? null,
+											clutch_wins: standing.clutchWins ?? null,
+											clutch_games: standing.clutchGames ?? null,
+											home_wins: standing.homeWins ?? null,
+											home_losses: standing.homeLosses ?? null,
+											away_wins: standing.awayWins ?? null,
+											away_losses: standing.awayLosses ?? null,
+											total_games: standing.totalGames ?? null,
+											total_single_games: standing.totalSingleGames ?? null,
+											pod_ranking: standing.podRanking ?? null,
+											record: standing.record ?? null,
+											game_record: standing.gameRecord ?? null,
+											home_record: standing.homeRecord ?? null,
+											away_record: standing.awayRecord ?? null,
+											mixed_record: standing.mixedRecord ?? null,
+											clutch_record: standing.clutchRecord ?? null,
+											mens_record: standing.mensRecord ?? null,
+											womens_record: standing.womensRecord ?? null,
+											home_win_rate: standing.homeWinRate ?? null,
+											away_win_rate: standing.awayWinRate ?? null,
+											game_win_rate: standing.gameWinRate ?? null,
+											win_percentage: standing.winPercentage ?? null,
+											mixed_win_rate: standing.mixedWinRate ?? null,
+											women_win_rate: standing.womenWinRate ?? null,
+											men_win_rate: standing.menWinRate ?? null,
+											average_points_per_game: standing.averagePointsPerGame ?? null,
+											average_point_differential:
+												standing.averagePointDifferential ?? null,
+											clutch_win_rate: standing.clutchWinRate ?? null,
+											snapshot_date: snapshotDate,
+										};
+									})
+									.filter((standing) => standing !== null),
+								["division_id", "team_id", "season_number", "season_year", "snapshot_date"],
+							);
 							await supabase.upsert(
 								"team_standings",
-								standings.map((standing) => ({
-									division_id: standing.divisionId,
-									team_id: standing.teamId,
-									season_number: standing.seasonNumber,
-									season_year: standing.seasonYear,
-									ranking: standing.ranking ?? null,
-									pod: standing.pod ?? null,
-									wins: standing.wins ?? null,
-									losses: standing.losses ?? null,
-									draws: standing.draws ?? null,
-									mixed_wins: standing.mixedWins ?? null,
-									women_wins: standing.womenWins ?? null,
-									men_wins: standing.menWins ?? null,
-									mixed_losses: standing.mixedLosses ?? null,
-									women_losses: standing.womenLosses ?? null,
-									men_losses: standing.menLosses ?? null,
-									total_points_won: standing.totalPointsWon ?? null,
-									team_point_diff: standing.teamPointDiff ?? null,
-									clutch_wins: standing.clutchWins ?? null,
-									clutch_games: standing.clutchGames ?? null,
-									home_wins: standing.homeWins ?? null,
-									home_losses: standing.homeLosses ?? null,
-									away_wins: standing.awayWins ?? null,
-									away_losses: standing.awayLosses ?? null,
-									total_games: standing.totalGames ?? null,
-									total_single_games: standing.totalSingleGames ?? null,
-									pod_ranking: standing.podRanking ?? null,
-									record: standing.record ?? null,
-									game_record: standing.gameRecord ?? null,
-									home_record: standing.homeRecord ?? null,
-									away_record: standing.awayRecord ?? null,
-									mixed_record: standing.mixedRecord ?? null,
-									clutch_record: standing.clutchRecord ?? null,
-									mens_record: standing.mensRecord ?? null,
-									womens_record: standing.womensRecord ?? null,
-									home_win_rate: standing.homeWinRate ?? null,
-									away_win_rate: standing.awayWinRate ?? null,
-									game_win_rate: standing.gameWinRate ?? null,
-									win_percentage: standing.winPercentage ?? null,
-									mixed_win_rate: standing.mixedWinRate ?? null,
-									women_win_rate: standing.womenWinRate ?? null,
-									men_win_rate: standing.menWinRate ?? null,
-									average_points_per_game: standing.averagePointsPerGame ?? null,
-									average_point_differential:
-										standing.averagePointDifferential ?? null,
-									clutch_win_rate: standing.clutchWinRate ?? null,
-									snapshot_date: snapshotDate,
-								})),
+								standingsRows,
 								{
 									onConflict:
 										"division_id,team_id,season_number,season_year,snapshot_date",
 								},
 							);
-							rowsWritten += standings.length;
-							incrementCounter(rowsByTable, "team_standings", standings.length);
+							rowsWritten += standingsRows.length;
+							incrementCounter(rowsByTable, "team_standings", standingsRows.length);
 						}
 
 						if (endpointName === "teams" && supabase) {
 							const teams = toArray<Record<string, unknown>>(payload);
-							await supabase.upsert(
-								"clubs",
+							const clubRows = uniqueByCompositeKey(
 								teams.map((team) => {
 									const club = toObject(team.club);
 									return {
@@ -914,20 +1303,48 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 										phone: club.phone ?? null,
 									};
 								}),
+								["club_id"],
+							);
+							await supabase.upsert(
+								"clubs",
+								clubRows,
 								{ onConflict: "club_id" },
+							);
+							const teamRows = uniqueByCompositeKey(
+								teams
+									.map((team) => {
+										const teamId = sanitizeTeamForeignKey(team.teamId);
+										if (!teamId) {
+											return null;
+										}
+										return {
+											team_id: teamId,
+											division_id: divisionId,
+											club_id: team.clubId,
+											team_name: team.teamName,
+										};
+									})
+									.filter((team) => team !== null),
+								["team_id"],
 							);
 							await supabase.upsert(
 								"teams",
-								teams.map((team) => ({
-									team_id: team.teamId,
-									division_id: divisionId,
-									club_id: team.clubId,
-									team_name: team.teamName,
-								})),
+								teamRows,
 								{ onConflict: "team_id" },
 							);
-							rowsWritten += teams.length;
-							incrementCounter(rowsByTable, "teams", teams.length);
+							const teamSeasonRows = buildTeamSeasonRows(teams, {
+								divisionId,
+								seasonNumber: division.seasonNumber,
+								seasonYear: division.seasonYear,
+								snapshotDate,
+							});
+							await supabase.upsert("team_seasons", teamSeasonRows, {
+								onConflict:
+									"team_id,division_id,season_number,season_year,snapshot_date",
+							});
+							rowsWritten += teamRows.length;
+							incrementCounter(rowsByTable, "teams", teamRows.length);
+							incrementCounter(rowsByTable, "team_seasons", teamSeasonRows.length);
 						}
 
 						if (
@@ -935,14 +1352,13 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 							supabase
 						) {
 							const matchups = toArray<Record<string, unknown>>(payload);
-							await supabase.upsert(
-								"matchups",
+							const matchupRows = uniqueByCompositeKey(
 								matchups.map((matchup) => ({
 									matchup_id: matchup.matchupId,
 									division_id: matchup.divisionId,
 									week_number: matchup.weekNumber ?? null,
-									home_team_id: matchup.homeTeamId ?? null,
-									away_team_id: matchup.awayTeamId ?? null,
+									home_team_id: sanitizeTeamForeignKey(matchup.homeTeamId),
+									away_team_id: sanitizeTeamForeignKey(matchup.awayTeamId),
 									home_points: matchup.homePoints ?? null,
 									away_points: matchup.awayPoints ?? null,
 									end_result: matchup.endResult ?? null,
@@ -960,10 +1376,15 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 									address: matchup.address ?? null,
 									snapshot_date: snapshotDate,
 								})),
+								["matchup_id"],
+							);
+							await supabase.upsert(
+								"matchups",
+								matchupRows,
 								{ onConflict: "matchup_id" },
 							);
-							rowsWritten += matchups.length;
-							incrementCounter(rowsByTable, "matchups", matchups.length);
+							rowsWritten += matchupRows.length;
+							incrementCounter(rowsByTable, "matchups", matchupRows.length);
 						}
 					}
 
@@ -991,6 +1412,7 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 				[
 					{
 						run_id: runId,
+						run_type: runType,
 						status: "completed",
 						ended_at: new Date().toISOString(),
 						rows_written: rowsWritten,
@@ -1008,7 +1430,7 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 			);
 		}
 		console.log(
-			`[crossclub-ingest] summary mode=${mode} phase=${phase} dryRun=${dryRun} rows=${rowsWritten} retries=${retries} warnings=${warnings} tables=${JSON.stringify(rowsByTable)}`,
+			`[crossclub-ingest] summary mode=${mode} phase=${phase} dryRun=${dryRun} rows=${rowsWritten} retries=${retries} warnings=${warnings} divisions=${divisions.length} regionFilter=${regionLocationFilter ?? "all"} divisionFilter=${divisionNameFilter ?? "all"} tables=${JSON.stringify(rowsByTable)}`,
 		);
 	} catch (error) {
 		const errorMessage =
@@ -1019,6 +1441,7 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 				[
 					{
 						run_id: runId,
+						run_type: runType,
 						status: "failed",
 						ended_at: new Date().toISOString(),
 						error_message: errorMessage,

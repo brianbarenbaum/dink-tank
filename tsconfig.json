@@ -8,6 +8,7 @@
 		"resolveJsonModule": true,
 		"isolatedModules": true,
 		"esModuleInterop": true,
+		"allowImportingTsExtensions": true,
 		"lib": ["ES2022", "DOM", "DOM.Iterable"],
 		"types": ["vitest/globals", "node"],
 		"baseUrl": ".",
@@ -16,6 +17,7 @@
 		}
 	},
 	"include": [
+		"data-ingestion/**/*.ts",
 		"src/**/*.ts",
 		"src/**/*.d.ts",
 		"src/**/*.tsx",

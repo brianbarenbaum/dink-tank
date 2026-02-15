@@ -1,0 +1,29 @@
+[
+  {
+    "teamId": "team-a",
+    "teamName": "Aces",
+    "clubId": "club-east",
+    "clubName": "Eastside Club",
+    "divisionId": "div-40-njpa",
+    "seasonYear": 2026,
+    "seasonNumber": 1
+  },
+  {
+    "teamId": "team-b",
+    "teamName": "Bangers",
+    "clubId": "club-east",
+    "clubName": "Eastside Club",
+    "divisionId": "div-40-njpa",
+    "seasonYear": 2026,
+    "seasonNumber": 1
+  },
+  {
+    "teamId": "team-c",
+    "teamName": "City Spin",
+    "clubId": "club-city",
+    "clubName": "City Club",
+    "divisionId": "div-35-nyc",
+    "seasonYear": 2026,
+    "seasonNumber": 1
+  }
+]

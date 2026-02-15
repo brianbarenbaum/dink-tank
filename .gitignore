@@ -32,3 +32,4 @@ validation_screenshots/
 
 # Local overrides
 .codex/config.local.toml
+data-ingestion/sqlite/*.db

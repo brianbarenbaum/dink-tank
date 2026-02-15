@@ -1,12 +1,16 @@
 # CrossClub Step 2: Chunked Ingestion Runner
 
 ## What was added
-- `src/lib/crossclub-ingest.ts`: ingestion engine (chunked, resumable, raw + normalized writes).
-- `scripts/ingest-crossclub.ts`: CLI entrypoint.
+- `data-ingestion/pipeline.ts`: ingestion engine (chunked, resumable, raw + normalized writes).
+- `data-ingestion/run.ts`: CLI entrypoint.
 - `tests/crossclub-ingest.test.ts`: coverage for checkpoint keys, chunking, endpoint plans, payload denormalization.
-- `supabase/migrations/20260214185500_enable_crossclub_rls.sql`: RLS enablement + public read policies.
+- `supabase/migrations/20260214184742_enable_crossclub_rls.sql`: RLS enablement + public read policies.
 
 ## Commands
+- Local SQLite validation:
+  - `npm run ingest:sqlite:init`
+  - `npm run ingest:sqlite:mock`
+  - `npm run ingest:sqlite:verify`
 - Initial bootstrap (all core endpoints):
   - `npm run ingest:crossclub`
 - Weekly sync (lighter endpoint set):
