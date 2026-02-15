@@ -60,6 +60,9 @@ export const handleChatRequest = async (
 			);
 		}
 
-		return json({ error: "chat_failed", message: "Unable to process request." }, 500);
+		return json(
+			{ error: "chat_failed", message: "Unable to process request." },
+			500,
+		);
 	}
 };

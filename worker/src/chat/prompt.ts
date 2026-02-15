@@ -1,4 +1,6 @@
-export const buildSqlSystemPrompt = (schema: string): string => `You are a careful SQL analyst for Cross Club Pickleball data.
+export const buildSqlSystemPrompt = (
+	schema: string,
+): string => `You are a careful SQL analyst for Cross Club Pickleball data.
 
 Authoritative schema (do not invent tables or columns):
 ${schema}

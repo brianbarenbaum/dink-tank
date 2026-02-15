@@ -20,7 +20,9 @@ export type ParseEnvResult = ParseEnvSuccess | ParseEnvFailure;
 const DEFAULT_MODEL = "gpt-4.1-mini";
 const DEFAULT_SQL_TIMEOUT_MS = 10_000;
 
-export const parseWorkerEnv = (env: Record<string, string | undefined>): ParseEnvResult => {
+export const parseWorkerEnv = (
+	env: Record<string, string | undefined>,
+): ParseEnvResult => {
 	const OPENAI_API_KEY = env.OPENAI_API_KEY?.trim();
 	const SUPABASE_DB_URL = env.SUPABASE_DB_URL?.trim();
 
@@ -38,7 +40,10 @@ export const parseWorkerEnv = (env: Record<string, string | undefined>): ParseEn
 		: DEFAULT_SQL_TIMEOUT_MS;
 
 	if (Number.isNaN(SQL_QUERY_TIMEOUT_MS) || SQL_QUERY_TIMEOUT_MS <= 0) {
-		return { ok: false, error: "SQL_QUERY_TIMEOUT_MS must be a positive integer" };
+		return {
+			ok: false,
+			error: "SQL_QUERY_TIMEOUT_MS must be a positive integer",
+		};
 	}
 
 	return {

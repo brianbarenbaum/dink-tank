@@ -41,7 +41,11 @@ describe("worker chat handler", () => {
 			body: JSON.stringify({ messages: [] }),
 		});
 
-		const response = await handleChatRequest(request, async () => "unused", env);
+		const response = await handleChatRequest(
+			request,
+			async () => "unused",
+			env,
+		);
 		expect(response.status).toBe(400);
 	});
 
@@ -49,7 +53,9 @@ describe("worker chat handler", () => {
 		const request = new Request("http://localhost/api/chat", {
 			method: "POST",
 			headers: { "content-type": "application/json" },
-			body: JSON.stringify({ messages: [{ role: "user", content: "drop table teams" }] }),
+			body: JSON.stringify({
+				messages: [{ role: "user", content: "drop table teams" }],
+			}),
 		});
 
 		const response = await handleChatRequest(

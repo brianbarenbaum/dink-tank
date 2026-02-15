@@ -1,7 +1,9 @@
-const DENY_RE = /\b(INSERT|UPDATE|DELETE|ALTER|DROP|CREATE|REPLACE|TRUNCATE|GRANT|REVOKE)\b/i;
+const DENY_RE =
+	/\b(INSERT|UPDATE|DELETE|ALTER|DROP|CREATE|REPLACE|TRUNCATE|GRANT|REVOKE)\b/i;
 const LIMIT_RE = /\blimit\b\s+\d+(\s*,\s*\d+)?\s*;?\s*$/i;
 
-const countSemicolons = (query: string): number => [...query].filter((char) => char === ";").length;
+const countSemicolons = (query: string): number =>
+	[...query].filter((char) => char === ";").length;
 
 export const sanitizeSqlQuery = (input: string): string => {
 	const raw = String(input ?? "").trim();
@@ -10,7 +12,10 @@ export const sanitizeSqlQuery = (input: string): string => {
 	}
 
 	const semicolonCount = countSemicolons(raw);
-	if (semicolonCount > 1 || (raw.endsWith(";") && raw.slice(0, -1).includes(";"))) {
+	if (
+		semicolonCount > 1 ||
+		(raw.endsWith(";") && raw.slice(0, -1).includes(";"))
+	) {
 		throw new Error("Only a single SQL statement is allowed.");
 	}
 

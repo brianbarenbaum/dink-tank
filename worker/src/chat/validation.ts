@@ -18,12 +18,16 @@ const isMessage = (value: unknown): value is ChatMessage => {
 	const candidate = value as Partial<ChatMessage>;
 	const validRole = candidate.role === "user" || candidate.role === "assistant";
 	const validContent =
-		typeof candidate.content === "string" && candidate.content.trim().length > 0;
+		typeof candidate.content === "string" &&
+		candidate.content.trim().length > 0;
 
 	return validRole && validContent;
 };
 
-const success = (value: ChatRequest): ValidationSuccess => ({ ok: true, value });
+const success = (value: ChatRequest): ValidationSuccess => ({
+	ok: true,
+	value,
+});
 
 export const parseChatRequest = (payload: unknown): ValidationResult => {
 	if (!payload || typeof payload !== "object") {
@@ -40,7 +44,9 @@ export const parseChatRequest = (payload: unknown): ValidationResult => {
 	}
 
 	if (!candidate.messages.every(isMessage)) {
-		return fail("messages must include only user/assistant roles and non-empty content.");
+		return fail(
+			"messages must include only user/assistant roles and non-empty content.",
+		);
 	}
 
 	return success({ messages: candidate.messages });

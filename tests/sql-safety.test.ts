@@ -11,6 +11,8 @@ describe("sql safety", () => {
 
 	it("rejects write or ddl queries", () => {
 		expect(() => sanitizeSqlQuery("DROP TABLE crossclub.teams")).toThrow();
-		expect(() => sanitizeSqlQuery("UPDATE crossclub.teams SET team_name = 'A'")).toThrow();
+		expect(() =>
+			sanitizeSqlQuery("UPDATE crossclub.teams SET team_name = 'A'"),
+		).toThrow();
 	});
 });

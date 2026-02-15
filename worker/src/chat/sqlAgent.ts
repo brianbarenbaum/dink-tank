@@ -39,12 +39,18 @@ const extractAgentText = (result: unknown): string => {
 		messages?: Array<{ content?: unknown }>;
 	};
 
-	if (typeof candidate.output === "string" && candidate.output.trim().length > 0) {
+	if (
+		typeof candidate.output === "string" &&
+		candidate.output.trim().length > 0
+	) {
 		return candidate.output;
 	}
 
 	const lastMessage = candidate.messages?.at(-1);
-	if (typeof lastMessage?.content === "string" && lastMessage.content.trim().length > 0) {
+	if (
+		typeof lastMessage?.content === "string" &&
+		lastMessage.content.trim().length > 0
+	) {
 		return lastMessage.content;
 	}
 
@@ -62,7 +68,9 @@ export const runSqlAgent = async (
 		async ({ query }) => {
 			const sanitized = sanitizeSqlQuery(query);
 			const result = await db.run(sanitized);
-			return typeof result === "string" ? result : JSON.stringify(result, null, 2);
+			return typeof result === "string"
+				? result
+				: JSON.stringify(result, null, 2);
 		},
 		{
 			name: "execute_sql",
