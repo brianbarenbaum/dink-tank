@@ -61,7 +61,7 @@ const desktopSidebarOpen = ref(true);
       <button
         type="button"
         data-testid="desktop-sidebar-open-icon"
-        class="mt-2 inline-flex h-9 w-9 items-center justify-center rounded-md border"
+        class="mt-2 inline-flex h-9 w-9 items-center justify-center rounded-md border cursor-pointer"
         aria-label="Open sidebar"
         @click="desktopSidebarOpen = true"
       >

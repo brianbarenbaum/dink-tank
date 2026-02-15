@@ -36,7 +36,7 @@ defineEmits<{
         <button
           type="button"
           data-testid="desktop-sidebar-close-icon"
-          class="inline-flex h-9 w-9 items-center justify-center rounded-md border"
+          class="inline-flex h-9 w-9 items-center justify-center rounded-md border cursor-pointer"
           aria-label="Collapse sidebar"
           @click="$emit('toggleDesktop')"
         >
@@ -49,7 +49,7 @@ defineEmits<{
           data-testid="mobile-new-session"
           class="h-12 flex-1 rounded-md border px-4 text-left text-sm font-semibold uppercase tracking-wide"
         >
-          New Session
+          New Chat
         </button>
         <button
           type="button"
@@ -64,9 +64,9 @@ defineEmits<{
       <button
         v-else
         type="button"
-        class="h-12 rounded-md border px-4 text-left text-sm font-semibold uppercase tracking-wide"
+        class="h-12 rounded-md border px-4 text-left text-sm font-semibold uppercase tracking-wide cursor-pointer"
       >
-        New Session
+        New Chat
       </button>
     </section>
 
