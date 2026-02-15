@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import { ChevronRight } from "lucide-vue-next";
 
 import ChatComposer from "./ChatComposer.vue";
 import ChatSidebar from "./ChatSidebar.vue";
@@ -44,13 +45,29 @@ const desktopSidebarOpen = ref(true);
     data-testid="chat-shell"
     :class="[
       'chat-root grid min-h-screen grid-cols-1',
-      desktopSidebarOpen ? 'lg:grid-cols-[18rem_1fr]' : 'lg:grid-cols-1',
+      desktopSidebarOpen ? 'lg:grid-cols-[18rem_1fr]' : 'lg:grid-cols-[3rem_1fr]',
     ]"
   >
     <ChatSidebar
       v-if="desktopSidebarOpen"
       @toggle-desktop="desktopSidebarOpen = false"
     />
+    <aside
+      v-else
+      data-testid="desktop-sidebar-rail"
+      class="hidden border-r p-2 lg:flex lg:items-start lg:justify-center"
+      aria-label="Collapsed sidebar"
+    >
+      <button
+        type="button"
+        data-testid="desktop-sidebar-open-icon"
+        class="mt-2 inline-flex h-9 w-9 items-center justify-center rounded-md border"
+        aria-label="Open sidebar"
+        @click="desktopSidebarOpen = true"
+      >
+        <ChevronRight class="h-4 w-4" />
+      </button>
+    </aside>
 
     <div
       v-if="mobileSidebarOpen"
@@ -65,16 +82,6 @@ const desktopSidebarOpen = ref(true);
     />
 
     <section class="relative flex min-h-screen flex-col gap-4 p-3 md:p-4 lg:p-6">
-      <button
-        v-if="!desktopSidebarOpen"
-        type="button"
-        data-testid="desktop-sidebar-open"
-        class="absolute left-4 top-4 hidden h-11 rounded-md border px-3 text-xs font-semibold uppercase tracking-wide lg:inline-flex lg:items-center"
-        aria-label="Open sidebar"
-        @click="desktopSidebarOpen = true"
-      >
-        Menu
-      </button>
       <header
         data-testid="mobile-top-bar"
         class="flex items-center justify-between rounded-lg border px-4 py-3 lg:hidden"

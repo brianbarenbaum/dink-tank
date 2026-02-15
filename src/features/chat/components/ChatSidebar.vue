@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ChevronLeft } from "lucide-vue-next";
+
 interface ChatSidebarProps {
   mobile?: boolean;
   open?: boolean;
@@ -29,17 +31,18 @@ defineEmits<{
     aria-label="Session sidebar"
   >
     <section class="space-y-3">
-      <h1 v-if="!mobile" class="text-lg font-semibold uppercase tracking-[0.24em]">Dink Tank</h1>
-      <button
-        v-if="!mobile"
-        type="button"
-        data-testid="desktop-sidebar-close"
-        class="h-11 rounded-md border px-3 text-xs font-semibold uppercase tracking-wide"
-        aria-label="Collapse sidebar"
-        @click="$emit('toggleDesktop')"
-      >
-        Close
-      </button>
+      <div v-if="!mobile" class="flex items-center justify-between gap-3">
+        <h1 class="text-lg font-semibold uppercase tracking-[0.24em]">Dink Tank</h1>
+        <button
+          type="button"
+          data-testid="desktop-sidebar-close-icon"
+          class="inline-flex h-9 w-9 items-center justify-center rounded-md border"
+          aria-label="Collapse sidebar"
+          @click="$emit('toggleDesktop')"
+        >
+          <ChevronLeft class="h-4 w-4" />
+        </button>
+      </div>
       <div v-if="mobile" class="flex items-center gap-3">
         <button
           type="button"

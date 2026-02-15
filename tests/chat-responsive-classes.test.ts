@@ -24,15 +24,16 @@ describe("chat responsive layout", () => {
     const wrapper = mount(ChatShell);
 
     expect(wrapper.attributes("class")).toContain("lg:grid-cols-[18rem_1fr]");
-    expect(wrapper.find("[data-testid='desktop-sidebar-close']").exists()).toBe(true);
+    expect(wrapper.find("[data-testid='desktop-sidebar-close-icon']").exists()).toBe(true);
 
-    await wrapper.get("[data-testid='desktop-sidebar-close']").trigger("click");
+    await wrapper.get("[data-testid='desktop-sidebar-close-icon']").trigger("click");
     await nextTick();
 
-    expect(wrapper.attributes("class")).toContain("lg:grid-cols-1");
-    expect(wrapper.find("[data-testid='desktop-sidebar-open']").exists()).toBe(true);
+    expect(wrapper.attributes("class")).toContain("lg:grid-cols-[3rem_1fr]");
+    expect(wrapper.find("[data-testid='desktop-sidebar-rail']").exists()).toBe(true);
+    expect(wrapper.find("[data-testid='desktop-sidebar-open-icon']").exists()).toBe(true);
 
-    await wrapper.get("[data-testid='desktop-sidebar-open']").trigger("click");
+    await wrapper.get("[data-testid='desktop-sidebar-open-icon']").trigger("click");
     await nextTick();
 
     expect(wrapper.attributes("class")).toContain("lg:grid-cols-[18rem_1fr]");
