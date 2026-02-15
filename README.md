@@ -52,3 +52,4 @@ This starter is meant to be cloned directly. Do **not** run `npm create vite@lat
 - Apply `docs/security/web-baseline.md` before production deployment.
 - Adapt `.codex/AGENTS.md` and relevant memories before heavy implementation.
 - See `docs/template-customization-checklist.md` and `docs/checklists/` for project readiness checks.
+- Chat frontend v1 contract and deferred roadmap: `docs/architecture/chat-frontend-v1.md`.
