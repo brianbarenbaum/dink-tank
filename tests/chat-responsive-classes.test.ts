@@ -1,5 +1,6 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
+import { nextTick } from "vue";
 
 import ChatShell from "../src/features/chat/components/ChatShell.vue";
 
@@ -17,5 +18,23 @@ describe("chat responsive layout", () => {
     expect(wrapper.find("[data-testid='mobile-sidebar']").text()).not.toContain("Dink Tank");
     expect(wrapper.find("[data-testid='mobile-new-session']").exists()).toBe(true);
     expect(wrapper.find("[data-testid='mobile-close-sidebar']").exists()).toBe(true);
+  });
+
+  it("allows desktop sidebar collapse and reopen", async () => {
+    const wrapper = mount(ChatShell);
+
+    expect(wrapper.attributes("class")).toContain("lg:grid-cols-[18rem_1fr]");
+    expect(wrapper.find("[data-testid='desktop-sidebar-close']").exists()).toBe(true);
+
+    await wrapper.get("[data-testid='desktop-sidebar-close']").trigger("click");
+    await nextTick();
+
+    expect(wrapper.attributes("class")).toContain("lg:grid-cols-1");
+    expect(wrapper.find("[data-testid='desktop-sidebar-open']").exists()).toBe(true);
+
+    await wrapper.get("[data-testid='desktop-sidebar-open']").trigger("click");
+    await nextTick();
+
+    expect(wrapper.attributes("class")).toContain("lg:grid-cols-[18rem_1fr]");
   });
 });

@@ -36,14 +36,21 @@ const emit = defineEmits<{
 }>();
 
 const mobileSidebarOpen = ref(false);
+const desktopSidebarOpen = ref(true);
 </script>
 
 <template>
   <main
     data-testid="chat-shell"
-    class="chat-root grid min-h-screen grid-cols-1 lg:grid-cols-[18rem_1fr]"
+    :class="[
+      'chat-root grid min-h-screen grid-cols-1',
+      desktopSidebarOpen ? 'lg:grid-cols-[18rem_1fr]' : 'lg:grid-cols-1',
+    ]"
   >
-    <ChatSidebar />
+    <ChatSidebar
+      v-if="desktopSidebarOpen"
+      @toggle-desktop="desktopSidebarOpen = false"
+    />
 
     <div
       v-if="mobileSidebarOpen"
@@ -57,7 +64,17 @@ const mobileSidebarOpen = ref(false);
       @close="mobileSidebarOpen = false"
     />
 
-    <section class="flex min-h-screen flex-col gap-4 p-3 md:p-4 lg:p-6">
+    <section class="relative flex min-h-screen flex-col gap-4 p-3 md:p-4 lg:p-6">
+      <button
+        v-if="!desktopSidebarOpen"
+        type="button"
+        data-testid="desktop-sidebar-open"
+        class="absolute left-4 top-4 hidden h-11 rounded-md border px-3 text-xs font-semibold uppercase tracking-wide lg:inline-flex lg:items-center"
+        aria-label="Open sidebar"
+        @click="desktopSidebarOpen = true"
+      >
+        Menu
+      </button>
       <header
         data-testid="mobile-top-bar"
         class="flex items-center justify-between rounded-lg border px-4 py-3 lg:hidden"

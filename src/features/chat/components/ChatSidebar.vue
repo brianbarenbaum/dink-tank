@@ -11,6 +11,7 @@ withDefaults(defineProps<ChatSidebarProps>(), {
 
 defineEmits<{
   close: [];
+  toggleDesktop: [];
 }>();
 </script>
 
@@ -29,6 +30,16 @@ defineEmits<{
   >
     <section class="space-y-3">
       <h1 v-if="!mobile" class="text-lg font-semibold uppercase tracking-[0.24em]">Dink Tank</h1>
+      <button
+        v-if="!mobile"
+        type="button"
+        data-testid="desktop-sidebar-close"
+        class="h-11 rounded-md border px-3 text-xs font-semibold uppercase tracking-wide"
+        aria-label="Collapse sidebar"
+        @click="$emit('toggleDesktop')"
+      >
+        Close
+      </button>
       <div v-if="mobile" class="flex items-center gap-3">
         <button
           type="button"
