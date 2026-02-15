@@ -4,8 +4,10 @@ import { describe, expect, it } from "vitest";
 import App from "../src/App.vue";
 
 describe("starter smoke", () => {
-	it("renders starter headline", () => {
+	it("renders chat shell landmarks", () => {
 		const wrapper = mount(App);
-		expect(wrapper.get("h1").text()).toBe("Codex Vue Starter");
+		expect(wrapper.find("[data-testid='chat-shell']").exists()).toBe(true);
+		expect(wrapper.find("[data-testid='chat-transcript']").exists()).toBe(true);
+		expect(wrapper.find("[data-testid='chat-composer']").exists()).toBe(true);
 	});
 });

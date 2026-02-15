@@ -1,12 +1,12 @@
-import { ref } from "vue";
+import { ref, type Ref } from "vue";
 
 import { createChatClient, type ChatSendMessage } from "./chatClient";
 import type { ChatMessage } from "./types";
 
 export interface ChatController {
-  messages: ReturnType<typeof ref<ChatMessage[]>>;
-  isSending: ReturnType<typeof ref<boolean>>;
-  errorMessage: ReturnType<typeof ref<string | null>>;
+  messages: Ref<ChatMessage[]>;
+  isSending: Ref<boolean>;
+  errorMessage: Ref<string | null>;
   submit: (value: string) => Promise<void>;
 }
 
@@ -45,7 +45,12 @@ export function createChatController(
 
     try {
       const payload = messages.value
-        .filter((message) => message.role === "assistant" || message.role === "user")
+        .filter(
+          (
+            message,
+          ): message is ChatMessage & { role: "assistant" | "user" } =>
+            message.role === "assistant" || message.role === "user",
+        )
         .map((message) => ({ role: message.role, content: message.content }));
       const response = await send(payload);
 
