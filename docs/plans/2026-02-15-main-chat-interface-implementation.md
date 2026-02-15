@@ -361,7 +361,7 @@ Expected: FAIL until class contract exists.
 
 **Step 3: Implement responsive behavior**
 
-- Desktop: persistent left rail with new session, recent logs, analytics tools.
+- Desktop: persistent left rail with new session, your chats, analytics tools.
 - Mobile: compact header + rail access affordance, transcript-first vertical flow.
 - Ensure composer stays accessible at bottom and touch targets are >= 44px.
 

@@ -72,7 +72,10 @@ describe("crossclub ingest helpers", () => {
 			regionId: string;
 			divisions: Array<{ divisionId: string }>;
 		}>;
-		expect(output[0]?.divisions?.map((d) => d.divisionId)).toEqual(["d1", "d2"]);
+		expect(output[0]?.divisions?.map((d) => d.divisionId)).toEqual([
+			"d1",
+			"d2",
+		]);
 	});
 
 	it("builds stable checkpoint keys", () => {
@@ -132,13 +135,12 @@ describe("crossclub ingest helpers", () => {
 			},
 		];
 		const now = new Date("2025-12-10T00:00:00Z");
-		expect(selectDetailMatchups(all, "bootstrap", now).map((x) => x.matchupId)).toEqual([
-			"a",
-			"b",
-		]);
-		expect(selectDetailMatchups(all, "weekly", now).map((x) => x.matchupId)).toEqual([
-			"a",
-		]);
+		expect(
+			selectDetailMatchups(all, "bootstrap", now).map((x) => x.matchupId),
+		).toEqual(["a", "b"]);
+		expect(
+			selectDetailMatchups(all, "weekly", now).map((x) => x.matchupId),
+		).toEqual(["a"]);
 	});
 
 	it("computes retry delays with exponential backoff and jitter", () => {

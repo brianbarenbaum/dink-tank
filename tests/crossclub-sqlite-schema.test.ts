@@ -43,4 +43,3 @@ describe("crossclub sqlite schema", () => {
 		closeSqliteDb(db);
 	});
 });
-

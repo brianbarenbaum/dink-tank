@@ -2,27 +2,27 @@
 import { ref } from "vue";
 
 interface ChatComposerProps {
-  isSending?: boolean;
+	isSending?: boolean;
 }
 
 const props = withDefaults(defineProps<ChatComposerProps>(), {
-  isSending: false,
+	isSending: false,
 });
 
 const emit = defineEmits<{
-  submit: [value: string];
+	submit: [value: string];
 }>();
 
 const draft = ref("");
 
 const onSubmit = () => {
-  const value = draft.value.trim();
-  if (!value || props.isSending) {
-    return;
-  }
+	const value = draft.value.trim();
+	if (!value || props.isSending) {
+		return;
+	}
 
-  emit("submit", value);
-  draft.value = "";
+	emit("submit", value);
+	draft.value = "";
 };
 </script>
 

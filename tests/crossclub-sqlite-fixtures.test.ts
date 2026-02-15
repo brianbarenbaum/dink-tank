@@ -36,7 +36,8 @@ describe("crossclub sqlite fixture contract", () => {
 		expect(typeof first.regionId).toBe("string");
 		expect(Array.isArray(first.divisions)).toBe(true);
 
-		const division = (first.divisions as Array<Record<string, unknown>>)[0] ?? {};
+		const division =
+			(first.divisions as Array<Record<string, unknown>>)[0] ?? {};
 		expect(typeof division.divisionId).toBe("string");
 		expect(typeof division.divisionName).toBe("string");
 		expect(typeof division.seasonYear).toBe("number");

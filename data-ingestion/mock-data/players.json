@@ -1,42 +1,42 @@
 [
-  {
-    "playerId": "player-1",
-    "fullName": "Alex One",
-    "teamId": "team-a",
-    "divisionId": "div-40-njpa",
-    "seasonYear": 2026,
-    "seasonNumber": 1
-  },
-  {
-    "playerId": "player-2",
-    "fullName": "Blair Two",
-    "teamId": "team-a",
-    "divisionId": "div-40-njpa",
-    "seasonYear": 2026,
-    "seasonNumber": 1
-  },
-  {
-    "playerId": "player-3",
-    "fullName": "Casey Three",
-    "teamId": "team-b",
-    "divisionId": "div-40-njpa",
-    "seasonYear": 2026,
-    "seasonNumber": 1
-  },
-  {
-    "playerId": "player-4",
-    "fullName": "Dev Four",
-    "teamId": "team-b",
-    "divisionId": "div-40-njpa",
-    "seasonYear": 2026,
-    "seasonNumber": 1
-  },
-  {
-    "playerId": "player-5",
-    "fullName": "Erin Five",
-    "teamId": "team-c",
-    "divisionId": "div-35-nyc",
-    "seasonYear": 2026,
-    "seasonNumber": 1
-  }
+	{
+		"playerId": "player-1",
+		"fullName": "Alex One",
+		"teamId": "team-a",
+		"divisionId": "div-40-njpa",
+		"seasonYear": 2026,
+		"seasonNumber": 1
+	},
+	{
+		"playerId": "player-2",
+		"fullName": "Blair Two",
+		"teamId": "team-a",
+		"divisionId": "div-40-njpa",
+		"seasonYear": 2026,
+		"seasonNumber": 1
+	},
+	{
+		"playerId": "player-3",
+		"fullName": "Casey Three",
+		"teamId": "team-b",
+		"divisionId": "div-40-njpa",
+		"seasonYear": 2026,
+		"seasonNumber": 1
+	},
+	{
+		"playerId": "player-4",
+		"fullName": "Dev Four",
+		"teamId": "team-b",
+		"divisionId": "div-40-njpa",
+		"seasonYear": 2026,
+		"seasonNumber": 1
+	},
+	{
+		"playerId": "player-5",
+		"fullName": "Erin Five",
+		"teamId": "team-c",
+		"divisionId": "div-35-nyc",
+		"seasonYear": 2026,
+		"seasonNumber": 1
+	}
 ]

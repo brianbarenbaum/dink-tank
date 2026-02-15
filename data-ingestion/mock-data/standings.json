@@ -1,26 +1,26 @@
 [
-  {
-    "divisionId": "div-40-njpa",
-    "teamId": "team-a",
-    "wins": 6,
-    "losses": 2,
-    "seasonYear": 2026,
-    "seasonNumber": 1
-  },
-  {
-    "divisionId": "div-40-njpa",
-    "teamId": "team-b",
-    "wins": 4,
-    "losses": 4,
-    "seasonYear": 2026,
-    "seasonNumber": 1
-  },
-  {
-    "divisionId": "div-35-nyc",
-    "teamId": "team-c",
-    "wins": 7,
-    "losses": 1,
-    "seasonYear": 2026,
-    "seasonNumber": 1
-  }
+	{
+		"divisionId": "div-40-njpa",
+		"teamId": "team-a",
+		"wins": 6,
+		"losses": 2,
+		"seasonYear": 2026,
+		"seasonNumber": 1
+	},
+	{
+		"divisionId": "div-40-njpa",
+		"teamId": "team-b",
+		"wins": 4,
+		"losses": 4,
+		"seasonYear": 2026,
+		"seasonNumber": 1
+	},
+	{
+		"divisionId": "div-35-nyc",
+		"teamId": "team-c",
+		"wins": 7,
+		"losses": 1,
+		"seasonYear": 2026,
+		"seasonNumber": 1
+	}
 ]

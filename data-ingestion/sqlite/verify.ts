@@ -14,7 +14,9 @@ const readSingleCount = (value: unknown): number => {
 	return 0;
 };
 
-export const verifySqliteIngestion = (dbPath: string): SqliteVerificationReport => {
+export const verifySqliteIngestion = (
+	dbPath: string,
+): SqliteVerificationReport => {
 	const db = openSqliteDb(dbPath);
 	try {
 		const fkViolations = db.pragma("foreign_key_check") as unknown[];

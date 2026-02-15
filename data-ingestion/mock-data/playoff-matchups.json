@@ -1,11 +1,11 @@
 [
-  {
-    "matchupId": "playoff-2001",
-    "divisionId": "div-40-njpa",
-    "homeTeamId": "team-a",
-    "awayTeamId": "00000000-0000-0000-0000-000000000000",
-    "scheduledTime": "2026-03-01T19:00:00Z",
-    "seasonYear": 2026,
-    "seasonNumber": 1
-  }
+	{
+		"matchupId": "playoff-2001",
+		"divisionId": "div-40-njpa",
+		"homeTeamId": "team-a",
+		"awayTeamId": "00000000-0000-0000-0000-000000000000",
+		"scheduledTime": "2026-03-01T19:00:00Z",
+		"seasonYear": 2026,
+		"seasonNumber": 1
+	}
 ]

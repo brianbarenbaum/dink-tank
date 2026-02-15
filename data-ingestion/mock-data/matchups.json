@@ -1,20 +1,20 @@
 [
-  {
-    "matchupId": "match-1001",
-    "divisionId": "div-40-njpa",
-    "homeTeamId": "team-a",
-    "awayTeamId": "team-b",
-    "scheduledTime": "2026-02-01T18:00:00Z",
-    "seasonYear": 2026,
-    "seasonNumber": 1
-  },
-  {
-    "matchupId": "match-1002",
-    "divisionId": "div-35-nyc",
-    "homeTeamId": "team-c",
-    "awayTeamId": "team-c",
-    "scheduledTime": "2026-02-02T18:00:00Z",
-    "seasonYear": 2026,
-    "seasonNumber": 1
-  }
+	{
+		"matchupId": "match-1001",
+		"divisionId": "div-40-njpa",
+		"homeTeamId": "team-a",
+		"awayTeamId": "team-b",
+		"scheduledTime": "2026-02-01T18:00:00Z",
+		"seasonYear": 2026,
+		"seasonNumber": 1
+	},
+	{
+		"matchupId": "match-1002",
+		"divisionId": "div-35-nyc",
+		"homeTeamId": "team-c",
+		"awayTeamId": "team-c",
+		"scheduledTime": "2026-02-02T18:00:00Z",
+		"seasonYear": 2026,
+		"seasonNumber": 1
+	}
 ]

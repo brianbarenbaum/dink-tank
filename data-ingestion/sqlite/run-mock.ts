@@ -75,14 +75,16 @@ export const runMockIngestion = (
 	const runId = `sqlite-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
 	db.prepare(
 		`INSERT INTO ingest_runs (run_id, run_type, status, metadata_json)
-		 VALUES (?, ?, 'running', ?)` ,
+		 VALUES (?, ?, 'running', ?)`,
 	).run(runId, mode, JSON.stringify({ phase }));
 
 	const rowsByTable: Record<string, number> = {};
 	let rowsWritten = 0;
 
 	try {
-		const regionsFixture = asArray<RegionFixture>(readJson<unknown>("regions.json"));
+		const regionsFixture = asArray<RegionFixture>(
+			readJson<unknown>("regions.json"),
+		);
 		const selectedDivisions = extractDivisionsFromRegions(regionsFixture, {
 			regionLocationFilter: config.regionLocationFilter,
 			divisionNameFilter: config.divisionNameFilter,
@@ -135,20 +137,24 @@ export const runMockIngestion = (
 			rowsWritten += upsertRows(db, "clubs", clubRows, ["club_id"]);
 			increment(rowsByTable, "clubs", clubRows.length);
 
-			const teamRows: Row[] = selectedTeams.map((team) => ({
-				team_id: sanitizeTeamForeignKey(team.teamId),
-				club_id: String(team.clubId),
-				team_name: String(team.teamName ?? team.teamId),
-			})).filter((team) => team.team_id);
+			const teamRows: Row[] = selectedTeams
+				.map((team) => ({
+					team_id: sanitizeTeamForeignKey(team.teamId),
+					club_id: String(team.clubId),
+					team_name: String(team.teamName ?? team.teamId),
+				}))
+				.filter((team) => team.team_id);
 			rowsWritten += upsertRows(db, "teams", teamRows, ["team_id"]);
 			increment(rowsByTable, "teams", teamRows.length);
 
-			const teamSeasonRows: Row[] = selectedTeams.map((team) => ({
-				team_id: sanitizeTeamForeignKey(team.teamId),
-				division_id: String(team.divisionId),
-				season_year: Number(team.seasonYear),
-				season_number: Number(team.seasonNumber),
-			})).filter((team) => team.team_id);
+			const teamSeasonRows: Row[] = selectedTeams
+				.map((team) => ({
+					team_id: sanitizeTeamForeignKey(team.teamId),
+					division_id: String(team.divisionId),
+					season_year: Number(team.seasonYear),
+					season_number: Number(team.seasonNumber),
+				}))
+				.filter((team) => team.team_id);
 			rowsWritten += upsertRows(db, "team_seasons", teamSeasonRows, [
 				"team_id",
 				"division_id",
@@ -174,13 +180,15 @@ export const runMockIngestion = (
 			rowsWritten += upsertRows(db, "players", playerRows, ["player_id"]);
 			increment(rowsByTable, "players", playerRows.length);
 
-			const rosterRows: Row[] = selectedPlayers.map((player) => ({
-				player_id: String(player.playerId),
-				team_id: sanitizeTeamForeignKey(player.teamId),
-				division_id: String(player.divisionId),
-				season_year: Number(player.seasonYear),
-				season_number: Number(player.seasonNumber),
-			})).filter((row) => row.team_id);
+			const rosterRows: Row[] = selectedPlayers
+				.map((player) => ({
+					player_id: String(player.playerId),
+					team_id: sanitizeTeamForeignKey(player.teamId),
+					division_id: String(player.divisionId),
+					season_year: Number(player.seasonYear),
+					season_number: Number(player.seasonNumber),
+				}))
+				.filter((row) => row.team_id);
 			rowsWritten += upsertRows(db, "player_rosters", rosterRows, [
 				"player_id",
 				"team_id",
@@ -230,12 +238,15 @@ export const runMockIngestion = (
 					season_year: Number(row.seasonYear),
 					season_number: Number(row.seasonNumber),
 				}));
-			rowsWritten += upsertRows(db, "matchups", selectedMatchups, ["matchup_id"]);
+			rowsWritten += upsertRows(db, "matchups", selectedMatchups, [
+				"matchup_id",
+			]);
 			increment(rowsByTable, "matchups", selectedMatchups.length);
 		}
 
 		if (
-			includeEndpoint(phase, "playoff-matchups") || includeEndpoint(phase, "all")
+			includeEndpoint(phase, "playoff-matchups") ||
+			includeEndpoint(phase, "all")
 		) {
 			const playoffFixture = asArray<Array<Record<string, unknown>>>(
 				readJson<unknown>("playoff-matchups.json"),
@@ -395,7 +406,7 @@ const readPhaseArg = (): IngestPhase => {
 };
 
 const readFlag = (name: string): string | undefined => {
-	const index = process.argv.findIndex((item) => item === name);
+	const index = process.argv.indexOf(name);
 	if (index === -1) {
 		return undefined;
 	}

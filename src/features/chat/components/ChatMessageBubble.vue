@@ -4,7 +4,7 @@ import { computed } from "vue";
 import type { ChatMessage } from "../types";
 
 interface ChatMessageBubbleProps {
-  message: ChatMessage;
+	message: ChatMessage;
 }
 
 const props = defineProps<ChatMessageBubbleProps>();

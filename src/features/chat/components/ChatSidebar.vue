@@ -2,18 +2,18 @@
 import { ChevronLeft, Pencil } from "lucide-vue-next";
 
 interface ChatSidebarProps {
-  mobile?: boolean;
-  open?: boolean;
+	mobile?: boolean;
+	open?: boolean;
 }
 
 withDefaults(defineProps<ChatSidebarProps>(), {
-  mobile: false,
-  open: false,
+	mobile: false,
+	open: false,
 });
 
 defineEmits<{
-  close: [];
-  toggleDesktop: [];
+	close: [];
+	toggleDesktop: [];
 }>();
 </script>
 

@@ -28,4 +28,3 @@ describe("crossclub sqlite verifier", () => {
 		expect(report.missingSeasonRows).toBe(0);
 	});
 });
-

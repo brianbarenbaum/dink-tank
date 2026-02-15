@@ -74,7 +74,9 @@ const main = async (): Promise<void> => {
 		phase,
 		dryRun,
 		strictDependencyGuard,
-		supabaseUrl: dryRun ? process.env.SUPABASE_URL : requiredEnv("SUPABASE_URL"),
+		supabaseUrl: dryRun
+			? process.env.SUPABASE_URL
+			: requiredEnv("SUPABASE_URL"),
 		supabaseServiceRoleKey: dryRun
 			? process.env.SUPABASE_SERVICE_ROLE_KEY
 			: requiredEnv("SUPABASE_SERVICE_ROLE_KEY"),

@@ -16,8 +16,8 @@ const buildUpsertSql = (
 		updateColumns.length === 0
 			? "DO NOTHING"
 			: `DO UPDATE SET ${updateColumns
-				.map((column) => `${column}=excluded.${column}`)
-				.join(", ")}`;
+					.map((column) => `${column}=excluded.${column}`)
+					.join(", ")}`;
 
 	return `
 		INSERT INTO ${table} (${columns.join(", ")})

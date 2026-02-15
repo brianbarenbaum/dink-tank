@@ -4,7 +4,7 @@ import ChatMessageBubble from "./ChatMessageBubble.vue";
 import type { ChatMessage } from "../types";
 
 interface ChatTranscriptProps {
-  messages: ChatMessage[];
+	messages: ChatMessage[];
 }
 
 defineProps<ChatTranscriptProps>();

@@ -1,42 +1,66 @@
 {
-  "match-1001": {
-    "matchupId": "match-1001",
-    "divisionId": "div-40-njpa",
-    "seasonYear": 2026,
-    "seasonNumber": 1,
-    "lineups": [
-      {
-        "lineupId": "lineup-1001-home",
-        "teamId": "team-a",
-        "isHome": true,
-        "slots": [
-          { "slotNumber": 1, "playerId": "player-1" },
-          { "slotNumber": 2, "playerId": "player-2" }
-        ]
-      },
-      {
-        "lineupId": "lineup-1001-away",
-        "teamId": "team-b",
-        "isHome": false,
-        "slots": [
-          { "slotNumber": 1, "playerId": "player-3" },
-          { "slotNumber": 2, "playerId": "player-4" }
-        ]
-      }
-    ],
-    "playerStats": [
-      { "matchupId": "match-1001", "playerId": "player-1", "teamId": "team-a", "wins": 3, "losses": 1 },
-      { "matchupId": "match-1001", "playerId": "player-2", "teamId": "team-a", "wins": 2, "losses": 2 },
-      { "matchupId": "match-1001", "playerId": "player-3", "teamId": "team-b", "wins": 1, "losses": 3 },
-      { "matchupId": "match-1001", "playerId": "player-4", "teamId": "team-b", "wins": 2, "losses": 2 }
-    ]
-  },
-  "playoff-2001": {
-    "matchupId": "playoff-2001",
-    "divisionId": "div-40-njpa",
-    "seasonYear": 2026,
-    "seasonNumber": 1,
-    "lineups": [],
-    "playerStats": []
-  }
+	"match-1001": {
+		"matchupId": "match-1001",
+		"divisionId": "div-40-njpa",
+		"seasonYear": 2026,
+		"seasonNumber": 1,
+		"lineups": [
+			{
+				"lineupId": "lineup-1001-home",
+				"teamId": "team-a",
+				"isHome": true,
+				"slots": [
+					{ "slotNumber": 1, "playerId": "player-1" },
+					{ "slotNumber": 2, "playerId": "player-2" }
+				]
+			},
+			{
+				"lineupId": "lineup-1001-away",
+				"teamId": "team-b",
+				"isHome": false,
+				"slots": [
+					{ "slotNumber": 1, "playerId": "player-3" },
+					{ "slotNumber": 2, "playerId": "player-4" }
+				]
+			}
+		],
+		"playerStats": [
+			{
+				"matchupId": "match-1001",
+				"playerId": "player-1",
+				"teamId": "team-a",
+				"wins": 3,
+				"losses": 1
+			},
+			{
+				"matchupId": "match-1001",
+				"playerId": "player-2",
+				"teamId": "team-a",
+				"wins": 2,
+				"losses": 2
+			},
+			{
+				"matchupId": "match-1001",
+				"playerId": "player-3",
+				"teamId": "team-b",
+				"wins": 1,
+				"losses": 3
+			},
+			{
+				"matchupId": "match-1001",
+				"playerId": "player-4",
+				"teamId": "team-b",
+				"wins": 2,
+				"losses": 2
+			}
+		]
+	},
+	"playoff-2001": {
+		"matchupId": "playoff-2001",
+		"divisionId": "div-40-njpa",
+		"seasonYear": 2026,
+		"seasonNumber": 1,
+		"lineups": [],
+		"playerStats": []
+	}
 }

@@ -60,10 +60,14 @@ describe("crossclub sqlite mock ingestion", () => {
 
 		const db = openSqliteDb(dbPath);
 		const divisionCount = (
-			db.prepare("SELECT COUNT(*) AS count FROM divisions").get() as { count: number }
+			db.prepare("SELECT COUNT(*) AS count FROM divisions").get() as {
+				count: number;
+			}
 		).count;
 		const teamCCount = (
-			db.prepare("SELECT COUNT(*) AS count FROM teams WHERE team_id = 'team-c'").get() as {
+			db
+				.prepare("SELECT COUNT(*) AS count FROM teams WHERE team_id = 'team-c'")
+				.get() as {
 				count: number;
 			}
 		).count;

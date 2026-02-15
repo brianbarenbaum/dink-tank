@@ -93,7 +93,11 @@ interface SupabaseInsertOptions {
 const DEFAULT_API_BASE =
 	"https://cplsecureapiproxy.azurewebsites.net/api/CPLSecureApiProxy/v0/api";
 
-const WEEKLY_ENDPOINTS: EndpointName[] = ["matchups", "playoff-matchups", "standings"];
+const WEEKLY_ENDPOINTS: EndpointName[] = [
+	"matchups",
+	"playoff-matchups",
+	"standings",
+];
 const BOOTSTRAP_ENDPOINTS: EndpointName[] = [
 	"players",
 	"standings",
@@ -265,13 +269,17 @@ export const normalizeLineupsFromDetail = (
 				}
 				const lineupId =
 					valueAsString(lineup.lineupId) ??
-					deterministicUuidFromSeed(`${input.matchupId}:${teamId}:${input.snapshotDate}`);
+					deterministicUuidFromSeed(
+						`${input.matchupId}:${teamId}:${input.snapshotDate}`,
+					);
 				return {
 					lineup_id: lineupId,
 					matchup_id: input.matchupId,
 					team_id: teamId,
 					submitted_at:
-						valueAsString(lineup.submittedAt) ?? valueAsString(lineup.updatedAt) ?? null,
+						valueAsString(lineup.submittedAt) ??
+						valueAsString(lineup.updatedAt) ??
+						null,
 					locked: Boolean(lineup.locked ?? lineup.isLocked ?? false),
 					raw_json: lineup,
 					snapshot_date: input.snapshotDate,
@@ -287,7 +295,9 @@ export const normalizeLineupsFromDetail = (
 			}
 			const lineupId =
 				valueAsString(lineup.lineupId) ??
-				deterministicUuidFromSeed(`${input.matchupId}:${teamId}:${input.snapshotDate}`);
+				deterministicUuidFromSeed(
+					`${input.matchupId}:${teamId}:${input.snapshotDate}`,
+				);
 			const lineupSlots = Array.isArray(lineup.lineupSlots)
 				? (lineup.lineupSlots as Record<string, unknown>[])
 				: [];
@@ -298,8 +308,10 @@ export const normalizeLineupsFromDetail = (
 					slot_no: valueAsNumber(slot.slotNo) ?? index + 1,
 					player_id: valueAsString(slot.playerId),
 					partner_player_id:
-						valueAsString(slot.partnerPlayerId) ?? valueAsString(slot.partnerId),
-					court_no: valueAsNumber(slot.courtNo) ?? valueAsNumber(slot.courtNumber),
+						valueAsString(slot.partnerPlayerId) ??
+						valueAsString(slot.partnerId),
+					court_no:
+						valueAsNumber(slot.courtNo) ?? valueAsNumber(slot.courtNumber),
 					role: valueAsString(slot.role),
 					raw_json: slot,
 				});
@@ -307,7 +319,11 @@ export const normalizeLineupsFromDetail = (
 		}
 
 		return {
-			lineups: uniqueByCompositeKey(lineups, ["matchup_id", "team_id", "snapshot_date"]),
+			lineups: uniqueByCompositeKey(lineups, [
+				"matchup_id",
+				"team_id",
+				"snapshot_date",
+			]),
 			slots: uniqueByCompositeKey(slots, ["lineup_id", "slot_no"]),
 		};
 	}
@@ -400,7 +416,11 @@ export const normalizeLineupsFromDetail = (
 	}
 
 	return {
-		lineups: uniqueByCompositeKey(lineups, ["matchup_id", "team_id", "snapshot_date"]),
+		lineups: uniqueByCompositeKey(lineups, [
+			"matchup_id",
+			"team_id",
+			"snapshot_date",
+		]),
 		slots: uniqueByCompositeKey(slots, ["lineup_id", "slot_no"]),
 	};
 };
@@ -414,7 +434,9 @@ export const extractDivisionsFromRegions = (
 	regions: RegionApiRecord[],
 	filter: DivisionFilterInput = {},
 ): RegionDivision[] => {
-	const regionLocationFilter = filter.regionLocationFilter?.trim().toLowerCase();
+	const regionLocationFilter = filter.regionLocationFilter
+		?.trim()
+		.toLowerCase();
 	const divisionNameFilter = filter.divisionNameFilter?.trim().toLowerCase();
 	const divisions: RegionDivision[] = [];
 
@@ -427,7 +449,9 @@ export const extractDivisionsFromRegions = (
 			continue;
 		}
 
-		const divisionItems = toArrayFlexible<RegionDivisionApiRecord>(region.divisions);
+		const divisionItems = toArrayFlexible<RegionDivisionApiRecord>(
+			region.divisions,
+		);
 		for (const division of divisionItems) {
 			if (
 				divisionNameFilter &&
@@ -475,7 +499,11 @@ export const planEndpointWork = (
 };
 
 export const deterministicUuidFromSeed = (seed: string): string => {
-	const hash = createHash("sha1").update(seed).digest("hex").slice(0, 32).split("");
+	const hash = createHash("sha1")
+		.update(seed)
+		.digest("hex")
+		.slice(0, 32)
+		.split("");
 	hash[12] = "4";
 	const variant = Number.parseInt(hash[16] ?? "8", 16);
 	hash[16] = (8 + (variant % 4)).toString(16);
@@ -491,7 +519,9 @@ export const selectDetailMatchups = (
 	if (mode !== "weekly") {
 		return matchups;
 	}
-	const cutoff = new Date(now.getTime() - weeklyWindowDays * 24 * 60 * 60 * 1000);
+	const cutoff = new Date(
+		now.getTime() - weeklyWindowDays * 24 * 60 * 60 * 1000,
+	);
 	return matchups.filter((matchup) => {
 		const scheduledTime = matchup.scheduledTime ?? null;
 		if (!scheduledTime) {
@@ -594,7 +624,10 @@ class SupabaseRestClient {
 	}
 }
 
-const endpointPathForDivision = (divisionId: string, endpoint: EndpointName): string => {
+const endpointPathForDivision = (
+	divisionId: string,
+	endpoint: EndpointName,
+): string => {
 	switch (endpoint) {
 		case "players":
 			return `/divisions/${divisionId}/players`;
@@ -628,7 +661,9 @@ const fetchJson = async (
 		try {
 			const response = await fetch(url);
 			if (!response.ok) {
-				throw new Error(`CrossClub fetch failed (${url}) status ${response.status}`);
+				throw new Error(
+					`CrossClub fetch failed (${url}) status ${response.status}`,
+				);
 			}
 			return parseJsonResponseSafely(response);
 		} catch (error) {
@@ -648,7 +683,9 @@ const fetchJson = async (
 	throw new Error(`Retry loop exhausted for ${url}`);
 };
 
-const uniqueByMatchupId = (items: DetailMatchupCandidate[]): DetailMatchupCandidate[] => {
+const uniqueByMatchupId = (
+	items: DetailMatchupCandidate[],
+): DetailMatchupCandidate[] => {
 	const deduped = new Map<string, DetailMatchupCandidate>();
 	for (const item of items) {
 		deduped.set(item.matchupId, item);
@@ -693,7 +730,13 @@ export const buildPlayerRosterRows = (
 			club_color: player.clubColor ?? null,
 			snapshot_date: seasonContext.snapshotDate,
 		})),
-		["player_id", "division_id", "season_number", "season_year", "snapshot_date"],
+		[
+			"player_id",
+			"division_id",
+			"season_number",
+			"season_year",
+			"snapshot_date",
+		],
 	);
 
 interface TeamSeasonContextInput extends SeasonContextInput {
@@ -793,7 +836,10 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 	const supabase =
 		dryRun || !config.supabaseUrl || !config.supabaseServiceRoleKey
 			? null
-			: new SupabaseRestClient(config.supabaseUrl, config.supabaseServiceRoleKey);
+			: new SupabaseRestClient(
+					config.supabaseUrl,
+					config.supabaseServiceRoleKey,
+				);
 
 	if (!dryRun && !supabase) {
 		throw new Error(
@@ -874,7 +920,10 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 		const divisionMap = new Map<string, RegionDivision>(
 			divisions.map((division) => [division.divisionId, division]),
 		);
-		const chunks = buildDivisionChunks(Array.from(divisionMap.keys()), chunkSize);
+		const chunks = buildDivisionChunks(
+			Array.from(divisionMap.keys()),
+			chunkSize,
+		);
 		const endpoints = planEndpointWork(mode, phase);
 
 		for (const chunk of chunks) {
@@ -892,7 +941,8 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 						seasonNumber: division.seasonNumber,
 					});
 					if (supabase && mode === "weekly") {
-						const previousCheckpoint = await supabase.getCheckpoint(checkpointKey);
+						const previousCheckpoint =
+							await supabase.getCheckpoint(checkpointKey);
 						if (previousCheckpoint === snapshotDate) {
 							continue;
 						}
@@ -908,8 +958,9 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 									seasonYear: division.seasonYear,
 									seasonNumber: division.seasonNumber,
 								});
-								const checkpointValue =
-									await supabase.getCheckpoint(prerequisiteCheckpointKey);
+								const checkpointValue = await supabase.getCheckpoint(
+									prerequisiteCheckpointKey,
+								);
 								if (checkpointValue) {
 									completed.push(prerequisite);
 								}
@@ -924,14 +975,17 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 						}
 
 						const baseMatchups = toArray<DetailMatchupCandidate>(
-							await fetchJson(`${apiBaseUrl}/divisions/${divisionId}/matchups`, {
-								retryAttempts,
-								retryBaseDelayMs,
-								retryJitterRatio,
-								onRetry: () => {
-									retries += 1;
+							await fetchJson(
+								`${apiBaseUrl}/divisions/${divisionId}/matchups`,
+								{
+									retryAttempts,
+									retryBaseDelayMs,
+									retryJitterRatio,
+									onRetry: () => {
+										retries += 1;
+									},
 								},
-							}),
+							),
 						);
 						const playoffMatchups = toArray<DetailMatchupCandidate>(
 							await fetchJson(
@@ -955,14 +1009,17 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 
 						for (const target of detailTargets) {
 							const detailPath = `/divisions/${divisionId}/matchups/${target.matchupId}`;
-							const detailPayload = await fetchJson(`${apiBaseUrl}${detailPath}`, {
-								retryAttempts,
-								retryBaseDelayMs,
-								retryJitterRatio,
-								onRetry: () => {
-									retries += 1;
+							const detailPayload = await fetchJson(
+								`${apiBaseUrl}${detailPath}`,
+								{
+									retryAttempts,
+									retryBaseDelayMs,
+									retryJitterRatio,
+									onRetry: () => {
+										retries += 1;
+									},
 								},
-							});
+							);
 							if (supabase) {
 								await supabase.insert("api_raw_ingest", [
 									{
@@ -978,8 +1035,12 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 								]);
 							}
 
-							const detailObject = toObject(denormalizeDotNetJson(detailPayload));
-							const rawMatchupStats = Array.isArray(detailObject.matchupPlayerStats)
+							const detailObject = toObject(
+								denormalizeDotNetJson(detailPayload),
+							);
+							const rawMatchupStats = Array.isArray(
+								detailObject.matchupPlayerStats,
+							)
 								? (detailObject.matchupPlayerStats as Record<string, unknown>[])
 								: [];
 
@@ -997,11 +1058,9 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 									})),
 									["player_id"],
 								);
-								await supabase.upsert(
-									"players",
-									playerRows,
-									{ onConflict: "player_id" },
-								);
+								await supabase.upsert("players", playerRows, {
+									onConflict: "player_id",
+								});
 
 								const matchupPlayerStatRows = uniqueByCompositeKey(
 									rawMatchupStats.map((stat) => ({
@@ -1022,7 +1081,8 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 										points_won: stat.pointsWon ?? null,
 										total_points_against: stat.totalPointsAgainst ?? null,
 										points_per_game: stat.pointsPerGame ?? null,
-										total_point_differential: stat.totalPointDifferential ?? null,
+										total_point_differential:
+											stat.totalPointDifferential ?? null,
 										average_point_differential:
 											stat.averagePointDifferential ?? null,
 										clutch_wins: stat.clutchWins ?? null,
@@ -1071,9 +1131,13 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 									);
 								}
 								if (normalizedLineups.slots.length) {
-									await supabase.upsert("lineup_slots", normalizedLineups.slots, {
-										onConflict: "lineup_id,slot_no",
-									});
+									await supabase.upsert(
+										"lineup_slots",
+										normalizedLineups.slots,
+										{
+											onConflict: "lineup_id,slot_no",
+										},
+									);
 									rowsWritten += normalizedLineups.slots.length;
 									incrementCounter(
 										rowsByTable,
@@ -1084,7 +1148,10 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 							}
 						}
 					} else {
-						const endpointPath = endpointPathForDivision(divisionId, endpointName);
+						const endpointPath = endpointPathForDivision(
+							divisionId,
+							endpointName,
+						);
 						const payload = await fetchJson(`${apiBaseUrl}${endpointPath}`, {
 							retryAttempts,
 							retryBaseDelayMs,
@@ -1114,7 +1181,9 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 							const players = toArray<Record<string, unknown>>(payload);
 							const clubRows = buildClubRowsFromPlayers(players);
 							if (clubRows.length) {
-								await supabase.upsert("clubs", clubRows, { onConflict: "club_id" });
+								await supabase.upsert("clubs", clubRows, {
+									onConflict: "club_id",
+								});
 							}
 							const teamRowsFromPlayers = buildTeamRowsFromPlayers(players);
 							if (teamRowsFromPlayers.length) {
@@ -1142,11 +1211,9 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 								})),
 								["player_id"],
 							);
-							await supabase.upsert(
-								"players",
-								playerRows,
-								{ onConflict: "player_id" },
-							);
+							await supabase.upsert("players", playerRows, {
+								onConflict: "player_id",
+							});
 							const playerDivisionStatRows = uniqueByCompositeKey(
 								players.map((player) => ({
 									division_id: player.divisionId,
@@ -1161,7 +1228,8 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 									points_won: player.pointsWon ?? null,
 									total_points_against: player.totalPointsAgainst ?? null,
 									points_per_game: player.pointsPerGame ?? null,
-									total_point_differential: player.totalPointDifferential ?? null,
+									total_point_differential:
+										player.totalPointDifferential ?? null,
 									average_point_differential:
 										player.averagePointDifferential ?? null,
 									clutch_wins: player.clutchWins ?? null,
@@ -1208,7 +1276,11 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 								playerRosterRows.length,
 							);
 							incrementCounter(rowsByTable, "clubs", clubRows.length);
-							incrementCounter(rowsByTable, "teams", teamRowsFromPlayers.length);
+							incrementCounter(
+								rowsByTable,
+								"teams",
+								teamRowsFromPlayers.length,
+							);
 						}
 
 						if (endpointName === "standings" && supabase) {
@@ -1262,7 +1334,8 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 											mixed_win_rate: standing.mixedWinRate ?? null,
 											women_win_rate: standing.womenWinRate ?? null,
 											men_win_rate: standing.menWinRate ?? null,
-											average_points_per_game: standing.averagePointsPerGame ?? null,
+											average_points_per_game:
+												standing.averagePointsPerGame ?? null,
 											average_point_differential:
 												standing.averagePointDifferential ?? null,
 											clutch_win_rate: standing.clutchWinRate ?? null,
@@ -1270,18 +1343,24 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 										};
 									})
 									.filter((standing) => standing !== null),
-								["division_id", "team_id", "season_number", "season_year", "snapshot_date"],
+								[
+									"division_id",
+									"team_id",
+									"season_number",
+									"season_year",
+									"snapshot_date",
+								],
 							);
-							await supabase.upsert(
-								"team_standings",
-								standingsRows,
-								{
-									onConflict:
-										"division_id,team_id,season_number,season_year,snapshot_date",
-								},
-							);
+							await supabase.upsert("team_standings", standingsRows, {
+								onConflict:
+									"division_id,team_id,season_number,season_year,snapshot_date",
+							});
 							rowsWritten += standingsRows.length;
-							incrementCounter(rowsByTable, "team_standings", standingsRows.length);
+							incrementCounter(
+								rowsByTable,
+								"team_standings",
+								standingsRows.length,
+							);
 						}
 
 						if (endpointName === "teams" && supabase) {
@@ -1305,11 +1384,9 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 								}),
 								["club_id"],
 							);
-							await supabase.upsert(
-								"clubs",
-								clubRows,
-								{ onConflict: "club_id" },
-							);
+							await supabase.upsert("clubs", clubRows, {
+								onConflict: "club_id",
+							});
 							const teamRows = uniqueByCompositeKey(
 								teams
 									.map((team) => {
@@ -1327,11 +1404,9 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 									.filter((team) => team !== null),
 								["team_id"],
 							);
-							await supabase.upsert(
-								"teams",
-								teamRows,
-								{ onConflict: "team_id" },
-							);
+							await supabase.upsert("teams", teamRows, {
+								onConflict: "team_id",
+							});
 							const teamSeasonRows = buildTeamSeasonRows(teams, {
 								divisionId,
 								seasonNumber: division.seasonNumber,
@@ -1344,11 +1419,16 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 							});
 							rowsWritten += teamRows.length;
 							incrementCounter(rowsByTable, "teams", teamRows.length);
-							incrementCounter(rowsByTable, "team_seasons", teamSeasonRows.length);
+							incrementCounter(
+								rowsByTable,
+								"team_seasons",
+								teamSeasonRows.length,
+							);
 						}
 
 						if (
-							(endpointName === "matchups" || endpointName === "playoff-matchups") &&
+							(endpointName === "matchups" ||
+								endpointName === "playoff-matchups") &&
 							supabase
 						) {
 							const matchups = toArray<Record<string, unknown>>(payload);
@@ -1378,11 +1458,9 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 								})),
 								["matchup_id"],
 							);
-							await supabase.upsert(
-								"matchups",
-								matchupRows,
-								{ onConflict: "matchup_id" },
-							);
+							await supabase.upsert("matchups", matchupRows, {
+								onConflict: "matchup_id",
+							});
 							rowsWritten += matchupRows.length;
 							incrementCounter(rowsByTable, "matchups", matchupRows.length);
 						}

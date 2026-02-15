@@ -1,28 +1,28 @@
 [
-  {
-    "regionId": "region-njpa",
-    "location": "NJ / PA",
-    "divisions": [
-      {
-        "divisionId": "div-40-njpa",
-        "regionId": "region-njpa",
-        "divisionName": "4.0",
-        "seasonNumber": 1,
-        "seasonYear": 2026
-      }
-    ]
-  },
-  {
-    "regionId": "region-nyc",
-    "location": "NYC",
-    "divisions": [
-      {
-        "divisionId": "div-35-nyc",
-        "regionId": "region-nyc",
-        "divisionName": "3.5",
-        "seasonNumber": 1,
-        "seasonYear": 2026
-      }
-    ]
-  }
+	{
+		"regionId": "region-njpa",
+		"location": "NJ / PA",
+		"divisions": [
+			{
+				"divisionId": "div-40-njpa",
+				"regionId": "region-njpa",
+				"divisionName": "4.0",
+				"seasonNumber": 1,
+				"seasonYear": 2026
+			}
+		]
+	},
+	{
+		"regionId": "region-nyc",
+		"location": "NYC",
+		"divisions": [
+			{
+				"divisionId": "div-35-nyc",
+				"regionId": "region-nyc",
+				"divisionName": "3.5",
+				"seasonNumber": 1,
+				"seasonYear": 2026
+			}
+		]
+	}
 ]
