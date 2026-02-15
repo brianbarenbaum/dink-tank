@@ -1,3 +1,5 @@
+import { parseWorkerEnv } from "./env";
+
 export interface Env {
   OPENAI_API_KEY?: string;
   SUPABASE_DB_URL?: string;
@@ -14,10 +16,21 @@ const json = (body: unknown, status = 200): Response =>
   });
 
 export default {
-  async fetch(request: Request): Promise<Response> {
+  async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
     if (url.pathname === "/api/chat" && request.method === "POST") {
+      const envResult = parseWorkerEnv(env);
+      if (!envResult.ok) {
+        return json(
+          {
+            error: "misconfigured_env",
+            message: envResult.error,
+          },
+          500,
+        );
+      }
+
       return json(
         {
           error: "not_implemented",
