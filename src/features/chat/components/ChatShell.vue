@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ref } from "vue";
+
 import ChatComposer from "./ChatComposer.vue";
 import ChatSidebar from "./ChatSidebar.vue";
 import ChatTranscript from "./ChatTranscript.vue";
@@ -32,6 +34,8 @@ const props = withDefaults(defineProps<ChatShellProps>(), {
 const emit = defineEmits<{
   submit: [value: string];
 }>();
+
+const mobileSidebarOpen = ref(false);
 </script>
 
 <template>
@@ -41,9 +45,31 @@ const emit = defineEmits<{
   >
     <ChatSidebar />
 
+    <div
+      v-if="mobileSidebarOpen"
+      class="fixed inset-0 z-30 bg-black/50 lg:hidden"
+      @click="mobileSidebarOpen = false"
+    />
+    <ChatSidebar
+      mobile
+      :open="mobileSidebarOpen"
+      @close="mobileSidebarOpen = false"
+    />
+
     <section class="flex min-h-screen flex-col gap-4 p-3 md:p-4 lg:p-6">
       <header class="flex items-center justify-between rounded-lg border px-4 py-3">
-        <p class="text-xs font-semibold uppercase tracking-[0.22em]">Dink Tank AI</p>
+        <div class="flex items-center gap-3">
+          <button
+            type="button"
+            class="h-11 rounded-md border px-3 text-xs font-semibold uppercase tracking-wide lg:hidden"
+            data-testid="mobile-sidebar-toggle"
+            aria-label="Open sidebar"
+            @click="mobileSidebarOpen = true"
+          >
+            Menu
+          </button>
+          <p class="text-xs font-semibold uppercase tracking-[0.22em]">Dink Tank AI</p>
+        </div>
         <p class="text-xs uppercase tracking-[0.18em] text-[var(--chat-muted)]">Today</p>
       </header>
 

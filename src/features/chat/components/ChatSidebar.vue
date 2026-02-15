@@ -1,9 +1,42 @@
+<script setup lang="ts">
+interface ChatSidebarProps {
+  mobile?: boolean;
+  open?: boolean;
+}
+
+withDefaults(defineProps<ChatSidebarProps>(), {
+  mobile: false,
+  open: false,
+});
+
+defineEmits<{
+  close: [];
+}>();
+</script>
+
 <template>
   <aside
     data-testid="chat-sidebar"
-    class="hidden border-r p-4 lg:flex lg:flex-col lg:gap-6"
+    :class="
+      mobile
+        ? [
+            'fixed inset-y-0 left-0 z-40 flex w-72 flex-col gap-6 border-r p-4 transition-transform duration-150 ease-out lg:hidden',
+            open ? 'translate-x-0' : '-translate-x-full',
+          ]
+        : 'hidden border-r p-4 lg:flex lg:flex-col lg:gap-6'
+    "
     aria-label="Session sidebar"
   >
+    <button
+      v-if="mobile"
+      type="button"
+      class="h-11 self-end rounded-md border px-3 text-xs font-semibold uppercase tracking-wide"
+      aria-label="Close sidebar"
+      @click="$emit('close')"
+    >
+      Close
+    </button>
+
     <section class="space-y-3">
       <h1 class="text-lg font-semibold uppercase tracking-[0.24em]">Dink Tank</h1>
       <button type="button" class="h-12 rounded-md border px-4 text-left text-sm font-semibold uppercase tracking-wide">
