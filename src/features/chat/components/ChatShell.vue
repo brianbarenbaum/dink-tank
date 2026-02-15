@@ -5,20 +5,33 @@ import ChatTranscript from "./ChatTranscript.vue";
 
 import type { ChatMessage } from "../types";
 
-const messages: ChatMessage[] = [
-  {
-    id: "seed-assistant",
-    role: "assistant",
-    content: "Welcome back, Coach. Database synced. Match results from the weekend tournament processed.",
-    createdAt: new Date(0).toISOString(),
-  },
-  {
-    id: "seed-user",
-    role: "user",
-    content: "Show me the pickleball win/loss ratios for Team A.",
-    createdAt: new Date(0).toISOString(),
-  },
-];
+interface ChatShellProps {
+  messages?: ChatMessage[];
+  isSending?: boolean;
+}
+
+const props = withDefaults(defineProps<ChatShellProps>(), {
+  messages: () => [
+    {
+      id: "seed-assistant",
+      role: "assistant",
+      content:
+        "Welcome back, Coach. Database synced. Match results from the weekend tournament processed.",
+      createdAt: new Date(0).toISOString(),
+    },
+    {
+      id: "seed-user",
+      role: "user",
+      content: "Show me the pickleball win/loss ratios for Team A.",
+      createdAt: new Date(0).toISOString(),
+    },
+  ],
+  isSending: false,
+});
+
+const emit = defineEmits<{
+  submit: [value: string];
+}>();
 </script>
 
 <template>
@@ -34,8 +47,8 @@ const messages: ChatMessage[] = [
         <p class="text-xs uppercase tracking-[0.18em] text-[var(--chat-muted)]">Today</p>
       </header>
 
-      <ChatTranscript :messages="messages" />
-      <ChatComposer />
+      <ChatTranscript :messages="props.messages" />
+      <ChatComposer :is-sending="props.isSending" @submit="emit('submit', $event)" />
     </section>
   </main>
 </template>
