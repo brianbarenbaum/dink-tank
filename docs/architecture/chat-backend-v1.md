@@ -81,3 +81,12 @@ RUN_LOCAL_BACKEND_E2E=1 WORKER_BASE_URL=http://127.0.0.1:8787 npm run test:e2e -
 - Worker JWT verification and user-bound access control
 - Persistent conversation memory in Supabase
 - Rate limiting / abuse controls
+
+## Production Gate
+
+Before production deployment, all of the following must be complete:
+
+- JWT-authenticated frontend-to-worker request flow.
+- Worker-side JWT validation and authorization checks.
+- Non-anonymous deployment posture (no public unauthenticated access).
+- Rate limiting and monitoring for query abuse.
