@@ -118,3 +118,58 @@
     @apply bg-background text-foreground;
   }
 }
+
+:root {
+  --chat-bg: #020b04;
+  --chat-panel: #051108;
+  --chat-text: #72ff9c;
+  --chat-line: #0f5d23;
+  --chat-muted: #2f9a4a;
+  --chat-glow: #0bea37;
+}
+
+.chat-root {
+  background-color: var(--chat-bg);
+  color: var(--chat-text);
+  background-image: radial-gradient(circle at top right, rgb(11 234 55 / 14%), transparent 40%);
+}
+
+.chat-root .border {
+  border-color: color-mix(in oklab, var(--chat-line), black 35%);
+}
+
+.chat-root button,
+.chat-root input {
+  background-color: color-mix(in oklab, var(--chat-panel), black 25%);
+  color: var(--chat-text);
+  border-color: var(--chat-line);
+}
+
+.chat-root button:focus-visible,
+.chat-root input:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--chat-glow), black 35%);
+}
+
+.chat-assistant-bubble {
+  background-color: color-mix(in oklab, var(--chat-panel), black 15%);
+  border-color: color-mix(in oklab, var(--chat-line), black 20%);
+}
+
+.chat-user-bubble {
+  background-color: color-mix(in oklab, var(--chat-panel), black 5%);
+  border-color: color-mix(in oklab, var(--chat-glow), black 30%);
+}
+
+.chat-scanline::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(
+    to bottom,
+    rgb(26 84 39 / 0%) 0,
+    rgb(26 84 39 / 12%) 50%,
+    rgb(26 84 39 / 0%) 100%
+  );
+  background-size: 100% 5px;
+}
