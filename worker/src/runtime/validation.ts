@@ -8,8 +8,14 @@ import type {
 
 const MAX_MESSAGES = 20;
 
+/**
+ * Creates a standardized validation failure payload.
+ */
 const fail = (error: string): ValidationFailure => ({ ok: false, error });
 
+/**
+ * Validates that an unknown value matches the accepted chat message contract.
+ */
 const isMessage = (value: unknown): value is ChatMessage => {
 	if (!value || typeof value !== "object") {
 		return false;
@@ -29,6 +35,9 @@ const success = (value: ChatRequest): ValidationSuccess => ({
 	value,
 });
 
+/**
+ * Validates and normalizes the incoming `/api/chat` request body.
+ */
 export const parseChatRequest = (payload: unknown): ValidationResult => {
 	if (!payload || typeof payload !== "object") {
 		return fail("Request body must be an object.");

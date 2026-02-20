@@ -1,0 +1,152 @@
+[
+	{
+		"input": "Who is currently in first place in the NJ/PA 3.0 Division?",
+		"expected_output": "The Pickle Jar is currently in first place in the 3.0 Division with a record of 12-1-0.",
+		"metadata": { "category": "Standings", "clarified": true }
+	},
+	{
+		"input": "What is Bounce Philly's record?",
+		"expected_output": "CLARIFICATION_REQUIRED: I see Bounce Philly teams in several divisions. Which one are you interested in?",
+		"metadata": { "category": "Ambiguity", "requires_followup": true }
+	},
+	{
+		"input": "Which team has the best Women's record in the 3.0 Northeast pod?",
+		"expected_output": "Home Court has the best Women's record in the 3.0 Northeast pod (87-17 record).",
+		"metadata": { "category": "Analytical", "clarified": true }
+	},
+	{
+		"input": "Who are the top 3 teams in the Northwest pod?",
+		"expected_output": "CLARIFICATION_REQUIRED: Northwest pods exist in the 3.0, 3.5, and 4.0 divisions. Which division would you like the top teams for?",
+		"metadata": { "category": "Ambiguity", "requires_followup": true }
+	},
+	{
+		"input": "Compare the home vs away win percentage for 3.0 Monroe Flash.",
+		"expected_output": "In the 3.0 Division, Monroe Flash has an 83.33% win rate at home (5-1) and a 100% win rate away (5-0).",
+		"metadata": { "category": "Comparison", "clarified": true }
+	},
+	{
+		"input": "What is the average PPG for the 3.0 Southeast region?",
+		"expected_output": "The average PPG for teams in the 3.0 Southeast region is 592.45.",
+		"metadata": { "category": "Aggregation", "clarified": true }
+	},
+	{
+		"input": "Is there a 4.5 division team for Flemington?",
+		"expected_output": "Currently, Flemington's primary teams are in the 3.0 division. There are no Flemington teams registered in the current 4.5 standings.",
+		"metadata": { "category": "Filtering", "clarified": true }
+	},
+	{
+		"input": "How many teams have a win percentage over 70% in the 3.0 Southwest pod?",
+		"expected_output": "Two teams: Monroe Flash (90.91%) and Picklr Newtown (72.73%).",
+		"metadata": { "category": "Counting", "clarified": true }
+	},
+	{
+		"input": "What was the result of the last match for Pickle Juice?",
+		"expected_output": "CLARIFICATION_REQUIRED: Pickle Juice has teams in multiple divisions. Are you asking about their 3.0 Southeast team or their 3.5 team?",
+		"metadata": { "category": "Ambiguity", "requires_followup": true }
+	},
+	{
+		"input": "Show me the standings for the 4.0 division.",
+		"expected_output": "CLARIFICATION_REQUIRED: Are you looking for the Standard 4.0 Division or the 4.0 (50+) Seniors Division?",
+		"metadata": { "category": "Ambiguity", "requires_followup": true }
+	},
+	{
+		"input": "What team does Maria Valencia play for in the 3.0 division?",
+		"expected_output": "Maria Valencia plays for the Pickle Jar (3.0 Northwest).",
+		"metadata": { "category": "Players", "clarified": true }
+	},
+	{
+		"input": "Who is the player ranked #2 overall in the 3.0 league?",
+		"expected_output": "Uttam Purohit from Monroe Flash is the #2 ranked player in the 3.0 division.",
+		"metadata": { "category": "Players", "clarified": true }
+	},
+	{
+		"input": "Which 3.0 team has the highest 'Team Point Diff'?",
+		"expected_output": "The Pickle Jar has the highest Team Point Diff at +1146.",
+		"metadata": { "category": "Standings", "clarified": true }
+	},
+	{
+		"input": "List all teams in the 3.0 Northeast pod.",
+		"expected_output": "Flemington Blue, Home Court, Stelton Strikers, Premiere, and Pickleball HQ.",
+		"metadata": { "category": "Filtering", "clarified": true }
+	},
+	{
+		"input": "What is the rank of Alex Johnson in the 3.0 Southwest?",
+		"expected_output": "Alex Johnson is currently ranked #5 in the 3.0 division and plays for Picklr Newtown.",
+		"metadata": { "category": "Players", "clarified": true }
+	},
+	{
+		"input": "Which 3.0 Southwest team has the best mixed doubles record?",
+		"expected_output": "Monroe Flash has the best mixed doubles record in the 3.0 Southwest (117-59).",
+		"metadata": { "category": "Analytical", "clarified": true }
+	},
+	{
+		"input": "How many games has 3.0 Flemington Blue won total?",
+		"expected_output": "Flemington Blue has a game record of 225-191, with 225 total games won.",
+		"metadata": { "category": "Stats", "clarified": true }
+	},
+	{
+		"input": "Who has more total points: 3.0 Stelton Strikers or 3.0 Premiere?",
+		"expected_output": "Stelton Strikers (+905) has significantly more points than Premiere (+119).",
+		"metadata": { "category": "Comparison", "clarified": true }
+	},
+	{
+		"input": "When are the 3.5 matches?",
+		"expected_output": "CLARIFICATION_REQUIRED: 3.5 matches are typically Wednesdays. Are you asking about the 3.5 Standard or 3.5 (50+) division?",
+		"metadata": { "category": "Ambiguity", "requires_followup": true }
+	},
+	{
+		"input": "Is Lehigh Valley Spartans still winless in the 3.0 Northwest?",
+		"expected_output": "Yes, they are 0-13-0 with a 0% win percentage.",
+		"metadata": { "category": "Standings", "clarified": true }
+	},
+	{
+		"input": "Which 3.0 pod is the most competitive based on point differential?",
+		"expected_output": "The Southeast pod is most competitive, with the smallest spread between the top and bottom teams.",
+		"metadata": { "category": "Analytical", "clarified": true }
+	},
+	{
+		"input": "What is the 'Clutch Win %' for 3.0 Pickle Jar?",
+		"expected_output": "The Pickle Jar has a Clutch Win % of 58.47%.",
+		"metadata": { "category": "Stats", "clarified": true }
+	},
+	{
+		"input": "Who was Fran Kelly's partner in week 13 game 1 in 3.5 (50+)?",
+		"expected_output": "Fran Kelly's partner in week 13 game 1 for 3.5 (50+) was Thomas Kang.",
+		"metadata": { "category": "Players", "clarified": true }
+	},
+	{
+		"input": "Compare the Avg PPG of 3.0 Northwest and 3.0 Southeast.",
+		"expected_output": "Northwest averages ~575 PPG, while Southeast averages ~592 PPG.",
+		"metadata": { "category": "Comparison", "clarified": true }
+	},
+	{
+		"input": "What is the date for the 4.0 tryouts in July 2026?",
+		"expected_output": "The 4.0 tryouts are Wednesday, July 16, from 7:30 PM to 10:00 PM.",
+		"metadata": { "category": "Schedule", "clarified": true }
+	},
+	{
+		"input": "How many 3.0 teams have a win percentage below 20%?",
+		"expected_output": "Three teams: Mercer Bucks, Players Courtyard, and Lehigh Valley Spartans.",
+		"metadata": { "category": "Filtering", "clarified": true }
+	},
+	{
+		"input": "Which 3.0 team has the worst 'Away Record'?",
+		"expected_output": "Lehigh Valley Spartans have the worst away record at 0-8.",
+		"metadata": { "category": "Standings", "clarified": true }
+	},
+	{
+		"input": "How many men are required on a team roster?",
+		"expected_output": "Teams require 8 men and 8 women for a total of 16 players.",
+		"metadata": { "category": "Rules", "clarified": true }
+	},
+	{
+		"input": "What are the four pod names in the NJ/PA divisions?",
+		"expected_output": "Northwest, Southwest, Northeast, and Southeast.",
+		"metadata": { "category": "General Info", "clarified": true }
+	},
+	{
+		"input": "Can a player with a 4.1 DUPR play in the 3.5 division?",
+		"expected_output": "No, players over 3.99 DUPR are generally required to play in the 4.0 division.",
+		"metadata": { "category": "Rules", "clarified": true }
+	}
+]

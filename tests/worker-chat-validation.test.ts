@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseChatRequest } from "../worker/src/chat/validation";
+import { parseChatRequest } from "../worker/src/runtime/validation";
 
 describe("worker chat validation", () => {
 	it("accepts valid chat payload", () => {

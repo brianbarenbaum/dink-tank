@@ -1,6 +1,6 @@
 import { parseWorkerEnv } from "./env";
-import { handleChatRequest } from "./chat/handler";
-import { runSqlAgent } from "./chat/sqlAgent";
+import { handleChatRequest } from "./handler";
+import { runSqlAgent } from "./sqlAgent";
 
 export interface Env {
 	HYPERDRIVE?: {
@@ -12,8 +12,15 @@ export interface Env {
 	LLM_MODEL?: string;
 	SQL_QUERY_TIMEOUT_MS?: string;
 	EXPOSE_ERROR_DETAILS?: string;
+	LANGFUSE_PUBLIC_KEY?: string;
+	LANGFUSE_SECRET_KEY?: string;
+	LANGFUSE_BASE_URL?: string;
+	LANGFUSE_TRACING_ENVIRONMENT?: string;
 }
 
+/**
+ * Builds a JSON response with a consistent content-type header.
+ */
 const json = (body: unknown, status = 200): Response =>
 	new Response(JSON.stringify(body), {
 		status,
@@ -22,6 +29,9 @@ const json = (body: unknown, status = 200): Response =>
 		},
 	});
 
+/**
+ * Routes incoming Worker requests and dispatches chat requests through the runtime pipeline.
+ */
 export const handleFetch = async (
 	request: Request,
 	env: Env,
@@ -36,6 +46,10 @@ export const handleFetch = async (
 			LLM_MODEL: env.LLM_MODEL,
 			SQL_QUERY_TIMEOUT_MS: env.SQL_QUERY_TIMEOUT_MS,
 			EXPOSE_ERROR_DETAILS: env.EXPOSE_ERROR_DETAILS,
+			LANGFUSE_PUBLIC_KEY: env.LANGFUSE_PUBLIC_KEY,
+			LANGFUSE_SECRET_KEY: env.LANGFUSE_SECRET_KEY,
+			LANGFUSE_BASE_URL: env.LANGFUSE_BASE_URL,
+			LANGFUSE_TRACING_ENVIRONMENT: env.LANGFUSE_TRACING_ENVIRONMENT,
 		});
 		if (!envResult.ok) {
 			return json(
@@ -54,6 +68,9 @@ export const handleFetch = async (
 };
 
 export default {
+	/**
+	 * Cloudflare Worker fetch handler entrypoint.
+	 */
 	async fetch(request: Request, env: Env): Promise<Response> {
 		return handleFetch(request, env);
 	},

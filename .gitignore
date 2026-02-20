@@ -35,3 +35,4 @@ validation_screenshots/
 .codex/config.local.toml
 data-ingestion/sqlite/*.db
 worker/.wrangler/
+worker/eval/artifacts

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { handleChatRequest } from "../worker/src/chat/handler";
-import { handleFetch } from "../worker/src/index";
+import { handleChatRequest } from "../worker/src/runtime/handler";
+import { handleFetch } from "../worker/src/runtime/index";
+import { SqlSafetyError } from "../worker/src/runtime/sql/sqlErrors";
 
 const parseJson = async (response: Response) => {
 	const text = await response.text();
@@ -16,6 +17,8 @@ describe("worker chat handler", () => {
 		LLM_MODEL: "gpt-4.1-mini",
 		SQL_QUERY_TIMEOUT_MS: 10_000,
 		EXPOSE_ERROR_DETAILS: false,
+		LANGFUSE_TRACING_ENVIRONMENT: "default",
+		LANGFUSE_ENABLED: false,
 	};
 
 	it("returns 200 with reply for valid payload", async () => {
@@ -63,7 +66,10 @@ describe("worker chat handler", () => {
 		const response = await handleChatRequest(
 			request,
 			async () => {
-				throw new Error("Write or DDL SQL is blocked.");
+				throw new SqlSafetyError(
+					"DDL_OR_WRITE_BLOCKED",
+					"Write or DDL SQL is blocked.",
+				);
 			},
 			env,
 		);

@@ -17,6 +17,13 @@ The local endpoint is `http://127.0.0.1:8787/api/chat`.
 
 If your local Worker logs TLS trust errors when connecting to Supabase (`self signed certificate in certificate chain`), set `SUPABASE_DB_SSL_NO_VERIFY=true` in `worker/.dev.vars` for local development only.
 
+## Code Map
+
+- `worker/src/runtime/` is the live `/api/chat` runtime path.
+- `worker/src/observability/` contains runtime telemetry helpers.
+- `worker/eval/` contains eval-only runners, libs, datasets, and artifacts.
+- `worker/docs/request-lifecycle.md` documents the runtime request flow and error mapping.
+
 ## Hyperdrive (Recommended for Worker Runtime)
 
 1. Create Hyperdrive in Cloudflare pointing at your Supabase Postgres host.
@@ -39,3 +46,48 @@ If your local Worker logs TLS trust errors when connecting to Supabase (`self si
 - Enforce read-only DB role and schema allowlist checks.
 - Add request rate limits and abuse protection.
 - Add structured telemetry for blocked queries and failed tool attempts.
+
+## Golden Eval Runner (Langfuse Dataset)
+
+Run all 30 golden questions from your Langfuse dataset and link outputs as a dataset run:
+
+```bash
+npm run eval:golden
+```
+
+Run bounded optimization loops (max 5 loops per run) that evaluate, capture low-score failures, and apply guarded prompt-hint updates:
+
+```bash
+npm run eval:optimize
+```
+
+Required env vars for the runner:
+- `LANGFUSE_PUBLIC_KEY`
+- `LANGFUSE_SECRET_KEY`
+- `LANGFUSE_BASE_URL`
+- `OPENAI_API_KEY` (recommended for LLM-as-a-Judge evaluator; otherwise heuristic fallback is used)
+
+Optional env vars:
+- `LANGFUSE_TRACING_ENVIRONMENT` (default `default`)
+- `CHAT_EVAL_API_URL` (default `http://127.0.0.1:8787/api/chat`)
+- `EVAL_DATASET_NAME` (default `golden_30`)
+- `EVAL_RUN_NAME` (default timestamped)
+- `EVAL_RUN_DESCRIPTION`
+- `EVAL_REQUEST_TIMEOUT_MS` (default `60000`)
+- `EVAL_EXPECTED_ITEM_COUNT` (default `30`)
+- `EVAL_DATASET_LIMIT` (optional, positive integer; runs first N items only, e.g. `10` or `15`)
+- `EVAL_MAX_CONCURRENCY` (default `4`)
+- `EVAL_EXPERIMENT_NAME` (default `golden_30_eval`)
+- `EVAL_JUDGE_MODEL` (default `gpt-4.1-mini`)
+
+Optimization runner optional env vars:
+- `EVAL_OPTIMIZE_MAX_LOOPS` (default `5`, hard-capped to `5`)
+- `EVAL_OPTIMIZE_TARGET_SCORE` (default `0.85`)
+- `EVAL_OPTIMIZE_MIN_DELTA` (default `0.02`)
+- `EVAL_OPTIMIZE_MAX_PATCHES_PER_LOOP` (default `3`)
+- `EVAL_OPTIMIZE_AUTO_APPLY` (default `true`)
+
+Optimization artifacts are written to:
+- `worker/eval/artifacts/<run-name>/loop-<n>-raw.json`
+- `worker/eval/artifacts/<run-name>/loop-<n>-analysis.json`
+- `worker/eval/artifacts/<run-name>/leaderboard.json`

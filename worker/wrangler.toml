@@ -1,5 +1,5 @@
 name = "dink-tank-chat-worker"
-main = "src/index.ts"
+main = "src/runtime/index.ts"
 compatibility_date = "2026-02-15"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true

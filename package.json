@@ -37,12 +37,19 @@
 		"ingest:crossclub:details:weekly:strict": "node --experimental-strip-types data-ingestion/run.ts weekly details --strict-dependency-guard",
 		"ingest:sqlite:init": "node --experimental-strip-types data-ingestion/sqlite/init.ts",
 		"ingest:sqlite:mock": "node --experimental-strip-types data-ingestion/sqlite/run-mock.ts bootstrap all",
-		"ingest:sqlite:verify": "node --experimental-strip-types data-ingestion/sqlite/verify.ts"
+		"ingest:sqlite:verify": "node --experimental-strip-types data-ingestion/sqlite/verify.ts",
+		"eval:golden": "node --experimental-strip-types worker/eval/runners/eval-golden.ts",
+		"eval:optimize": "node --experimental-strip-types worker/eval/runners/eval-optimize.ts"
 	},
 	"dependencies": {
 		"@langchain/classic": "^1.0.17",
 		"@langchain/core": "^1.1.24",
 		"@langchain/openai": "^1.2.7",
+		"@langfuse/client": "^4.6.1",
+		"@langfuse/core": "^4.6.1",
+		"@langfuse/langchain": "^4.6.1",
+		"@langfuse/otel": "^4.6.1",
+		"@opentelemetry/sdk-node": "^0.212.0",
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",
 		"langchain": "^1.2.24",

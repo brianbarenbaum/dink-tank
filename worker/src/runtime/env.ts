@@ -5,6 +5,11 @@ export interface WorkerEnv {
 	LLM_MODEL: string;
 	SQL_QUERY_TIMEOUT_MS: number;
 	EXPOSE_ERROR_DETAILS: boolean;
+	LANGFUSE_PUBLIC_KEY?: string;
+	LANGFUSE_SECRET_KEY?: string;
+	LANGFUSE_BASE_URL?: string;
+	LANGFUSE_TRACING_ENVIRONMENT: string;
+	LANGFUSE_ENABLED: boolean;
 }
 
 interface ParseEnvSuccess {
@@ -21,8 +26,12 @@ export type ParseEnvResult = ParseEnvSuccess | ParseEnvFailure;
 
 const DEFAULT_MODEL = "gpt-4.1-mini";
 const DEFAULT_SQL_TIMEOUT_MS = 10_000;
+const DEFAULT_LANGFUSE_TRACING_ENVIRONMENT = "default";
 const TRUE_VALUES = new Set(["1", "true", "yes", "on"]);
 
+/**
+ * Parses raw Worker environment values into a validated runtime config object.
+ */
 export const parseWorkerEnv = (
 	env: Record<string, string | undefined>,
 ): ParseEnvResult => {
@@ -61,6 +70,17 @@ export const parseWorkerEnv = (
 			SQL_QUERY_TIMEOUT_MS,
 			EXPOSE_ERROR_DETAILS: TRUE_VALUES.has(
 				env.EXPOSE_ERROR_DETAILS?.trim().toLowerCase() ?? "",
+			),
+			LANGFUSE_PUBLIC_KEY: env.LANGFUSE_PUBLIC_KEY?.trim() || undefined,
+			LANGFUSE_SECRET_KEY: env.LANGFUSE_SECRET_KEY?.trim() || undefined,
+			LANGFUSE_BASE_URL: env.LANGFUSE_BASE_URL?.trim() || undefined,
+			LANGFUSE_TRACING_ENVIRONMENT:
+				env.LANGFUSE_TRACING_ENVIRONMENT?.trim() ||
+				DEFAULT_LANGFUSE_TRACING_ENVIRONMENT,
+			LANGFUSE_ENABLED: Boolean(
+				env.LANGFUSE_PUBLIC_KEY?.trim() &&
+					env.LANGFUSE_SECRET_KEY?.trim() &&
+					env.LANGFUSE_BASE_URL?.trim(),
 			),
 		},
 	};
