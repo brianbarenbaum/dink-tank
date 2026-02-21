@@ -11,11 +11,17 @@ import type {
 
 const SAFE_FALLBACK_VIEW = "public.vw_team_matches";
 const PARTNER_HISTORY_VIEW = "public.vw_player_game_history";
+const PARTNER_SUMMARY_VIEW = "public.vw_player_partner_performance_summary";
 const TEAM_ROSTER_VIEW = "public.vw_player_team";
 const PLAYER_STATS_SEASON_VIEW = "public.vw_player_stats_per_season";
 const TEAM_STANDINGS_VIEW = "public.vw_team_standings";
+const MATCH_LINEUPS_VIEW = "public.vw_match_game_lineups_scores";
 const PARTNER_INTENT_RE =
 	/\b(partner|teammate|played with|play with|pair(?:ed|ing)? with)\b/i;
+const PARTNER_LOOKUP_INTENT_RE =
+	/\b(who(?:'s| is| was)|which)\b.*\b(partner|teammate)\b|\bpartner in (?:week|game)\b|\bgame-by-game partners?\b/i;
+const PARTNER_ANALYTICS_INTENT_RE =
+	/\b(how (?:has|did)|record|win(?:s| rate)?|loss(?:es)?|perform(?:ance|ed)?|best|strongest|lineup|lineups|against|opponent(?:s)?|summary|stats?)\b/i;
 const ROSTER_INTENT_RE =
 	/\b(roster|members?|players?\s+on|who(?:'s| is)\s+on|list\s+players?)\b/i;
 const PLAYER_RANKING_INTENT_RE =
@@ -24,6 +30,16 @@ const POD_DIRECTION_RE =
 	/\b(northwest|northeast|southwest|southeast|north|south|east|west|central)\b/i;
 const DIVISION_RE = /\b\d\.(?:0|5)\b/i;
 const AVG_PPG_RE = /\b(avg|average)\s*(?:ppg|points?\s+per\s+game)\b/i;
+const TEAM_ENTITY_CUE_RE =
+	/\b(team|club|bounce|pickle|flemington|malvern|newtown|stelton|monroe|premiere|players?\s+courtyard|home\s+court)\b/i;
+const GAME_TOTAL_RE =
+	/\b(game record|how many games?|total games?|games?\s+(?:won|lost)|won and lost)\b/i;
+const MATCH_TOTAL_RE =
+	/\b(match record|how many matches?|total matches?|matches?\s+(?:won|lost)|won and lost)\b/i;
+const LINEUP_DETAIL_RE =
+	/\b(lineup|court|boxscore|score\s*card|scorecard|who played|game-by-game|game by game|lineup game rows)\b/i;
+const PLAYOFF_INCLUSIVE_RE = /\b(playoffs?|including playoffs?)\b/i;
+const RECOMPUTE_RE = /\b(recompute|calculate from|derive from)\b/i;
 
 /**
  * Scores an entry by deterministic token overlap between question and curated catalog metadata.
@@ -147,6 +163,8 @@ export const selectCatalogContext = (
 	const normalizedTopK = Math.max(1, options.topK);
 	const tokens = tokenize(question);
 	const hasPartnerIntent = PARTNER_INTENT_RE.test(question);
+	const hasPartnerLookupIntent = PARTNER_LOOKUP_INTENT_RE.test(question);
+	const hasPartnerAnalyticsIntent = PARTNER_ANALYTICS_INTENT_RE.test(question);
 	const hasRosterIntent = ROSTER_INTENT_RE.test(question);
 	const hasPlayerRankingIntent = PLAYER_RANKING_INTENT_RE.test(question);
 	const hasStandingsPodIntent =
@@ -154,17 +172,39 @@ export const selectCatalogContext = (
 		(AVG_PPG_RE.test(question) &&
 			POD_DIRECTION_RE.test(question) &&
 			DIVISION_RE.test(question));
+	const hasTeamGameTotalIntent =
+		TEAM_ENTITY_CUE_RE.test(question) &&
+		GAME_TOTAL_RE.test(question) &&
+		!LINEUP_DETAIL_RE.test(question) &&
+		!(PLAYOFF_INCLUSIVE_RE.test(question) && RECOMPUTE_RE.test(question));
+	const hasTeamMatchTotalIntent =
+		TEAM_ENTITY_CUE_RE.test(question) &&
+		MATCH_TOTAL_RE.test(question) &&
+		!LINEUP_DETAIL_RE.test(question);
+	const hasLineupRecomputeIntent =
+		TEAM_ENTITY_CUE_RE.test(question) &&
+		GAME_TOTAL_RE.test(question) &&
+		(LINEUP_DETAIL_RE.test(question) ||
+			(PLAYOFF_INCLUSIVE_RE.test(question) && RECOMPUTE_RE.test(question)));
 	const forcedPrimaryView =
 		options.forcePrimaryView ??
 		(hasPartnerIntent
-			? PARTNER_HISTORY_VIEW
+			? hasPartnerLookupIntent
+				? PARTNER_HISTORY_VIEW
+				: hasPartnerAnalyticsIntent
+					? PARTNER_SUMMARY_VIEW
+					: PARTNER_HISTORY_VIEW
 			: hasRosterIntent
 				? TEAM_ROSTER_VIEW
-				: hasStandingsPodIntent
-					? TEAM_STANDINGS_VIEW
-					: hasPlayerRankingIntent
-						? PLAYER_STATS_SEASON_VIEW
-						: undefined);
+				: hasLineupRecomputeIntent
+					? MATCH_LINEUPS_VIEW
+					: hasTeamGameTotalIntent || hasTeamMatchTotalIntent
+						? TEAM_STANDINGS_VIEW
+						: hasStandingsPodIntent
+							? TEAM_STANDINGS_VIEW
+							: hasPlayerRankingIntent
+								? PLAYER_STATS_SEASON_VIEW
+								: undefined);
 
 	const ranked = AI_CATALOG.map((entry) => {
 		const deterministicScore = scoreDeterministic(entry, tokens);
@@ -212,14 +252,22 @@ export const selectCatalogContext = (
 			? `Top match ${top.entry.name} scored ${top.finalScore.toFixed(2)} from question overlap.`
 			: "No strong catalog match was found from the question phrasing.";
 	const forcedReasonSource = hasPartnerIntent
-		? "partner-intent classifier"
+		? hasPartnerLookupIntent
+			? "partner-lookup classifier"
+			: "partner-analytics classifier"
 		: hasRosterIntent
 			? "roster-intent classifier"
-			: hasStandingsPodIntent
-				? "standings-intent classifier"
-				: hasPlayerRankingIntent
-					? "ranking-intent classifier"
-					: "deterministic intent classifier";
+			: hasLineupRecomputeIntent
+				? "lineup-recompute intent classifier"
+				: hasTeamGameTotalIntent
+					? "team-game-total intent classifier"
+					: hasTeamMatchTotalIntent
+						? "team-match-total intent classifier"
+						: hasStandingsPodIntent
+							? "standings-intent classifier"
+							: hasPlayerRankingIntent
+								? "ranking-intent classifier"
+								: "deterministic intent classifier";
 	let reason = forcedEntry
 		? `${baseReason} Forced primary view ${forcedEntry.name} from ${forcedReasonSource}.`
 		: baseReason;

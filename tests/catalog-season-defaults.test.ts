@@ -7,6 +7,7 @@ const SEASON_SCOPED_CATALOG_VIEWS = [
 	"public.vw_player_stats_per_season",
 	"public.vw_player_stats_per_match",
 	"public.vw_player_game_history",
+	"public.vw_player_partner_performance_summary",
 	"public.vw_match_game_lineups_scores",
 	"public.vw_team_standings",
 	"public.vw_team_matches",

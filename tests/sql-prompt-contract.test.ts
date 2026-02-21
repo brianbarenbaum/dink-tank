@@ -23,6 +23,8 @@ describe("sql prompt contract", () => {
 
 		expect(prompt).toContain("Mandatory grounding policy");
 		expect(prompt).toContain("MUST execute SQL before answering");
+		expect(prompt).toContain("execute one primary query");
+		expect(prompt).toContain("Run a second validation query only when");
 		expect(prompt).toContain(
 			"Use prior conversation to resolve follow-up references",
 		);
@@ -41,5 +43,20 @@ describe("sql prompt contract", () => {
 		expect(prompt).toContain("Scoped term dictionary");
 		expect(prompt).toContain("Recognized divisions");
 		expect(prompt).toContain("Recognized pods");
+	});
+
+	it("includes match-vs-game ontology and canonical source policy", () => {
+		const prompt = buildSqlSystemPrompt({
+			catalogContext:
+				"public.vw_team_standings:\n- wins\n- losses\n- game_record\n- draws",
+			selectionReason: "Top match public.vw_team_standings scored 8.90.",
+		});
+
+		expect(prompt).toContain("A match consists of multiple games.");
+		expect(prompt).toContain("When user asks for games");
+		expect(prompt).toContain("When user asks for matches");
+		expect(prompt).toContain(
+			"Do not derive default season game totals from vw_match_game_lineups_scores",
+		);
 	});
 });

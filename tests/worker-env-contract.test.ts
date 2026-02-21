@@ -14,6 +14,7 @@ describe("worker env contract", () => {
 			expect(parsed.value.LLM_MODEL).toBeTruthy();
 			expect(parsed.value.LLM_REASONING_LEVEL).toBe("medium");
 			expect(parsed.value.SQL_QUERY_TIMEOUT_MS).toBe(25_000);
+			expect(parsed.value.SQL_CAPTURE_EXPLAIN_PLAN).toBe(false);
 			expect(parsed.value.SUPABASE_DB_SSL_NO_VERIFY).toBe(false);
 			expect(parsed.value.LANGFUSE_ENABLED).toBe(false);
 			expect(parsed.value.LANGFUSE_TRACING_ENVIRONMENT).toBe("default");
@@ -65,6 +66,19 @@ describe("worker env contract", () => {
 		expect(parsed.ok).toBe(true);
 		if (parsed.ok) {
 			expect(parsed.value.LLM_REASONING_LEVEL).toBe("high");
+		}
+	});
+
+	it("enables SQL explain plan capture when configured", () => {
+		const parsed = parseWorkerEnv({
+			OPENAI_API_KEY: "test-key",
+			SUPABASE_DB_URL: "postgres://postgres:postgres@localhost:5432/postgres",
+			SQL_CAPTURE_EXPLAIN_PLAN: "true",
+		});
+
+		expect(parsed.ok).toBe(true);
+		if (parsed.ok) {
+			expect(parsed.value.SQL_CAPTURE_EXPLAIN_PLAN).toBe(true);
 		}
 	});
 

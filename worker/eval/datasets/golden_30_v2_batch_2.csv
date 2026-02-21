@@ -1,0 +1,11 @@
+input,expected_output,metadata
+"How many teams are in the 4.25 & Under division?","There are 4 teams in the 4.25 & Under division.","{""difficulty"":""easy""}"
+"Who is in first place in 4.25 & Under, and what is their record?","Dill Dinkers Simsbury is in first place in 4.25 & Under with a 7-2-0 record.","{""difficulty"":""easy""}"
+"Which team has the highest clutch win rate in the 4.0 division?","Pickle Jar Green has the highest clutch win rate in 4.0 at 61.16% (74-47 clutch record).","{""difficulty"":""easy""}"
+"Who are the top 3 teams in the 4.0 division standings right now?","Top 3 in 4.0 are: 1) Bounce Malvern (12-1-0), 2) Home Court (13-2-0), 3) Pickle Jar Green (12-3-0).","{""difficulty"":""moderate""}"
+"How many divisions are currently represented in the standings view?","There are 8 divisions represented in the standings view.","{""difficulty"":""moderate""}"
+"Who is ranked #2 in the 3.5 (50+) division?","Janet bellaran from The Atlantic Club is ranked #2 in 3.5 (50+) with a 58-9 record and 86.56% win rate.","{""difficulty"":""moderate""}"
+"What is the average team win percentage in 4.0 Southwest vs 4.0 Northeast?","4.0 Southwest averages 55.38% while 4.0 Northeast averages 44.28%, so Southwest is higher by about 11.10 percentage points.","{""difficulty"":""moderate""}"
+"Among 3.0 teams with at least 10 team matches in their record, which team has the best point differential per match?","Pickle Jar leads with about +88.15 point differential per match (1,146 over a 13-match record).","{""difficulty"":""difficult""}"
+"Among the top 5 teams in the 3.0 standings, which team has the lowest clutch win rate?","Flemington Blue has the lowest clutch win rate among the top five 3.0 teams at 50.89% (57-55 clutch record).","{""difficulty"":""difficult""}"
+"In 3.0 player season stats, how much higher is the average points per game for top-3 ranked players versus everyone ranked below 3?","Top-3 players average 20.69 points per game versus 16.82 for players ranked below 3, a difference of 3.87 PPG.","{""difficulty"":""difficult""}"

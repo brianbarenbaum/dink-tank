@@ -1,0 +1,11 @@
+input,expected_output,metadata
+"Which team has the best mixed record in the 3.0 Southwest pod?","Monroe Flash has the best mixed record in the 3.0 Southwest pod at 117-59 (66.48% mixed win rate).","{""difficulty"":""easy""}"
+"What was Pickle Jar's most recent past match result in 3.0?","Pickle Jar's most recent past 3.0 match was a Week 12 win over Stelton Warriors, 641-572.","{""difficulty"":""easy""}"
+"What is the latest completed week number in the 4.5 division?","The latest completed week in the 4.5 division is Week 13.","{""difficulty"":""easy""}"
+"Did Pickle Jar and Flemington Green split their 3.0 head-to-head series?","Yes. They split 1-1 in 3.0 head-to-head meetings.","{""difficulty"":""moderate""}"
+"How many distinct 3.5 teams played at least one past match in Week 13?","10 distinct teams in the 3.5 division played at least one past match in Week 13.","{""difficulty"":""moderate""}"
+"Which 3.0 team has the worst away win rate?","Mercer Bucks has the worst away win rate in 3.0 at 0.00% (away record 0-5).","{""difficulty"":""moderate""}"
+"For Maria Valencia in 3.0 game history, how do her mixed and female game win rates compare?","Maria Valencia is stronger in mixed: 95.83% in mixed (23-1) versus 90.00% in female (18-2).","{""difficulty"":""difficult""}"
+"In 4.0, what is the best-ranked team that still has a negative team point differential?","Pickleball Palace is the best-ranked 4.0 team with a negative point differential: rank 11 with -490.","{""difficulty"":""difficult""}"
+"Between the 3.0 Northeast and Southeast pods, which one is more balanced by standard deviation of team win percentage?","Southeast is more balanced, with a lower win-percentage standard deviation (19.18) than Northeast (26.09).","{""difficulty"":""difficult""}"
+"Which week has the most recorded 3.0 game rows in the match game lineups view, and how many rows are there?","Week 11 has the most recorded 3.0 game rows, with 800 rows.","{""difficulty"":""difficult""}"

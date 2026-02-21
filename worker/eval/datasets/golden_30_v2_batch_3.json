@@ -1,0 +1,72 @@
+[
+  {
+    "input": "Which team has the best mixed record in the 3.0 Southwest pod?",
+    "expected_output": "Monroe Flash has the best mixed record in the 3.0 Southwest pod at 117-59 (66.48% mixed win rate).",
+    "metadata": {
+      "difficulty": "easy"
+    }
+  },
+  {
+    "input": "What was Pickle Jar's most recent past match result in 3.0?",
+    "expected_output": "Pickle Jar's most recent past 3.0 match was a Week 12 win over Stelton Warriors, 641-572.",
+    "metadata": {
+      "difficulty": "easy"
+    }
+  },
+  {
+    "input": "What is the latest completed week number in the 4.5 division?",
+    "expected_output": "The latest completed week in the 4.5 division is Week 13.",
+    "metadata": {
+      "difficulty": "easy"
+    }
+  },
+  {
+    "input": "Did Pickle Jar and Flemington Green split their 3.0 head-to-head series?",
+    "expected_output": "Yes. They split 1-1 in 3.0 head-to-head meetings.",
+    "metadata": {
+      "difficulty": "moderate"
+    }
+  },
+  {
+    "input": "How many distinct 3.5 teams played at least one past match in Week 13?",
+    "expected_output": "10 distinct teams in the 3.5 division played at least one past match in Week 13.",
+    "metadata": {
+      "difficulty": "moderate"
+    }
+  },
+  {
+    "input": "Which 3.0 team has the worst away win rate?",
+    "expected_output": "Mercer Bucks has the worst away win rate in 3.0 at 0.00% (away record 0-5).",
+    "metadata": {
+      "difficulty": "moderate"
+    }
+  },
+  {
+    "input": "For Maria Valencia in 3.0 game history, how do her mixed and female game win rates compare?",
+    "expected_output": "Maria Valencia is stronger in mixed: 95.83% in mixed (23-1) versus 90.00% in female (18-2).",
+    "metadata": {
+      "difficulty": "difficult"
+    }
+  },
+  {
+    "input": "In 4.0, what is the best-ranked team that still has a negative team point differential?",
+    "expected_output": "Pickleball Palace is the best-ranked 4.0 team with a negative point differential: rank 11 with -490.",
+    "metadata": {
+      "difficulty": "difficult"
+    }
+  },
+  {
+    "input": "Between the 3.0 Northeast and Southeast pods, which one is more balanced by standard deviation of team win percentage?",
+    "expected_output": "Southeast is more balanced, with a lower win-percentage standard deviation (19.18) than Northeast (26.09).",
+    "metadata": {
+      "difficulty": "difficult"
+    }
+  },
+  {
+    "input": "Which week has the most recorded 3.0 game rows in the match game lineups view, and how many rows are there?",
+    "expected_output": "Week 11 has the most recorded 3.0 game rows, with 800 rows.",
+    "metadata": {
+      "difficulty": "difficult"
+    }
+  }
+]

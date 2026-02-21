@@ -1,0 +1,11 @@
+input,expected_output,metadata
+"Who is currently in first place in the 3.0 division?","Pickle Jar is in first place in 3.0 with a 12-1-0 record (92.31% win percentage).","{""difficulty"":""easy""}"
+"What is Monroe Flash's current record in the 3.0 division?","Monroe Flash is 10-1-0 in the 3.0 division.","{""difficulty"":""easy""}"
+"Who is the #1 ranked player in the 4.0 division?","Amy Yan from Pickle Jar Green is ranked #1 in the 4.0 division (87.23% win rate).","{""difficulty"":""easy""}"
+"Which 3.0 team is Maria Valencia on?","Maria Valencia is on Pickle Jar in the 3.0 division.","{""difficulty"":""easy""}"
+"How many teams in the 3.0 Southwest pod have a win percentage above 70%?","2 teams in the 3.0 Southwest are above 70%: Monroe Flash and Picklr Newtown.","{""difficulty"":""moderate""}"
+"Which pod has the highest average points per game in the 3.0 division?","The Southwest pod has the highest average points per game in 3.0 at about 604.91.","{""difficulty"":""moderate""}"
+"Compare Monroe Flash's home and away win rates in 3.0.","Monroe Flash is better away: 100.00% away (5-0) versus 83.33% at home (5-1).","{""difficulty"":""moderate""}"
+"Which 3.0 pod is most competitive if you define it as the smallest spread in team point differential?","The 3.0 Southeast pod is most competitive by this definition, with a point differential spread of 1,195.","{""difficulty"":""difficult""}"
+"Which division or divisions have the highest average team win percentage overall?","3.0 and 4.5 are tied for the highest average team win percentage at 50.08%.","{""difficulty"":""difficult""}"
+"In 4.0, which pod has the highest average team win percentage, and by how much over second place?","Southwest is highest at 55.38%, edging Northwest (54.45%) by 0.93 percentage points.","{""difficulty"":""difficult""}"

@@ -8,11 +8,15 @@ vi.mock("../worker/src/runtime/sql/sqlExecutor", () => ({
 	executeReadOnlySqlRows: executeReadOnlySqlRowsMock,
 }));
 
-import { resolveScopedMetadata } from "../worker/src/runtime/scopeMetadata";
+import {
+	__resetScopedMetadataCacheForTests,
+	resolveScopedMetadata,
+} from "../worker/src/runtime/scopeMetadata";
 
 describe("resolveScopedMetadata", () => {
 	beforeEach(() => {
 		executeReadOnlySqlRowsMock.mockReset();
+		__resetScopedMetadataCacheForTests();
 	});
 
 	it("fetches divisions and pods without teams for non-team prompts", async () => {
@@ -68,5 +72,44 @@ describe("resolveScopedMetadata", () => {
 			"Bounce Philly",
 			"Pickle House",
 		]);
+	});
+
+	it("reuses cached metadata for repeated equivalent non-team prompts", async () => {
+		executeReadOnlySqlRowsMock.mockResolvedValueOnce([
+			{ division_name: "3.0", pod_name: "Northwest" },
+			{ division_name: "3.0", pod_name: "Southeast" },
+		]);
+
+		const first = await resolveScopedMetadata(
+			{} as never,
+			"Compare avg point differential for 3.0 pods",
+		);
+		const second = await resolveScopedMetadata(
+			{} as never,
+			"Compare avg point differential for 3.0 pods",
+		);
+
+		expect(first).toEqual(second);
+		expect(executeReadOnlySqlRowsMock).toHaveBeenCalledTimes(1);
+	});
+
+	it("reuses cached metadata for repeated team-intent prompts", async () => {
+		executeReadOnlySqlRowsMock
+			.mockResolvedValueOnce([{ division_name: "3.0", pod_name: "Northwest" }])
+			.mockResolvedValueOnce([
+				{ division_name: "3.0", team_name: "Bounce Philly" },
+			]);
+
+		const first = await resolveScopedMetadata(
+			{} as never,
+			"Show team schedule for Bounce Philly in 3.0",
+		);
+		const second = await resolveScopedMetadata(
+			{} as never,
+			"Show team schedule for Bounce Philly in 3.0",
+		);
+
+		expect(first).toEqual(second);
+		expect(executeReadOnlySqlRowsMock).toHaveBeenCalledTimes(2);
 	});
 });

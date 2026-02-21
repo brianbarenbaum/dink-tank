@@ -1,0 +1,152 @@
+[
+  {
+    "input": "Who is currently in first place in the 3.0 division?",
+    "expected_output": "Pickle Jar is in first place in 3.0 with a 12-1-0 record (92.31% win percentage).",
+    "metadata": { "difficulty": "easy" }
+  },
+  {
+    "input": "What is Monroe Flash's current record in the 3.0 division?",
+    "expected_output": "Monroe Flash is 10-1-0 in the 3.0 division.",
+    "metadata": { "difficulty": "easy" }
+  },
+  {
+    "input": "Who is the #1 ranked player in the 4.0 division?",
+    "expected_output": "Amy Yan from Pickle Jar Green is ranked #1 in the 4.0 division (87.23% win rate).",
+    "metadata": { "difficulty": "easy" }
+  },
+  {
+    "input": "Which 3.0 team is Maria Valencia on?",
+    "expected_output": "Maria Valencia is on Pickle Jar in the 3.0 division.",
+    "metadata": { "difficulty": "easy" }
+  },
+  {
+    "input": "How many teams are in the 4.25 & Under division?",
+    "expected_output": "There are 4 teams in the 4.25 & Under division.",
+    "metadata": { "difficulty": "easy" }
+  },
+  {
+    "input": "Who is in first place in 4.25 & Under, and what is their record?",
+    "expected_output": "Dill Dinkers Simsbury is in first place in 4.25 & Under with a 7-2-0 record.",
+    "metadata": { "difficulty": "easy" }
+  },
+  {
+    "input": "Which team has the highest clutch win rate in the 4.0 division?",
+    "expected_output": "Pickle Jar Green has the highest clutch win rate in 4.0 at 61.16% (74-47 clutch record).",
+    "metadata": { "difficulty": "easy" }
+  },
+  {
+    "input": "Which team has the best mixed record in the 3.0 Southwest pod?",
+    "expected_output": "Monroe Flash has the best mixed record in the 3.0 Southwest pod at 117-59 (66.48% mixed win rate).",
+    "metadata": { "difficulty": "easy" }
+  },
+  {
+    "input": "What was Pickle Jar's most recent past match result in 3.0?",
+    "expected_output": "Pickle Jar's most recent past 3.0 match was a Week 12 win over Stelton Warriors, 641-572.",
+    "metadata": { "difficulty": "easy" }
+  },
+  {
+    "input": "What is the latest completed week number in the 4.5 division?",
+    "expected_output": "The latest completed week in the 4.5 division is Week 13.",
+    "metadata": { "difficulty": "easy" }
+  },
+  {
+    "input": "How many teams in the 3.0 Southwest pod have a win percentage above 70%?",
+    "expected_output": "2 teams in the 3.0 Southwest are above 70%: Monroe Flash and Picklr Newtown.",
+    "metadata": { "difficulty": "moderate" }
+  },
+  {
+    "input": "Which pod has the highest average points per game in the 3.0 division?",
+    "expected_output": "The Southwest pod has the highest average points per game in 3.0 at about 604.91.",
+    "metadata": { "difficulty": "moderate" }
+  },
+  {
+    "input": "Compare Monroe Flash's home and away win rates in 3.0.",
+    "expected_output": "Monroe Flash is better away: 100.00% away (5-0) versus 83.33% at home (5-1).",
+    "metadata": { "difficulty": "moderate" }
+  },
+  {
+    "input": "Who are the top 3 teams in the 4.0 division standings right now?",
+    "expected_output": "Top 3 in 4.0 are: 1) Bounce Malvern (12-1-0), 2) Home Court (13-2-0), 3) Pickle Jar Green (12-3-0).",
+    "metadata": { "difficulty": "moderate" }
+  },
+  {
+    "input": "How many divisions are currently represented in the standings view?",
+    "expected_output": "There are 8 divisions represented in the standings view.",
+    "metadata": { "difficulty": "moderate" }
+  },
+  {
+    "input": "Who is ranked #2 in the 3.5 (50+) division?",
+    "expected_output": "Janet bellaran from The Atlantic Club is ranked #2 in 3.5 (50+) with a 58-9 record and 86.56% win rate.",
+    "metadata": { "difficulty": "moderate" }
+  },
+  {
+    "input": "What is the average team win percentage in 4.0 Southwest vs 4.0 Northeast?",
+    "expected_output": "4.0 Southwest averages 55.38% while 4.0 Northeast averages 44.28%, so Southwest is higher by about 11.10 percentage points.",
+    "metadata": { "difficulty": "moderate" }
+  },
+  {
+    "input": "Did Pickle Jar and Flemington Green split their 3.0 head-to-head series?",
+    "expected_output": "Yes. They split 1-1 in 3.0 head-to-head meetings.",
+    "metadata": { "difficulty": "moderate" }
+  },
+  {
+    "input": "How many distinct 3.5 teams played at least one past match in Week 13?",
+    "expected_output": "10 distinct teams in the 3.5 division played at least one past match in Week 13.",
+    "metadata": { "difficulty": "moderate" }
+  },
+  {
+    "input": "Which 3.0 team has the worst away win rate?",
+    "expected_output": "Mercer Bucks has the worst away win rate in 3.0 at 0.00% (away record 0-5).",
+    "metadata": { "difficulty": "moderate" }
+  },
+  {
+    "input": "Which 3.0 pod is most competitive if you define it as the smallest spread in team point differential?",
+    "expected_output": "The 3.0 Southeast pod is most competitive by this definition, with a point differential spread of 1,195.",
+    "metadata": { "difficulty": "difficult" }
+  },
+  {
+    "input": "Which division or divisions have the highest average team win percentage overall?",
+    "expected_output": "3.0 and 4.5 are tied for the highest average team win percentage at 50.08%.",
+    "metadata": { "difficulty": "difficult" }
+  },
+  {
+    "input": "In 4.0, which pod has the highest average team win percentage, and by how much over second place?",
+    "expected_output": "Southwest is highest at 55.38%, edging Northwest (54.45%) by 0.93 percentage points.",
+    "metadata": { "difficulty": "difficult" }
+  },
+  {
+    "input": "Among 3.0 teams with at least 10 team matches in their record, which team has the best point differential per match?",
+    "expected_output": "Pickle Jar leads with about +88.15 point differential per match (1,146 over a 13-match record).",
+    "metadata": { "difficulty": "difficult" }
+  },
+  {
+    "input": "Among the top 5 teams in the 3.0 standings, which team has the lowest clutch win rate?",
+    "expected_output": "Flemington Blue has the lowest clutch win rate among the top five 3.0 teams at 50.89% (57-55 clutch record).",
+    "metadata": { "difficulty": "difficult" }
+  },
+  {
+    "input": "In 3.0 player season stats, how much higher is the average points per game for top-3 ranked players versus everyone ranked below 3?",
+    "expected_output": "Top-3 players average 20.69 points per game versus 16.82 for players ranked below 3, a difference of 3.87 PPG.",
+    "metadata": { "difficulty": "difficult" }
+  },
+  {
+    "input": "For Maria Valencia in 3.0 game history, how do her mixed and female game win rates compare?",
+    "expected_output": "Maria Valencia is stronger in mixed: 95.83% in mixed (23-1) versus 90.00% in female (18-2).",
+    "metadata": { "difficulty": "difficult" }
+  },
+  {
+    "input": "In 4.0, what is the best-ranked team that still has a negative team point differential?",
+    "expected_output": "Pickleball Palace is the best-ranked 4.0 team with a negative point differential: rank 11 with -490.",
+    "metadata": { "difficulty": "difficult" }
+  },
+  {
+    "input": "Between the 3.0 Northeast and Southeast pods, which one is more balanced by standard deviation of team win percentage?",
+    "expected_output": "Southeast is more balanced, with a lower win-percentage standard deviation (19.18) than Northeast (26.09).",
+    "metadata": { "difficulty": "difficult" }
+  },
+  {
+    "input": "Which week has the most recorded 3.0 game rows in the match game lineups view, and how many rows are there?",
+    "expected_output": "Week 11 has the most recorded 3.0 game rows, with 800 rows.",
+    "metadata": { "difficulty": "difficult" }
+  }
+]

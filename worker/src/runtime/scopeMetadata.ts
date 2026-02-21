@@ -17,6 +17,11 @@ const POD_KEYWORDS = [
 ] as const;
 const TEAM_INTENT_RE =
 	/\b(team|teams|schedule|opponent|opponents|match results?|club|lineup)\b/i;
+const SCOPED_METADATA_CACHE_TTL_MS = 60_000;
+const scopedMetadataCache = new Map<
+	string,
+	{ value: ScopedMetadata | null; expiresAtMs: number }
+>();
 
 const normalizeToken = (value: string): string =>
 	value
@@ -139,6 +144,23 @@ const buildSeasonWhereClause = (seasonYear?: number): string =>
 		? `season_year = ${seasonYear}`
 		: "is_current_season = true";
 
+const buildScopedMetadataCacheKey = (input: {
+	seasonWhere: string;
+	divisionTerms: string[];
+	teamIntent: boolean;
+	podTerms: string[];
+}): string =>
+	JSON.stringify({
+		seasonWhere: input.seasonWhere,
+		divisionTerms: [...input.divisionTerms].sort((a, b) => a.localeCompare(b)),
+		teamIntent: input.teamIntent,
+		podTerms: [...input.podTerms].sort((a, b) => a.localeCompare(b)),
+	});
+
+export const __resetScopedMetadataCacheForTests = (): void => {
+	scopedMetadataCache.clear();
+};
+
 /**
  * Resolves a compact, season-scoped dictionary of divisions/pods and optional teams.
  */
@@ -157,6 +179,16 @@ export const resolveScopedMetadata = async (
 
 	const seasonWhere = buildSeasonWhereClause(parsed.inferredSeasonYear);
 	const divisionFilter = buildDivisionWhereClause(parsed.inferredDivisionTerms);
+	const cacheKey = buildScopedMetadataCacheKey({
+		seasonWhere,
+		divisionTerms: parsed.inferredDivisionTerms,
+		teamIntent: parsed.teamIntent,
+		podTerms: parsed.inferredPodTerms,
+	});
+	const cached = scopedMetadataCache.get(cacheKey);
+	if (cached && cached.expiresAtMs > Date.now()) {
+		return cached.value;
+	}
 	const divisionPodRows = await executeReadOnlySqlRows(
 		env,
 		`select distinct division_name, pod_name
@@ -239,10 +271,14 @@ limit 300`,
 			Object.values(teamsByDivision).some((teams) => teams.length > 0),
 	);
 	if (divisions.length === 0 && !hasPods && !hasTeams) {
+		scopedMetadataCache.set(cacheKey, {
+			value: null,
+			expiresAtMs: Date.now() + SCOPED_METADATA_CACHE_TTL_MS,
+		});
 		return null;
 	}
 
-	return {
+	const scopedMetadata = {
 		seasonLabel:
 			typeof parsed.inferredSeasonYear === "number"
 				? `${parsed.inferredSeasonYear}`
@@ -252,4 +288,9 @@ limit 300`,
 		teamsByDivision,
 		includeTeams: parsed.teamIntent,
 	};
+	scopedMetadataCache.set(cacheKey, {
+		value: scopedMetadata,
+		expiresAtMs: Date.now() + SCOPED_METADATA_CACHE_TTL_MS,
+	});
+	return scopedMetadata;
 };

@@ -63,6 +63,22 @@ describe("catalog selector", () => {
 		expect(selected.selectedViews[0]).toBe("public.vw_team_standings");
 	});
 
+	it("routes team game total intent to standings", () => {
+		const selected = runSelect(
+			"How many games has Flemington Blue 3.0 won this season?",
+		);
+
+		expect(selected.selectedViews[0]).toBe("public.vw_team_standings");
+	});
+
+	it("routes team match total intent to standings", () => {
+		const selected = runSelect(
+			"How many matches has Flemington Blue 3.0 won this season?",
+		);
+
+		expect(selected.selectedViews[0]).toBe("public.vw_team_standings");
+	});
+
 	it("keeps roster view for team member queries at runtime confidence settings", () => {
 		const selected = selectCatalogContext(
 			"Show me the players on Bounce Philly 4.0 Open",
@@ -90,6 +106,20 @@ describe("catalog selector", () => {
 		expect(selected.selectedSchema).toContain("primary_side_score");
 		expect(selected.selectedSchema).not.toContain("matchup_id");
 		expect(selected.selectedSchema).not.toContain("scheduled_time_utc");
+	});
+
+	it("routes partner performance analytics to partner summary view", () => {
+		const selected = runSelect(
+			"How has Brian Barenbaum played with Thomas Kang against mixed opponents?",
+		);
+
+		expect(selected.selectedViews[0]).toBe(
+			"public.vw_player_partner_performance_summary",
+		);
+		expect(selected.selectedSchema).toContain("partner_pair_type");
+		expect(selected.selectedSchema).toContain("opponent_context_type");
+		expect(selected.selectedSchema).toContain("sample_confidence");
+		expect(selected.selectedSchema).toContain("last_played_match_datetime");
 	});
 
 	it("builds view context with static sample data rows", () => {

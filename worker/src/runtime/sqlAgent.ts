@@ -5,6 +5,7 @@ import * as z from "zod";
 import { emitLangfuseTelemetry } from "../observability/langfuseTelemetry";
 import { selectCatalogContext } from "./catalog/catalog";
 import type { WorkerEnv } from "./env";
+import { tryResolveFastPathAnswer } from "./fastPathAnswers";
 import type { RequestContext } from "./requestContext";
 import { logWarn } from "./runtimeLogger";
 import { buildSqlSystemPrompt } from "./prompt";
@@ -22,6 +23,8 @@ const CATALOG_SELECTION_MODE = "hybrid" as const;
 const CATALOG_TOP_K = 2;
 const CATALOG_CONFIDENCE_MIN = 0.35;
 const CATALOG_MAX_COLUMNS_PER_VIEW = 20;
+const SQL_TOOL_MAX_CALLS = 2;
+const SQL_TOOL_BUDGET_MS = 45_000;
 export type ReasoningEffortLevel = "low" | "medium" | "high";
 
 export const resolveReasoningEffort = (
@@ -29,6 +32,26 @@ export const resolveReasoningEffort = (
 	configuredLevel: ReasoningEffortLevel,
 ): "none" | ReasoningEffortLevel =>
 	options?.extendedThinking ? configuredLevel : "none";
+
+export const shouldAllowSqlToolCall = (
+	startedAtMs: number,
+	sqlToolCalls: number,
+	now: number,
+): { allowed: boolean; reason?: string } => {
+	if (sqlToolCalls >= SQL_TOOL_MAX_CALLS) {
+		return {
+			allowed: false,
+			reason: `sql_tool_call_limit_exceeded:${SQL_TOOL_MAX_CALLS}`,
+		};
+	}
+	if (now - startedAtMs >= SQL_TOOL_BUDGET_MS) {
+		return {
+			allowed: false,
+			reason: `sql_tool_time_budget_exceeded:${SQL_TOOL_BUDGET_MS}`,
+		};
+	}
+	return { allowed: true };
+};
 
 /**
  * Extracts final assistant text from the LangChain agent response shape.
@@ -108,6 +131,42 @@ export const runSqlAgent = async (
 	const startMs = nowMs();
 	const inputMessage =
 		messages.filter((message) => message.role === "user").at(-1)?.content ?? "";
+	const fastPathReply = await tryResolveFastPathAnswer(env, inputMessage);
+	if (fastPathReply) {
+		const telemetryResult = await emitLangfuseTelemetry(
+			env,
+			"legacy_sql_telemetry",
+			{
+				orchestrator: "legacy",
+				totalMs: nowMs() - startMs,
+				promptTokens: 0,
+				completionTokens: 0,
+				messageCount: messages.length,
+				catalogContextChars: 0,
+				scopedMetadataChars: 0,
+				scopedDivisionsCount: 0,
+				scopedPodsCount: 0,
+				scopedTeamsIncluded: false,
+				selectedViews: ["public.vw_team_standings"],
+				selectorConfidence: 1,
+				selectorReason: "fast_path_intent_match",
+				selectorSource: "fast_path",
+				sqlToolCallCount: 0,
+				requestId: context.requestId,
+			},
+			{
+				input: inputMessage,
+				output: fastPathReply,
+			},
+		);
+		if (!telemetryResult.ok && telemetryResult.reason !== "disabled") {
+			logWarn("langfuse_emit_failed", context, {
+				telemetryReason: telemetryResult.reason,
+				statusCode: telemetryResult.statusCode,
+			});
+		}
+		return fastPathReply;
+	}
 	const selectedCatalog = selectCatalogContext(inputMessage, {
 		mode: CATALOG_SELECTION_MODE,
 		topK: CATALOG_TOP_K,
@@ -118,12 +177,32 @@ export const runSqlAgent = async (
 	const scopedMetadataBlock = formatScopedMetadataBlock(scopedMetadata);
 	const catalogContext =
 		selectedCatalog.catalogContext ?? selectedCatalog.selectedSchema;
+	let sqlToolCallCount = 0;
 
-	const executeSql = tool(async ({ query }) => executeReadOnlySql(env, query), {
-		name: "execute_sql",
-		description: "Execute a read-only SQL query.",
-		schema: z.object({ query: z.string() }),
-	});
+	const executeSql = tool(
+		async ({ query }) => {
+			const allowance = shouldAllowSqlToolCall(
+				startMs,
+				sqlToolCallCount,
+				nowMs(),
+			);
+			if (!allowance.allowed) {
+				return JSON.stringify({
+					error: "sql_budget_exceeded",
+					reason: allowance.reason,
+					message:
+						"SQL execution budget exceeded for this request. Provide a bounded answer and state verification limits.",
+				});
+			}
+			sqlToolCallCount += 1;
+			return executeReadOnlySql(env, query);
+		},
+		{
+			name: "execute_sql",
+			description: "Execute a read-only SQL query.",
+			schema: z.object({ query: z.string() }),
+		},
+	);
 
 	const model = new ChatOpenAI({
 		apiKey: env.OPENAI_API_KEY,
@@ -170,6 +249,7 @@ export const runSqlAgent = async (
 			selectorConfidence: selectedCatalog.confidence,
 			selectorReason: selectedCatalog.reason,
 			selectorSource: selectedCatalog.source,
+			sqlToolCallCount,
 			requestId: context.requestId,
 		},
 		{

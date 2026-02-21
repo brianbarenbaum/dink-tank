@@ -5,6 +5,7 @@ export interface WorkerEnv {
 	LLM_MODEL: string;
 	LLM_REASONING_LEVEL: "low" | "medium" | "high";
 	SQL_QUERY_TIMEOUT_MS: number;
+	SQL_CAPTURE_EXPLAIN_PLAN: boolean;
 	EXPOSE_ERROR_DETAILS: boolean;
 	LANGFUSE_PUBLIC_KEY?: string;
 	LANGFUSE_SECRET_KEY?: string;
@@ -81,6 +82,9 @@ export const parseWorkerEnv = (
 			LLM_MODEL: env.LLM_MODEL?.trim() || DEFAULT_MODEL,
 			LLM_REASONING_LEVEL: reasoningLevelRaw as "low" | "medium" | "high",
 			SQL_QUERY_TIMEOUT_MS,
+			SQL_CAPTURE_EXPLAIN_PLAN: TRUE_VALUES.has(
+				env.SQL_CAPTURE_EXPLAIN_PLAN?.trim().toLowerCase() ?? "",
+			),
 			EXPOSE_ERROR_DETAILS: TRUE_VALUES.has(
 				env.EXPOSE_ERROR_DETAILS?.trim().toLowerCase() ?? "",
 			),
