@@ -64,12 +64,23 @@ export const executeReadOnlySql = async (
 	env: WorkerEnv,
 	query: string,
 ): Promise<string> => {
-	const pool = getPool(env);
-	const sanitized = sanitizeSqlQuery(query);
-	const result = await pool.query(sanitized);
-	if (result.rows.length === 0) {
+	const rows = await executeReadOnlySqlRows(env, query);
+	if (rows.length === 0) {
 		return "[]";
 	}
 
-	return JSON.stringify(result.rows, null, 2);
+	return JSON.stringify(rows, null, 2);
+};
+
+/**
+ * Sanitizes and executes a read-only SQL query, returning raw rows.
+ */
+export const executeReadOnlySqlRows = async (
+	env: WorkerEnv,
+	query: string,
+): Promise<Array<Record<string, unknown>>> => {
+	const pool = getPool(env);
+	const sanitized = sanitizeSqlQuery(query);
+	const result = await pool.query(sanitized);
+	return result.rows as Array<Record<string, unknown>>;
 };

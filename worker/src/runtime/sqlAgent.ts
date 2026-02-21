@@ -8,6 +8,10 @@ import type { WorkerEnv } from "./env";
 import type { RequestContext } from "./requestContext";
 import { logWarn } from "./runtimeLogger";
 import { buildSqlSystemPrompt } from "./prompt";
+import {
+	formatScopedMetadataBlock,
+	resolveScopedMetadata,
+} from "./scopeMetadata";
 import { executeReadOnlySql } from "./sql/sqlExecutor";
 
 /**
@@ -110,6 +114,8 @@ export const runSqlAgent = async (
 		confidenceMin: CATALOG_CONFIDENCE_MIN,
 		maxColumnsPerView: CATALOG_MAX_COLUMNS_PER_VIEW,
 	});
+	const scopedMetadata = await resolveScopedMetadata(env, inputMessage);
+	const scopedMetadataBlock = formatScopedMetadataBlock(scopedMetadata);
 	const catalogContext =
 		selectedCatalog.catalogContext ?? selectedCatalog.selectedSchema;
 
@@ -134,6 +140,7 @@ export const runSqlAgent = async (
 		systemPrompt: buildSqlSystemPrompt({
 			catalogContext,
 			selectionReason: selectedCatalog.reason,
+			scopedMetadataBlock,
 		}),
 	});
 
@@ -150,6 +157,15 @@ export const runSqlAgent = async (
 			completionTokens: tokenUsage.completionTokens,
 			messageCount: messages.length,
 			catalogContextChars: catalogContext.length,
+			scopedMetadataChars: scopedMetadataBlock.length,
+			scopedDivisionsCount: scopedMetadata?.divisions.length ?? 0,
+			scopedPodsCount: scopedMetadata
+				? Object.values(scopedMetadata.podsByDivision).reduce(
+						(total, pods) => total + pods.length,
+						0,
+					)
+				: 0,
+			scopedTeamsIncluded: Boolean(scopedMetadata?.includeTeams),
 			selectedViews: selectedCatalog.selectedViews,
 			selectorConfidence: selectedCatalog.confidence,
 			selectorReason: selectedCatalog.reason,

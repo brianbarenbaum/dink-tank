@@ -55,6 +55,14 @@ describe("catalog selector", () => {
 		expect(selected.selectedSchema).toContain('"team_name":"Home Court"');
 	});
 
+	it("routes shorthand pod comparison prompts to team standings", () => {
+		const selected = runSelect(
+			"Compare the Avg PPG of 3.0 Northwest and 3.0 Southeast",
+		);
+
+		expect(selected.selectedViews[0]).toBe("public.vw_team_standings");
+	});
+
 	it("keeps roster view for team member queries at runtime confidence settings", () => {
 		const selected = selectCatalogContext(
 			"Show me the players on Bounce Philly 4.0 Open",

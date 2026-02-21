@@ -18,6 +18,21 @@ export interface ChatResponse {
 	extendedThinking: boolean;
 }
 
+export interface ScopedMetadata {
+	seasonLabel: string;
+	divisions: string[];
+	podsByDivision: Record<string, string[]>;
+	teamsByDivision?: Record<string, string[]>;
+	includeTeams: boolean;
+}
+
+export interface ScopeParseResult {
+	inferredDivisionTerms: string[];
+	inferredPodTerms: string[];
+	inferredSeasonYear?: number;
+	teamIntent: boolean;
+}
+
 export interface ValidationSuccess {
 	ok: true;
 	value: ChatRequest;

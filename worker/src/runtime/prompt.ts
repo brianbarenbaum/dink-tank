@@ -1,6 +1,7 @@
 interface BuildSqlSystemPromptInput {
 	catalogContext: string;
 	selectionReason: string;
+	scopedMetadataBlock?: string;
 }
 
 /**
@@ -9,6 +10,7 @@ interface BuildSqlSystemPromptInput {
 export const buildSqlSystemPrompt = ({
 	catalogContext,
 	selectionReason,
+	scopedMetadataBlock,
 }: BuildSqlSystemPromptInput): string => `You are a careful SQL analyst for Cross Club Pickleball data.
 
 Catalog views selected for this question:
@@ -16,6 +18,14 @@ ${catalogContext}
 
 Catalog selection reason:
 ${selectionReason}
+
+${
+	scopedMetadataBlock && scopedMetadataBlock.trim().length > 0
+		? `Scoped term dictionary:
+${scopedMetadataBlock}
+`
+		: ""
+}
 
 Primary objective:
 Return only verified, database-grounded answers. Accuracy is required.

@@ -13,12 +13,17 @@ const SAFE_FALLBACK_VIEW = "public.vw_team_matches";
 const PARTNER_HISTORY_VIEW = "public.vw_player_game_history";
 const TEAM_ROSTER_VIEW = "public.vw_player_team";
 const PLAYER_STATS_SEASON_VIEW = "public.vw_player_stats_per_season";
+const TEAM_STANDINGS_VIEW = "public.vw_team_standings";
 const PARTNER_INTENT_RE =
 	/\b(partner|teammate|played with|play with|pair(?:ed|ing)? with)\b/i;
 const ROSTER_INTENT_RE =
 	/\b(roster|members?|players?\s+on|who(?:'s| is)\s+on|list\s+players?)\b/i;
 const PLAYER_RANKING_INTENT_RE =
-	/(?:\brank(?:ed|ing)?\b|\boverall\b|\btop player\b|\bbest player\b|\bworst player\b)/i;
+	/(?:\brank(?:ed|ing)?\b|\btop player\b|\bbest player\b|\bworst player\b)/i;
+const POD_DIRECTION_RE =
+	/\b(northwest|northeast|southwest|southeast|north|south|east|west|central)\b/i;
+const DIVISION_RE = /\b\d\.(?:0|5)\b/i;
+const AVG_PPG_RE = /\b(avg|average)\s*(?:ppg|points?\s+per\s+game)\b/i;
 
 /**
  * Scores an entry by deterministic token overlap between question and curated catalog metadata.
@@ -144,15 +149,22 @@ export const selectCatalogContext = (
 	const hasPartnerIntent = PARTNER_INTENT_RE.test(question);
 	const hasRosterIntent = ROSTER_INTENT_RE.test(question);
 	const hasPlayerRankingIntent = PLAYER_RANKING_INTENT_RE.test(question);
+	const hasStandingsPodIntent =
+		/\bpod\b/i.test(question) ||
+		(AVG_PPG_RE.test(question) &&
+			POD_DIRECTION_RE.test(question) &&
+			DIVISION_RE.test(question));
 	const forcedPrimaryView =
 		options.forcePrimaryView ??
 		(hasPartnerIntent
 			? PARTNER_HISTORY_VIEW
 			: hasRosterIntent
-					? TEAM_ROSTER_VIEW
+				? TEAM_ROSTER_VIEW
+				: hasStandingsPodIntent
+					? TEAM_STANDINGS_VIEW
 					: hasPlayerRankingIntent
 						? PLAYER_STATS_SEASON_VIEW
-					: undefined);
+						: undefined);
 
 	const ranked = AI_CATALOG.map((entry) => {
 		const deterministicScore = scoreDeterministic(entry, tokens);
@@ -203,9 +215,11 @@ export const selectCatalogContext = (
 		? "partner-intent classifier"
 		: hasRosterIntent
 			? "roster-intent classifier"
-			: hasPlayerRankingIntent
-				? "ranking-intent classifier"
-			: "deterministic intent classifier";
+			: hasStandingsPodIntent
+				? "standings-intent classifier"
+				: hasPlayerRankingIntent
+					? "ranking-intent classifier"
+					: "deterministic intent classifier";
 	let reason = forcedEntry
 		? `${baseReason} Forced primary view ${forcedEntry.name} from ${forcedReasonSource}.`
 		: baseReason;
@@ -216,8 +230,8 @@ export const selectCatalogContext = (
 			forcedEntry ??
 			(hasMeaningfulTopMatch
 				? selected[0]
-				: AI_CATALOG.find((entry) => entry.name === SAFE_FALLBACK_VIEW) ??
-					AI_CATALOG[0]);
+				: (AI_CATALOG.find((entry) => entry.name === SAFE_FALLBACK_VIEW) ??
+					AI_CATALOG[0]));
 		selected = fallbackEntry ? [fallbackEntry] : selected;
 		reason = `${reason} Confidence ${confidence.toFixed(2)} is below confidence threshold ${options.confidenceMin.toFixed(2)}; fallback to ${fallbackEntry?.name ?? "none"}.`;
 	}
