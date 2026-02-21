@@ -1,5 +1,7 @@
 import { parseWorkerEnv } from "./env";
 import { handleChatRequest } from "./handler";
+import { handleLineupLabRecommendRequest } from "./lineupLab/handler";
+import { runLineupLabRecommend } from "./lineupLab/service";
 import { runSqlAgent } from "./sqlAgent";
 
 export interface Env {
@@ -42,7 +44,9 @@ export const handleFetch = async (
 	const isChatRoute =
 		(url.pathname === "/api/chat" && request.method === "POST") ||
 		(url.pathname === "/api/chat/config" && request.method === "GET");
-	if (!isChatRoute) {
+	const isLineupLabRoute =
+		url.pathname === "/api/lineup-lab/recommend" && request.method === "POST";
+	if (!isChatRoute && !isLineupLabRoute) {
 		return json({ error: "not_found" }, 404);
 	}
 
@@ -82,6 +86,13 @@ export const handleFetch = async (
 
 	if (url.pathname === "/api/chat" && request.method === "POST") {
 		return handleChatRequest(request, runSqlAgent, envResult.value);
+	}
+	if (url.pathname === "/api/lineup-lab/recommend" && request.method === "POST") {
+		return handleLineupLabRecommendRequest(
+			request,
+			runLineupLabRecommend,
+			envResult.value,
+		);
 	}
 
 	return json({ error: "not_found" }, 404);
