@@ -26,7 +26,7 @@
 - Create: `supabase/migrations/20260220190138_align_semantic_views_player_team_and_team_matches.sql`
 
 1. Recreate `public.vw_player_team` with `gender` and computed `is_current_season` flag based on max `season_year` then max `season_number` in that year.
-2. Recreate `public.vw_player_stats_per_season` (interpreting requested `vw_player_status_per_season` update as this existing view) with added columns:
+2. Recreate `public.vw_player_stats_per_season` with added columns:
    - `total_points_against`
    - `total_point_differential`
    - `mixed_ppg as mixed_points_per_game`

@@ -29,6 +29,24 @@ describe("catalog selector", () => {
 		expect(selected.confidence).toBeGreaterThan(0);
 	});
 
+	it("routes division ranking questions to player stats per season view", () => {
+		const selected = runSelect(
+			"Who is the player ranked #2 overall in the 3.0 division?",
+		);
+
+		expect(selected.selectedViews[0]).toBe("public.vw_player_stats_per_season");
+		expect(selected.selectedSchema).toContain(
+			"public.vw_player_stats_per_season",
+		);
+		expect(selected.selectedSchema).toContain("ranking");
+	});
+
+	it("does not treat avoidFor text as positive ranking intent", () => {
+		const selected = runSelect("Show season-level player ranking leaderboards");
+
+		expect(selected.selectedViews[0]).not.toBe("public.vw_player_game_history");
+	});
+
 	it("routes team schedule questions to team schedule view", () => {
 		const selected = runSelect("Show Bounce Philly schedule for next 3 weeks");
 
@@ -37,11 +55,30 @@ describe("catalog selector", () => {
 		expect(selected.selectedSchema).toContain('"team_name":"Home Court"');
 	});
 
+	it("keeps roster view for team member queries at runtime confidence settings", () => {
+		const selected = selectCatalogContext(
+			"Show me the players on Bounce Philly 4.0 Open",
+			{
+				mode: "hybrid",
+				topK: 2,
+				confidenceMin: 0.35,
+			},
+		);
+
+		expect(selected.selectedViews[0]).toBe("public.vw_player_team");
+		expect(selected.reason).not.toContain("fallback to public.vw_team_matches");
+		expect(selected.catalogContext).toContain("player_full_name");
+	});
+
 	it("routes partner-intent questions to player game history view", () => {
 		const selected = runSelect("Who was Brian Barenbaum's partner in week 3?");
 
 		expect(selected.selectedViews[0]).toBe("public.vw_player_game_history");
 		expect(selected.selectedSchema).toContain("partner_player_full_name");
+		expect(selected.selectedSchema).toContain("primary_player_gender");
+		expect(selected.selectedSchema).toContain("partner_player_gender");
+		expect(selected.selectedSchema).toContain("opponent_player_1_gender");
+		expect(selected.selectedSchema).toContain("opponent_player_2_gender");
 		expect(selected.selectedSchema).toContain("primary_side_score");
 		expect(selected.selectedSchema).not.toContain("matchup_id");
 		expect(selected.selectedSchema).not.toContain("scheduled_time_utc");
@@ -49,13 +86,18 @@ describe("catalog selector", () => {
 
 	it("builds view context with static sample data rows", () => {
 		const context = buildCatalogSchemaContextForViews(
-			["public.vw_team_matches"],
+			["public.vw_team_matches", "public.vw_player_stats_per_match"],
 			20,
 		);
 
+		expect(context).toContain("- aliases:");
+		expect(context).toContain("- filter_hints:");
+		expect(context).toContain("- logic_bridges:");
+		expect(context).toContain("- always:");
+		expect(context).toContain("- defaults:");
 		expect(context).toContain("- sample_data:");
-		expect(context).toContain('"team_name":"Bounce Malvern"');
-		expect(context).toContain('"match_result":"Win"');
+		expect(context).toContain('"team_name":"Home Court"');
+		expect(context).toContain('"match_result":null');
 	});
 
 	it("falls back to safe default view when confidence is below threshold", () => {

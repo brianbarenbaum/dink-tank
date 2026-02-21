@@ -5,6 +5,7 @@
 1. Set required env vars in shell or `.dev.vars`:
    - `OPENAI_API_KEY`
    - `SUPABASE_DB_URL` (required only when `HYPERDRIVE` binding is not configured)
+   - Optional reasoning default when extended thinking is enabled: `LLM_REASONING_LEVEL=low|medium|high` (default `medium`)
    - Optional local TLS workaround: `SUPABASE_DB_SSL_NO_VERIFY=true`
    - Optional for local debugging: `EXPOSE_ERROR_DETAILS=true`
 2. Start worker:
@@ -76,7 +77,7 @@ Optional env vars:
 - `EVAL_REQUEST_TIMEOUT_MS` (default `60000`)
 - `EVAL_EXPECTED_ITEM_COUNT` (default `30`)
 - `EVAL_DATASET_LIMIT` (optional, positive integer; runs first N items only, e.g. `10` or `15`)
-- `EVAL_MAX_CONCURRENCY` (default `4`)
+- `EVAL_MAX_CONCURRENCY` (default `1`)
 - `EVAL_EXPERIMENT_NAME` (default `golden_30_eval`)
 - `EVAL_JUDGE_MODEL` (default `gpt-4.1-mini`)
 

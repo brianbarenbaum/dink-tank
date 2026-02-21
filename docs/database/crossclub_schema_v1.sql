@@ -398,11 +398,6 @@ left join lateral (
 ) pds on true
 order by d.division_name, team_name, player_full_name;
 
-create or replace view public.vw_player_status_per_season
-with (security_invoker = true) as
-select *
-from public.vw_player_stats_per_season;
-
 create or replace view public.vw_player_stats_per_match
 with (security_invoker = true) as
 with mps_latest as (
@@ -637,6 +632,10 @@ base_games as (
     nullif(concat_ws(' ', hp2.first_name, hp2.last_name), '') as home_player_2_full_name,
     nullif(concat_ws(' ', ap1.first_name, ap1.last_name), '') as away_player_1_full_name,
     nullif(concat_ws(' ', ap2.first_name, ap2.last_name), '') as away_player_2_full_name,
+    hp1.gender as home_player_1_gender,
+    hp2.gender as home_player_2_gender,
+    ap1.gender as away_player_1_gender,
+    ap2.gender as away_player_2_gender,
     pg.home_score,
     pg.away_score,
     to_char(pg.game_as_of_date, 'Mon DD, YYYY') as game_as_of_date
@@ -693,6 +692,10 @@ select
   bg.home_player_2_full_name as partner_player_full_name,
   bg.away_player_1_full_name as opponent_player_1_full_name,
   bg.away_player_2_full_name as opponent_player_2_full_name,
+  bg.home_player_1_gender as primary_player_gender,
+  bg.home_player_2_gender as partner_player_gender,
+  bg.away_player_1_gender as opponent_player_1_gender,
+  bg.away_player_2_gender as opponent_player_2_gender,
   bg.home_team_name as primary_team_name,
   bg.away_team_name as opponent_team_name,
   bg.home_score as primary_side_score,
@@ -722,6 +725,10 @@ select
   bg.home_player_1_full_name as partner_player_full_name,
   bg.away_player_1_full_name as opponent_player_1_full_name,
   bg.away_player_2_full_name as opponent_player_2_full_name,
+  bg.home_player_2_gender as primary_player_gender,
+  bg.home_player_1_gender as partner_player_gender,
+  bg.away_player_1_gender as opponent_player_1_gender,
+  bg.away_player_2_gender as opponent_player_2_gender,
   bg.home_team_name as primary_team_name,
   bg.away_team_name as opponent_team_name,
   bg.home_score as primary_side_score,
@@ -751,6 +758,10 @@ select
   bg.away_player_2_full_name as partner_player_full_name,
   bg.home_player_1_full_name as opponent_player_1_full_name,
   bg.home_player_2_full_name as opponent_player_2_full_name,
+  bg.away_player_1_gender as primary_player_gender,
+  bg.away_player_2_gender as partner_player_gender,
+  bg.home_player_1_gender as opponent_player_1_gender,
+  bg.home_player_2_gender as opponent_player_2_gender,
   bg.away_team_name as primary_team_name,
   bg.home_team_name as opponent_team_name,
   bg.away_score as primary_side_score,
@@ -780,6 +791,10 @@ select
   bg.away_player_1_full_name as partner_player_full_name,
   bg.home_player_1_full_name as opponent_player_1_full_name,
   bg.home_player_2_full_name as opponent_player_2_full_name,
+  bg.away_player_2_gender as primary_player_gender,
+  bg.away_player_1_gender as partner_player_gender,
+  bg.home_player_1_gender as opponent_player_1_gender,
+  bg.home_player_2_gender as opponent_player_2_gender,
   bg.away_team_name as primary_team_name,
   bg.home_team_name as opponent_team_name,
   bg.away_score as primary_side_score,
@@ -836,6 +851,34 @@ standings_latest as (
     s0.game_win_rate,
     s0.average_points_per_game,
     s0.average_point_differential,
+    s0.home_wins,
+    s0.home_losses,
+    s0.home_record,
+    s0.home_win_rate,
+    s0.away_wins,
+    s0.away_losses,
+    s0.away_record,
+    s0.away_win_rate,
+    s0.mens_record,
+    s0.men_wins,
+    s0.men_losses,
+    s0.men_win_rate,
+    s0.womens_record,
+    s0.women_wins,
+    s0.women_losses,
+    s0.women_win_rate,
+    s0.mixed_wins,
+    s0.mixed_losses,
+    s0.mixed_record,
+    s0.mixed_win_rate,
+    s0.clutch_games,
+    s0.clutch_wins,
+    s0.clutch_record,
+    s0.clutch_win_rate,
+    s0.total_games,
+    s0.total_single_games,
+    s0.total_points_won,
+    s0.team_point_diff,
     s0.snapshot_date
   from public.team_standings s0
   order by
@@ -862,6 +905,34 @@ select
   sl.game_win_rate,
   sl.average_points_per_game,
   sl.average_point_differential,
+  sl.home_wins,
+  sl.home_losses,
+  sl.home_record,
+  sl.home_win_rate,
+  sl.away_wins,
+  sl.away_losses,
+  sl.away_record,
+  sl.away_win_rate,
+  sl.mens_record,
+  sl.men_wins,
+  sl.men_losses,
+  sl.men_win_rate,
+  sl.womens_record,
+  sl.women_wins,
+  sl.women_losses,
+  sl.women_win_rate,
+  sl.mixed_wins,
+  sl.mixed_losses,
+  sl.mixed_record,
+  sl.mixed_win_rate,
+  sl.clutch_games,
+  sl.clutch_wins,
+  sl.clutch_record,
+  sl.clutch_win_rate,
+  sl.total_games,
+  sl.total_single_games,
+  sl.total_points_won,
+  sl.team_point_diff,
   to_char(sl.snapshot_date, 'Mon DD, YYYY') as standings_as_of_date
 from standings_latest sl
 join public.teams t
@@ -1098,8 +1169,3 @@ begin
     );
   end loop;
 end $$;
-
-create or replace view public.vw_player_status_per_season
-with (security_invoker = true) as
-select *
-from public.vw_player_stats_per_season;

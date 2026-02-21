@@ -113,11 +113,6 @@ left join lateral (
 ) pds on true
 order by d.division_name, team_name, player_full_name;
 
-create or replace view public.vw_player_status_per_season
-with (security_invoker = true) as
-select *
-from public.vw_player_stats_per_season;
-
 create or replace view public.vw_team_matches
 with (security_invoker = true) as
 with matchups_latest as (

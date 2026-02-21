@@ -34,7 +34,7 @@ watch(
   <section
     ref="transcriptEl"
     data-testid="chat-transcript"
-    class="chat-scanline chat-scrollbar relative flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto rounded-lg border p-4 md:p-6"
+    class="chat-scrollbar relative flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto rounded-lg border p-4 md:p-6"
     aria-label="Chat transcript"
   >
     <ChatMessageBubble

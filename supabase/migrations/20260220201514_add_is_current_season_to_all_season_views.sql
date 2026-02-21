@@ -94,8 +94,3 @@ begin
     );
   end loop;
 end $$;
-
-create or replace view public.vw_player_status_per_season
-with (security_invoker = true) as
-select *
-from public.vw_player_stats_per_season;

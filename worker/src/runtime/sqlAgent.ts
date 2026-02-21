@@ -18,6 +18,13 @@ const CATALOG_SELECTION_MODE = "hybrid" as const;
 const CATALOG_TOP_K = 2;
 const CATALOG_CONFIDENCE_MIN = 0.35;
 const CATALOG_MAX_COLUMNS_PER_VIEW = 20;
+export type ReasoningEffortLevel = "low" | "medium" | "high";
+
+export const resolveReasoningEffort = (
+	options: { extendedThinking?: boolean } | undefined,
+	configuredLevel: ReasoningEffortLevel,
+): "none" | ReasoningEffortLevel =>
+	options?.extendedThinking ? configuredLevel : "none";
 
 /**
  * Extracts final assistant text from the LangChain agent response shape.
@@ -92,6 +99,7 @@ export const runSqlAgent = async (
 	env: WorkerEnv,
 	messages: Array<{ role: "user" | "assistant"; content: string }>,
 	context: RequestContext,
+	options?: { extendedThinking?: boolean },
 ): Promise<string> => {
 	const startMs = nowMs();
 	const inputMessage =
@@ -114,7 +122,9 @@ export const runSqlAgent = async (
 	const model = new ChatOpenAI({
 		apiKey: env.OPENAI_API_KEY,
 		model: env.LLM_MODEL,
-		temperature: 1,
+		reasoning: {
+			effort: resolveReasoningEffort(options, env.LLM_REASONING_LEVEL),
+		},
 		timeout: env.SQL_QUERY_TIMEOUT_MS,
 	});
 

@@ -4,6 +4,7 @@ import {
 	createChatClient,
 	type ChatBackendMode,
 	type ChatSendMessage,
+	type ChatSendOptions,
 } from "./chatClient";
 import type { ChatMessage } from "./types";
 
@@ -11,6 +12,8 @@ export interface ChatController {
 	messages: Ref<ChatMessage[]>;
 	isSending: Ref<boolean>;
 	errorMessage: Ref<string | null>;
+	modelLabel: Ref<string>;
+	extendedThinking: Ref<boolean>;
 	submit: (value: string) => Promise<void>;
 }
 
@@ -24,11 +27,17 @@ const seedMessages: ChatMessage[] = [
 ];
 
 export function createChatController(
-	send: (messages: ChatSendMessage[]) => Promise<{ reply: string }>,
+	send: (
+		messages: ChatSendMessage[],
+		options?: ChatSendOptions,
+	) => Promise<{ reply: string; model: string }>,
+	getConfig?: () => Promise<{ model: string }>,
 ): ChatController {
 	const messages = ref<ChatMessage[]>([...seedMessages]);
 	const isSending = ref(false);
 	const errorMessage = ref<string | null>(null);
+	const modelLabel = ref("Unknown model");
+	const extendedThinking = ref(false);
 
 	const submit = async (value: string) => {
 		const content = value.trim();
@@ -54,7 +63,11 @@ export function createChatController(
 						message.role === "assistant" || message.role === "user",
 				)
 				.map((message) => ({ role: message.role, content: message.content }));
-			const response = await send(payload);
+			const requestOptions = {
+				extendedThinking: extendedThinking.value,
+			};
+			const response = await send(payload, requestOptions);
+			modelLabel.value = response.model;
 
 			const assistantMessage: ChatMessage = {
 				id: crypto.randomUUID(),
@@ -70,10 +83,18 @@ export function createChatController(
 		}
 	};
 
+	void getConfig?.()
+		.then((config) => {
+			modelLabel.value = config.model;
+		})
+		.catch(() => {});
+
 	return {
 		messages,
 		isSending,
 		errorMessage,
+		modelLabel,
+		extendedThinking,
 		submit,
 	};
 }
@@ -82,5 +103,5 @@ export function useChatController(): ChatController {
 	const backendMode: ChatBackendMode =
 		import.meta.env.VITE_CHAT_BACKEND_MODE === "mock" ? "mock" : "real";
 	const client = createChatClient(fetch, () => null, { mode: backendMode });
-	return createChatController(client.send);
+	return createChatController(client.send, client.getConfig);
 }

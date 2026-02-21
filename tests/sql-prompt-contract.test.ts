@@ -15,13 +15,20 @@ describe("sql prompt contract", () => {
 		expect(prompt).toContain("selection reason");
 	});
 
-	it("instructs the model to avoid unnecessary clarification prompts", () => {
+	it("enforces strict database grounding and follow-up context handling", () => {
 		const prompt = buildSqlSystemPrompt({
 			catalogContext: "public.vw_team_matches:\n- team_name\n- match_result",
 			selectionReason: "Top match public.vw_team_matches scored 8.20.",
 		});
 
-		expect(prompt).toContain("Ask for clarification only if");
-		expect(prompt).toContain("If the question is answerable");
+		expect(prompt).toContain("Mandatory grounding policy");
+		expect(prompt).toContain(
+			"MUST execute SQL before answering",
+		);
+		expect(prompt).toContain(
+			"Use prior conversation to resolve follow-up references",
+		);
+		expect(prompt).toContain("sample_data is illustrative only");
+		expect(prompt).toContain("Verified scope");
 	});
 });

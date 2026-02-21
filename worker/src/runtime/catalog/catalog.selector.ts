@@ -11,8 +11,14 @@ import type {
 
 const SAFE_FALLBACK_VIEW = "public.vw_team_matches";
 const PARTNER_HISTORY_VIEW = "public.vw_player_game_history";
+const TEAM_ROSTER_VIEW = "public.vw_player_team";
+const PLAYER_STATS_SEASON_VIEW = "public.vw_player_stats_per_season";
 const PARTNER_INTENT_RE =
 	/\b(partner|teammate|played with|play with|pair(?:ed|ing)? with)\b/i;
+const ROSTER_INTENT_RE =
+	/\b(roster|members?|players?\s+on|who(?:'s| is)\s+on|list\s+players?)\b/i;
+const PLAYER_RANKING_INTENT_RE =
+	/(?:\brank(?:ed|ing)?\b|\boverall\b|\btop player\b|\bbest player\b|\bworst player\b)/i;
 
 /**
  * Scores an entry by deterministic token overlap between question and curated catalog metadata.
@@ -44,7 +50,7 @@ const scoreSemanticLite = (
 	questionTokens: string[],
 ): number => {
 	const searchable = tokenize(
-		`${entry.description} ${entry.aliases.join(" ")} ${entry.useFor.join(" ")} ${entry.avoidFor.join(" ")} ${entry.exampleQuestions.join(" ")}`,
+		`${entry.description} ${entry.aliases.join(" ")} ${entry.useFor.join(" ")} ${entry.exampleQuestions.join(" ")}`,
 	);
 	const matchCount = searchable.reduce(
 		(total, token) => total + (questionTokens.includes(token) ? 1 : 0),
@@ -136,9 +142,17 @@ export const selectCatalogContext = (
 	const normalizedTopK = Math.max(1, options.topK);
 	const tokens = tokenize(question);
 	const hasPartnerIntent = PARTNER_INTENT_RE.test(question);
+	const hasRosterIntent = ROSTER_INTENT_RE.test(question);
+	const hasPlayerRankingIntent = PLAYER_RANKING_INTENT_RE.test(question);
 	const forcedPrimaryView =
 		options.forcePrimaryView ??
-		(hasPartnerIntent ? PARTNER_HISTORY_VIEW : undefined);
+		(hasPartnerIntent
+			? PARTNER_HISTORY_VIEW
+			: hasRosterIntent
+					? TEAM_ROSTER_VIEW
+					: hasPlayerRankingIntent
+						? PLAYER_STATS_SEASON_VIEW
+					: undefined);
 
 	const ranked = AI_CATALOG.map((entry) => {
 		const deterministicScore = scoreDeterministic(entry, tokens);
@@ -185,15 +199,25 @@ export const selectCatalogContext = (
 		top && top.finalScore > 0
 			? `Top match ${top.entry.name} scored ${top.finalScore.toFixed(2)} from question overlap.`
 			: "No strong catalog match was found from the question phrasing.";
+	const forcedReasonSource = hasPartnerIntent
+		? "partner-intent classifier"
+		: hasRosterIntent
+			? "roster-intent classifier"
+			: hasPlayerRankingIntent
+				? "ranking-intent classifier"
+			: "deterministic intent classifier";
 	let reason = forcedEntry
-		? `${baseReason} Forced primary view ${forcedEntry.name} from ${hasPartnerIntent ? "partner-intent classifier" : "deterministic intent classifier"}.`
+		? `${baseReason} Forced primary view ${forcedEntry.name} from ${forcedReasonSource}.`
 		: baseReason;
 
 	if (confidence < options.confidenceMin) {
+		const hasMeaningfulTopMatch = (top?.finalScore ?? 0) > 0;
 		const fallbackEntry =
-			AI_CATALOG.find((entry) => entry.name === SAFE_FALLBACK_VIEW) ??
-			selected[0] ??
-			AI_CATALOG[0];
+			forcedEntry ??
+			(hasMeaningfulTopMatch
+				? selected[0]
+				: AI_CATALOG.find((entry) => entry.name === SAFE_FALLBACK_VIEW) ??
+					AI_CATALOG[0]);
 		selected = fallbackEntry ? [fallbackEntry] : selected;
 		reason = `${reason} Confidence ${confidence.toFixed(2)} is below confidence threshold ${options.confidenceMin.toFixed(2)}; fallback to ${fallbackEntry?.name ?? "none"}.`;
 	}

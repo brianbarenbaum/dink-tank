@@ -4,6 +4,8 @@ import { NodeSDK } from "@opentelemetry/sdk-node";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
+import { DEFAULT_EVAL_MAX_CONCURRENCY } from "../lib/evalDefaults.ts";
+
 interface ChatResponseBody {
 	reply?: string;
 	error?: string;
@@ -302,7 +304,10 @@ const run = async (): Promise<void> => {
 	if (datasetLimit !== null && (!Number.isFinite(datasetLimit) || datasetLimit < 1)) {
 		throw new Error("EVAL_DATASET_LIMIT must be a positive integer.");
 	}
-	const maxConcurrency = parseOptionalInt(process.env.EVAL_MAX_CONCURRENCY, 4);
+	const maxConcurrency = parseOptionalInt(
+		process.env.EVAL_MAX_CONCURRENCY,
+		DEFAULT_EVAL_MAX_CONCURRENCY,
+	);
 	const openAiApiKey = process.env.OPENAI_API_KEY?.trim();
 
 	console.log(`Dataset: ${datasetName}`);

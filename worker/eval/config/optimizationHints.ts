@@ -20,11 +20,13 @@ export const OPTIMIZATION_HINTS: OptimizationHints = {
 		"When division is provided in follow-up, enforce exact division_name equality in SQL.",
 		"Allow low-confidence SQL execution for factoid questions to avoid repeated clarification loops.",
 		"Prefer asking one focused clarification over answering with guessed scope.",
+		"When follow-up asks for a metric-only refinement, preserve prior team/division/season constraints.",
 	],
 	answerRules: [
 		"When asking a clarification question, ask exactly one targeted clarification and avoid repeating the same question if the user already answered it.",
 		"When a team-level request could also be interpreted as player-level stats, ask a one-line team-vs-player clarification.",
 		"When user asks won/lost and subject is unclear, ask one-line team-results vs player-stats clarification.",
 		"Skip generic won/lost clarification prompts when the question is a direct factoid request.",
+		"Do not ask repeated clarification if the user has already provided the requested detail in the previous turn.",
 	],
 };

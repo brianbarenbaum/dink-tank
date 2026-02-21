@@ -12,6 +12,8 @@ describe("worker env contract", () => {
 		expect(parsed.ok).toBe(true);
 		if (parsed.ok) {
 			expect(parsed.value.LLM_MODEL).toBeTruthy();
+			expect(parsed.value.LLM_REASONING_LEVEL).toBe("medium");
+			expect(parsed.value.SQL_QUERY_TIMEOUT_MS).toBe(25_000);
 			expect(parsed.value.SUPABASE_DB_SSL_NO_VERIFY).toBe(false);
 			expect(parsed.value.LANGFUSE_ENABLED).toBe(false);
 			expect(parsed.value.LANGFUSE_TRACING_ENVIRONMENT).toBe("default");
@@ -51,5 +53,28 @@ describe("worker env contract", () => {
 			expect(parsed.value.LANGFUSE_BASE_URL).toBe("https://cloud.langfuse.com");
 			expect(parsed.value.LANGFUSE_TRACING_ENVIRONMENT).toBe("development");
 		}
+	});
+
+	it("accepts configured reasoning level", () => {
+		const parsed = parseWorkerEnv({
+			OPENAI_API_KEY: "test-key",
+			SUPABASE_DB_URL: "postgres://postgres:postgres@localhost:5432/postgres",
+			LLM_REASONING_LEVEL: "high",
+		});
+
+		expect(parsed.ok).toBe(true);
+		if (parsed.ok) {
+			expect(parsed.value.LLM_REASONING_LEVEL).toBe("high");
+		}
+	});
+
+	it("rejects invalid reasoning level", () => {
+		const parsed = parseWorkerEnv({
+			OPENAI_API_KEY: "test-key",
+			SUPABASE_DB_URL: "postgres://postgres:postgres@localhost:5432/postgres",
+			LLM_REASONING_LEVEL: "turbo",
+		});
+
+		expect(parsed.ok).toBe(false);
 	});
 });

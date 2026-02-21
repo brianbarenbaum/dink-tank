@@ -6,6 +6,7 @@ describe("worker chat validation", () => {
 	it("accepts valid chat payload", () => {
 		const result = parseChatRequest({
 			messages: [{ role: "user", content: "hello" }],
+			options: { extendedThinking: true },
 		});
 
 		expect(result.ok).toBe(true);
@@ -18,4 +19,14 @@ describe("worker chat validation", () => {
 
 		expect(result.ok).toBe(false);
 	});
+
+	it("rejects invalid extendedThinking option type", () => {
+		const result = parseChatRequest({
+			messages: [{ role: "user", content: "hello" }],
+			options: { extendedThinking: "yes" },
+		});
+
+		expect(result.ok).toBe(false);
+	});
+
 });

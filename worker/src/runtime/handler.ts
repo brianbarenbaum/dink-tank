@@ -24,6 +24,7 @@ export const handleChatRequest = async (
 		env: WorkerEnv,
 		messages: Array<{ role: "user" | "assistant"; content: string }>,
 		context: RequestContext,
+		options?: { extendedThinking?: boolean },
 	) => Promise<string>,
 	env?: WorkerEnv,
 ): Promise<Response> => {
@@ -48,8 +49,14 @@ export const handleChatRequest = async (
 	}
 
 	try {
-		const reply = await runAgent(env, parsed.value.messages, context);
-		return json({ reply }, 200);
+		const extendedThinking = Boolean(parsed.value.options?.extendedThinking);
+		const reply = await runAgent(
+			env,
+			parsed.value.messages,
+			context,
+			parsed.value.options,
+		);
+		return json({ reply, model: env.LLM_MODEL, extendedThinking }, 200);
 	} catch (error) {
 		logError("chat_request_failed", context, {
 			error:

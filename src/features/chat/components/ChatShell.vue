@@ -11,6 +11,8 @@ import type { ChatMessage } from "../types";
 interface ChatShellProps {
 	messages?: ChatMessage[];
 	isSending?: boolean;
+	modelLabel?: string;
+	extendedThinking?: boolean;
 }
 
 const props = withDefaults(defineProps<ChatShellProps>(), {
@@ -29,10 +31,13 @@ const props = withDefaults(defineProps<ChatShellProps>(), {
 		},
 	],
 	isSending: false,
+	modelLabel: "Unknown model",
+	extendedThinking: false,
 });
 
 const emit = defineEmits<{
 	submit: [value: string];
+	"update:extended-thinking": [value: boolean];
 }>();
 
 const mobileSidebarOpen = ref(false);
@@ -114,7 +119,13 @@ const desktopSidebarOpen = ref(true);
       </header>
 
       <ChatTranscript :messages="props.messages" :is-sending="props.isSending" />
-      <ChatComposer :is-sending="props.isSending" @submit="emit('submit', $event)" />
+      <ChatComposer
+        :is-sending="props.isSending"
+        :model-label="props.modelLabel"
+        :extended-thinking="props.extendedThinking"
+        @submit="emit('submit', $event)"
+        @update:extended-thinking="emit('update:extended-thinking', $event)"
+      />
     </section>
   </main>
 </template>

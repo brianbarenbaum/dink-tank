@@ -58,5 +58,22 @@ export const parseChatRequest = (payload: unknown): ValidationResult => {
 		);
 	}
 
-	return success({ messages: candidate.messages });
+	if (
+		candidate.options &&
+		(typeof candidate.options !== "object" ||
+			Array.isArray(candidate.options) ||
+			("extendedThinking" in candidate.options &&
+				typeof (
+					candidate.options as {
+						extendedThinking?: unknown;
+					}
+				).extendedThinking !== "boolean"))
+	) {
+		return fail("options.extendedThinking must be a boolean when provided.");
+	}
+
+	return success({
+		messages: candidate.messages,
+		options: candidate.options as { extendedThinking?: boolean } | undefined,
+	});
 };

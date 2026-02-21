@@ -28,7 +28,6 @@
 
 1. Recreate these views with appended `is_current_season`:
    - `vw_player_stats_per_season`
-   - `vw_player_status_per_season`
    - `vw_player_stats_per_match`
    - `vw_player_game_history`
    - `vw_match_game_lineups_scores`

@@ -14,6 +14,7 @@ import {
 	applyDatasetLimit,
 	parseEvalOptimizeConfig,
 } from "../lib/evalOptimizeConfig.ts";
+import { DEFAULT_EVAL_MAX_CONCURRENCY } from "../lib/evalDefaults.ts";
 import {
 	type ExternalScore,
 	buildStopDecision,
@@ -387,7 +388,10 @@ const run = async (): Promise<void> => {
 		process.env.EVAL_EXPECTED_ITEM_COUNT,
 		30,
 	);
-	const maxConcurrency = parseOptionalInt(process.env.EVAL_MAX_CONCURRENCY, 4);
+	const maxConcurrency = parseOptionalInt(
+		process.env.EVAL_MAX_CONCURRENCY,
+		DEFAULT_EVAL_MAX_CONCURRENCY,
+	);
 	const openAiApiKey = process.env.OPENAI_API_KEY?.trim();
 
 	const artifactRoot = resolve(

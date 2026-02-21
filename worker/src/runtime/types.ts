@@ -7,10 +7,15 @@ export interface ChatMessage {
 
 export interface ChatRequest {
 	messages: ChatMessage[];
+	options?: {
+		extendedThinking?: boolean;
+	};
 }
 
 export interface ChatResponse {
 	reply: string;
+	model: string;
+	extendedThinking: boolean;
 }
 
 export interface ValidationSuccess {

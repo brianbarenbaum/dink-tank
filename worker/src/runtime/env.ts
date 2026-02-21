@@ -3,6 +3,7 @@ export interface WorkerEnv {
 	SUPABASE_DB_URL: string;
 	SUPABASE_DB_SSL_NO_VERIFY: boolean;
 	LLM_MODEL: string;
+	LLM_REASONING_LEVEL: "low" | "medium" | "high";
 	SQL_QUERY_TIMEOUT_MS: number;
 	EXPOSE_ERROR_DETAILS: boolean;
 	LANGFUSE_PUBLIC_KEY?: string;
@@ -25,7 +26,8 @@ interface ParseEnvFailure {
 export type ParseEnvResult = ParseEnvSuccess | ParseEnvFailure;
 
 const DEFAULT_MODEL = "gpt-4.1-mini";
-const DEFAULT_SQL_TIMEOUT_MS = 10_000;
+const DEFAULT_REASONING_LEVEL = "medium";
+const DEFAULT_SQL_TIMEOUT_MS = 25_000;
 const DEFAULT_LANGFUSE_TRACING_ENVIRONMENT = "default";
 const TRUE_VALUES = new Set(["1", "true", "yes", "on"]);
 
@@ -58,6 +60,16 @@ export const parseWorkerEnv = (
 		};
 	}
 
+	const reasoningLevelRaw =
+		env.LLM_REASONING_LEVEL?.trim().toLowerCase() ?? DEFAULT_REASONING_LEVEL;
+	const validReasoningLevels = new Set(["low", "medium", "high"]);
+	if (!validReasoningLevels.has(reasoningLevelRaw)) {
+		return {
+			ok: false,
+			error: "LLM_REASONING_LEVEL must be one of: low, medium, high",
+		};
+	}
+
 	return {
 		ok: true,
 		value: {
@@ -67,6 +79,7 @@ export const parseWorkerEnv = (
 				env.SUPABASE_DB_SSL_NO_VERIFY?.trim().toLowerCase() ?? "",
 			),
 			LLM_MODEL: env.LLM_MODEL?.trim() || DEFAULT_MODEL,
+			LLM_REASONING_LEVEL: reasoningLevelRaw as "low" | "medium" | "high",
 			SQL_QUERY_TIMEOUT_MS,
 			EXPOSE_ERROR_DETAILS: TRUE_VALUES.has(
 				env.EXPOSE_ERROR_DETAILS?.trim().toLowerCase() ?? "",

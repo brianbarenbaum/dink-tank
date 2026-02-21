@@ -3,12 +3,27 @@ export interface ChatSendMessage {
 	content: string;
 }
 
+export interface ChatSendOptions {
+	extendedThinking?: boolean;
+}
+
 export interface ChatReply {
 	reply: string;
+	model: string;
+	extendedThinking: boolean;
+}
+
+export interface ChatConfig {
+	model: string;
+	defaultReasoningLevel: "low" | "medium" | "high";
 }
 
 export interface ChatClient {
-	send(messages: ChatSendMessage[]): Promise<ChatReply>;
+	send(
+		messages: ChatSendMessage[],
+		options?: ChatSendOptions,
+	): Promise<ChatReply>;
+	getConfig(): Promise<ChatConfig>;
 }
 
 export type ChatBackendMode = "real" | "mock";
@@ -55,15 +70,17 @@ const pickMockReply = (
 export const createChatClient = (
 	fetchImpl: typeof fetch,
 	getAccessToken: () => string | null,
-	options: ChatClientOptions = {},
+	clientOptions: ChatClientOptions = {},
 ): ChatClient => ({
-	async send(messages) {
-		if (options.mode === "mock") {
+	async send(messages, options) {
+		if (clientOptions.mode === "mock") {
 			return {
 				reply: pickMockReply(
 					messages,
-					options.mockReplies ?? DEFAULT_MOCK_REPLIES,
+					clientOptions.mockReplies ?? DEFAULT_MOCK_REPLIES,
 				),
+				model: "mock-model",
+				extendedThinking: Boolean(options?.extendedThinking),
 			};
 		}
 
@@ -74,7 +91,7 @@ export const createChatClient = (
 				"content-type": "application/json",
 				...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}),
 			},
-			body: JSON.stringify({ messages }),
+			body: JSON.stringify({ messages, options }),
 		});
 
 		if (!response.ok) {
@@ -82,5 +99,28 @@ export const createChatClient = (
 		}
 
 		return (await response.json()) as ChatReply;
+	},
+	async getConfig() {
+		if (clientOptions.mode === "mock") {
+			return {
+				model: "mock-model",
+				defaultReasoningLevel: "medium",
+			};
+		}
+
+		const accessToken = getAccessToken();
+		const response = await fetchImpl("/api/chat/config", {
+			method: "GET",
+			headers: {
+				"content-type": "application/json",
+				...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}),
+			},
+		});
+
+		if (!response.ok) {
+			throw new Error("Chat config request failed");
+		}
+
+		return (await response.json()) as ChatConfig;
 	},
 });
