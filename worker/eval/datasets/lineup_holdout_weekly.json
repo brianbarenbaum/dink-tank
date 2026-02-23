@@ -1,0 +1,110 @@
+[
+	{
+		"week": 5,
+		"matchType": "mixed",
+		"winRateShrunk": 0.58,
+		"pdWinProbability": 0.61,
+		"sampleReliability": 0.72,
+		"signalCorrelation": 0.44,
+		"actualWin": 1
+	},
+	{
+		"week": 5,
+		"matchType": "mixed",
+		"winRateShrunk": 0.49,
+		"pdWinProbability": 0.63,
+		"sampleReliability": 0.41,
+		"signalCorrelation": 0.22,
+		"actualWin": 1
+	},
+	{
+		"week": 5,
+		"matchType": "female",
+		"winRateShrunk": 0.62,
+		"pdWinProbability": 0.66,
+		"sampleReliability": 0.78,
+		"signalCorrelation": 0.81,
+		"actualWin": 1
+	},
+	{
+		"week": 5,
+		"matchType": "female",
+		"winRateShrunk": 0.57,
+		"pdWinProbability": 0.43,
+		"sampleReliability": 0.64,
+		"signalCorrelation": 0.86,
+		"actualWin": 0
+	},
+	{
+		"week": 5,
+		"matchType": "male",
+		"winRateShrunk": 0.54,
+		"pdWinProbability": 0.68,
+		"sampleReliability": 0.52,
+		"signalCorrelation": 0.39,
+		"actualWin": 1
+	},
+	{
+		"week": 5,
+		"matchType": "male",
+		"winRateShrunk": 0.55,
+		"pdWinProbability": 0.47,
+		"sampleReliability": 0.49,
+		"signalCorrelation": 0.35,
+		"actualWin": 0
+	},
+	{
+		"week": 6,
+		"matchType": "mixed",
+		"winRateShrunk": 0.51,
+		"pdWinProbability": 0.57,
+		"sampleReliability": 0.37,
+		"signalCorrelation": 0.18,
+		"actualWin": 1
+	},
+	{
+		"week": 6,
+		"matchType": "mixed",
+		"winRateShrunk": 0.59,
+		"pdWinProbability": 0.45,
+		"sampleReliability": 0.68,
+		"signalCorrelation": 0.91,
+		"actualWin": 0
+	},
+	{
+		"week": 6,
+		"matchType": "female",
+		"winRateShrunk": 0.53,
+		"pdWinProbability": 0.56,
+		"sampleReliability": 0.36,
+		"signalCorrelation": 0.21,
+		"actualWin": 1
+	},
+	{
+		"week": 6,
+		"matchType": "female",
+		"winRateShrunk": 0.64,
+		"pdWinProbability": 0.6,
+		"sampleReliability": 0.82,
+		"signalCorrelation": 0.72,
+		"actualWin": 1
+	},
+	{
+		"week": 6,
+		"matchType": "male",
+		"winRateShrunk": 0.47,
+		"pdWinProbability": 0.55,
+		"sampleReliability": 0.31,
+		"signalCorrelation": 0.25,
+		"actualWin": 1
+	},
+	{
+		"week": 6,
+		"matchType": "male",
+		"winRateShrunk": 0.61,
+		"pdWinProbability": 0.49,
+		"sampleReliability": 0.77,
+		"signalCorrelation": 0.84,
+		"actualWin": 0
+	}
+]

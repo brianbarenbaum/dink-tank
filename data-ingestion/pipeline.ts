@@ -90,6 +90,8 @@ interface SupabaseInsertOptions {
 	returning?: "minimal" | "representation";
 }
 
+type PostgrestSchema = "public" | "analytics";
+
 const DEFAULT_API_BASE =
 	"https://cplsecureapiproxy.azurewebsites.net/api/CPLSecureApiProxy/v0/api";
 
@@ -539,6 +541,14 @@ export const findMissingDetailDependencies = (
 		(endpoint) => !completedEndpoints.includes(endpoint),
 	);
 
+export const phaseRequiresLineupAnalyticsRefresh = (
+	phase: IngestPhase,
+): boolean =>
+	phase === "all" ||
+	phase === "matchups" ||
+	phase === "playoff-matchups" ||
+	phase === "details";
+
 interface BackoffInput {
 	attempt: number;
 	baseDelayMs: number;
@@ -597,6 +607,21 @@ class SupabaseRestClient {
 			checkpoint_value: string | null;
 		}>;
 		return rows[0]?.checkpoint_value ?? null;
+	}
+
+	public async rpc(
+		functionName: string,
+		args: Record<string, unknown> = {},
+		schema: PostgrestSchema = "public",
+	): Promise<unknown> {
+		const schemaHeaders: Record<string, string> | undefined =
+			schema === "public"
+				? undefined
+				: {
+						"Accept-Profile": schema,
+						"Content-Profile": schema,
+					};
+		return this.request(`/rest/v1/rpc/${functionName}`, "POST", args, schemaHeaders);
 	}
 
 	private async request(
@@ -832,6 +857,7 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 	let retries = 0;
 	let warnings = 0;
 	const rowsByTable: Record<string, number> = {};
+	const shouldRefreshLineupAnalytics = phaseRequiresLineupAnalyticsRefresh(phase);
 
 	const supabase =
 		dryRun || !config.supabaseUrl || !config.supabaseServiceRoleKey
@@ -1484,6 +1510,14 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 			}
 		}
 
+		if (supabase && shouldRefreshLineupAnalytics) {
+			await supabase.rpc(
+				"refresh_lineup_analytics_views",
+				{},
+				"analytics",
+			);
+		}
+
 		if (supabase) {
 			await supabase.upsert(
 				"ingest_runs",
@@ -1500,6 +1534,7 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 							dry_run: false,
 							retries,
 							warnings,
+							lineup_analytics_refreshed: shouldRefreshLineupAnalytics,
 							rows_by_table: rowsByTable,
 						},
 					},
@@ -1529,6 +1564,7 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 							dry_run: dryRun,
 							retries,
 							warnings,
+							lineup_analytics_refreshed: false,
 							rows_by_table: rowsByTable,
 						},
 					},

@@ -143,15 +143,22 @@
 }
 
 .chat-root button,
-.chat-root input {
+.chat-root input,
+.chat-root select {
 	background-color: color-mix(in oklab, var(--chat-panel), black 25%);
 	color: var(--chat-text);
 	border-color: var(--chat-line);
 }
 
 .chat-root button:focus-visible,
-.chat-root input:focus-visible {
+.chat-root input:focus-visible,
+.chat-root select:focus-visible {
 	box-shadow: 0 0 0 2px color-mix(in oklab, var(--chat-glow), black 35%);
+}
+
+.chat-root select option {
+	background-color: color-mix(in oklab, var(--chat-panel), black 30%);
+	color: var(--chat-text);
 }
 
 .chat-assistant-bubble {

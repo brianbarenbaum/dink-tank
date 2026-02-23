@@ -7,6 +7,7 @@ export interface LineupLabRecommendRequest {
 	teamId: string;
 	oppTeamId: string;
 	availablePlayerIds: string[];
+	matchupId: string;
 	objective: LineupLabObjective;
 	maxRecommendations: number;
 	downsideQuantile: number;
@@ -30,7 +31,21 @@ export interface BundleCandidatePair {
 	pair_player_high_id: string;
 	pair_key: string;
 	win_rate_shrunk?: number;
+	pd_win_probability?: number | null;
 	sample_reliability?: number;
+	division_win_rate_prior?: number | null;
+	mixed_win_rate?: number | null;
+	mixed_win_rate_shrunk?: number | null;
+	mixed_win_rate_prior?: number | null;
+	mixed_pd_win_probability?: number | null;
+	female_win_rate?: number | null;
+	female_win_rate_shrunk?: number | null;
+	female_win_rate_prior?: number | null;
+	female_pd_win_probability?: number | null;
+	male_win_rate?: number | null;
+	male_win_rate_shrunk?: number | null;
+	male_win_rate_prior?: number | null;
+	male_pd_win_probability?: number | null;
 }
 
 export interface BundleScenario {
@@ -51,19 +66,46 @@ export interface BundlePairMatchup {
 	opp_pair_low_id: string;
 	opp_pair_high_id: string;
 	win_rate_shrunk?: number;
+	pd_win_probability?: number | null;
 	sample_reliability?: number;
 }
 
 export interface LineupLabFeatureBundle {
+	generated_at?: string;
+	max_last_seen_at?: string | null;
+	data_staleness_hours?: number | null;
 	counts?: Record<string, number>;
 	candidate_pairs: BundleCandidatePair[];
 	opponent_scenarios: BundleScenario[];
 	pair_matchups: BundlePairMatchup[];
+	players_catalog?: Array<{
+		player_id: string;
+		first_name?: string | null;
+		last_name?: string | null;
+		gender?: string | null;
+		team_id?: string | null;
+	}>;
 }
 
 export interface RecommendedPair {
 	playerAId: string;
 	playerBId: string;
+}
+
+export type LineupMatchType = "mixed" | "female" | "male";
+
+export interface LineupScheduledGame {
+	roundNumber: number;
+	slotNumber: number;
+	matchType: LineupMatchType;
+	playerAId: string;
+	playerBId: string;
+	winProbability: number;
+}
+
+export interface LineupScheduledRound {
+	roundNumber: number;
+	games: LineupScheduledGame[];
 }
 
 export interface LineupLabRecommendation {
@@ -72,8 +114,17 @@ export interface LineupLabRecommendation {
 	pairs: RecommendedPair[];
 	expectedWins: number;
 	floorWinsQ20: number;
+	matchupWinProbability: number;
 	volatility: number;
 	confidence: "LOW" | "MEDIUM" | "HIGH";
+	gameConfidence: "LOW" | "MEDIUM" | "HIGH";
+	matchupConfidence: "LOW" | "MEDIUM" | "HIGH";
+	rounds: LineupScheduledRound[];
+	pairUsage: Array<{
+		playerAId: string;
+		playerBId: string;
+		count: number;
+	}>;
 }
 
 export interface LineupLabRecommendResponse {
@@ -84,4 +135,48 @@ export interface LineupLabRecommendResponse {
 	scenarioSummary: {
 		scenarioCount: number;
 	};
+	bundleMetadata?: {
+		generatedAt: string;
+		maxLastSeenAt: string | null;
+		dataStalenessHours: number | null;
+		warning?: string;
+	};
+	playerDirectory: Record<string, string>;
+}
+
+export interface LineupLabDivisionOption {
+	divisionId: string;
+	divisionName: string;
+	seasonYear: number;
+	seasonNumber: number;
+	location: string;
+}
+
+export interface LineupLabTeamOption {
+	teamId: string;
+	teamName: string;
+}
+
+export interface LineupLabMatchupOption {
+	matchupId: string;
+	weekNumber: number | null;
+	scheduledTime: string | null;
+	teamId: string;
+	oppTeamId: string;
+	teamName: string;
+	oppTeamName: string;
+}
+
+export interface LineupLabMatchupContextResponse {
+	matchups: LineupLabMatchupOption[];
+	availablePlayerIds: string[];
+	suggestedAvailablePlayerIds: string[];
+	rosterPlayers: Array<{
+		playerId: string;
+		firstName: string | null;
+		lastName: string | null;
+		gender: string | null;
+		isSub: boolean;
+		suggested: boolean;
+	}>;
 }

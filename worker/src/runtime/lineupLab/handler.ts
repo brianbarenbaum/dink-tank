@@ -1,6 +1,7 @@
 import type { WorkerEnv } from "../env";
 import { createRequestContext, type RequestContext } from "../requestContext";
 import { logError, logWarn } from "../runtimeLogger";
+import { LineupLabInputError } from "./repository";
 import { parseLineupLabRecommendRequest } from "./validation";
 import type {
 	LineupLabRecommendRequest,
@@ -48,6 +49,16 @@ export const handleLineupLabRecommendRequest = async (
 		const response = await runRecommendation(env, parsed.value, context);
 		return json(response, 200);
 	} catch (error) {
+		if (error instanceof LineupLabInputError) {
+			logWarn("lineup_lab_invalid_request", context, {
+				reason: error.message,
+			});
+			return json(
+				{ error: "invalid_request", message: error.message },
+				400,
+			);
+		}
+
 		logError("lineup_lab_recommend_failed", context, {
 			error:
 				error instanceof Error

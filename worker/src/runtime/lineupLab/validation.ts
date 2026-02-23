@@ -5,8 +5,8 @@ import type {
 	ValidationSuccess,
 } from "./types";
 
-const MIN_PLAYERS = 4;
-const MAX_PLAYERS = 12;
+const MIN_PLAYERS = 8;
+const MAX_PLAYERS = 20;
 const MAX_RECOMMENDATIONS = 10;
 const MIN_SCENARIOS = 1;
 const MAX_SCENARIOS = 30;
@@ -41,6 +41,9 @@ export const parseLineupLabRecommendRequest = (
 	}
 	if (!isUuid(candidate.oppTeamId)) {
 		return fail("oppTeamId must be a valid UUID.");
+	}
+	if (!isUuid(candidate.matchupId)) {
+		return fail("matchupId must be a valid UUID.");
 	}
 	if (candidate.teamId === candidate.oppTeamId) {
 		return fail("teamId and oppTeamId must be different.");
@@ -132,6 +135,7 @@ export const parseLineupLabRecommendRequest = (
 		seasonNumber: candidate.seasonNumber,
 		teamId: candidate.teamId,
 		oppTeamId: candidate.oppTeamId,
+		matchupId: candidate.matchupId,
 		availablePlayerIds: candidate.availablePlayerIds,
 		objective: candidate.objective,
 		maxRecommendations,

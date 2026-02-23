@@ -1,5 +1,10 @@
 import { parseWorkerEnv } from "./env";
 import { handleChatRequest } from "./handler";
+import {
+	handleLineupLabDivisionsRequest,
+	handleLineupLabMatchupsRequest,
+	handleLineupLabTeamsRequest,
+} from "./lineupLab/contextHandler";
 import { handleLineupLabRecommendRequest } from "./lineupLab/handler";
 import { runLineupLabRecommend } from "./lineupLab/service";
 import { runSqlAgent } from "./sqlAgent";
@@ -46,7 +51,14 @@ export const handleFetch = async (
 		(url.pathname === "/api/chat/config" && request.method === "GET");
 	const isLineupLabRoute =
 		url.pathname === "/api/lineup-lab/recommend" && request.method === "POST";
-	if (!isChatRoute && !isLineupLabRoute) {
+	const isLineupLabContextRoute =
+		(url.pathname === "/api/lineup-lab/context/divisions" &&
+			request.method === "GET") ||
+		(url.pathname === "/api/lineup-lab/context/teams" &&
+			request.method === "GET") ||
+		(url.pathname === "/api/lineup-lab/context/matchups" &&
+			request.method === "GET");
+	if (!isChatRoute && !isLineupLabRoute && !isLineupLabContextRoute) {
 		return json({ error: "not_found" }, 404);
 	}
 
@@ -93,6 +105,24 @@ export const handleFetch = async (
 			runLineupLabRecommend,
 			envResult.value,
 		);
+	}
+	if (
+		url.pathname === "/api/lineup-lab/context/divisions" &&
+		request.method === "GET"
+	) {
+		return handleLineupLabDivisionsRequest(request, envResult.value);
+	}
+	if (
+		url.pathname === "/api/lineup-lab/context/teams" &&
+		request.method === "GET"
+	) {
+		return handleLineupLabTeamsRequest(request, envResult.value);
+	}
+	if (
+		url.pathname === "/api/lineup-lab/context/matchups" &&
+		request.method === "GET"
+	) {
+		return handleLineupLabMatchupsRequest(request, envResult.value);
 	}
 
 	return json({ error: "not_found" }, 404);

@@ -39,7 +39,8 @@
 		"ingest:sqlite:mock": "node --experimental-strip-types data-ingestion/sqlite/run-mock.ts bootstrap all",
 		"ingest:sqlite:verify": "node --experimental-strip-types data-ingestion/sqlite/verify.ts",
 		"eval:golden": "node --experimental-strip-types worker/eval/runners/eval-golden.ts",
-		"eval:optimize": "node --experimental-strip-types worker/eval/runners/eval-optimize.ts"
+		"eval:optimize": "node --experimental-strip-types worker/eval/runners/eval-optimize.ts",
+		"eval:lineup-calibration": "node --experimental-strip-types worker/eval/runners/eval-lineup-calibration.ts"
 	},
 	"dependencies": {
 		"@langchain/classic": "^1.0.17",
