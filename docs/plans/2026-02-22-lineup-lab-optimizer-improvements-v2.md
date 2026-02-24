@@ -33,7 +33,8 @@ This v2 plan reorders delivery around those constraints.
 - `0.2` Completed in worker validation/repository/service paths with matchup-context enforcement and pre-match feature cutoff inputs.
 - `0.3` Completed with explicit roster availability contract across context API, sidebar UI, and recommendation payload handling.
 - `0.4` Completed with ingestion-owned analytics refresh trigger, worker staleness metadata, and operations runbook.
-- Residual note: historical migration filenames present in Supabase but not in this branch remain a lineage-drift artifact; the new rebuild migration now establishes a deterministic source-of-truth baseline going forward.
+- Migration lineage update (`2026-02-24`): historical remote migration versions are represented in this branch, and `20260223120000_rebuild_lineup_analytics_objects_v2.sql` has been applied in the active Supabase environment. Live dependency compatibility for `analytics.vw_game_events_canonical` and `analytics.vw_team_game_pairs` is included in the migration definition.
+- Post-apply hotfix (`2026-02-24`): `20260224023632_include_available_players_in_feature_bundle_catalog.sql` ensures feature-bundle `players_catalog` always includes explicitly selected `availablePlayerIds`, preventing false \"Insufficient eligible players by gender\" errors when pre-match candidate pairs are sparse.
 
 ### 0.1 Reconcile migration lineage with live analytics objects
 
@@ -397,11 +398,282 @@ This v2 plan reorders delivery around those constraints.
 
 ---
 
-## Phase 3: Security and Write Paths for Captain Inputs
+## Phase 3: DUPR + Team Strength Integration (Model Upgrade)
+
+**Outcome:** Improve per-game and matchup win probability realism by adding a deterministic DUPR gating rule and an always-available team-strength adjustment, while preserving existing lineup-lab signals as the non-DUPR path.
+
+**Implementation Contract (authoritative):**
+1. DUPR has high weight (`65%`) **only** when all four players in a game (our pair + opponent pair) have non-null numeric `dupr_rating`.
+2. If any of the four players is missing `dupr_rating`, DUPR contribution is exactly `0%`.
+3. The remaining signal is the existing model path plus team-strength adjustment:
+   - `p_non_dupr = current_model_probability_with_team_strength_adjustment`
+4. Full blend:
+   - full DUPR coverage: `p_final = blend_logit(p_dupr, p_non_dupr, 0.65, 0.35)`
+   - partial/no DUPR coverage: `p_final = p_non_dupr`
+5. This phase does **not** require captain write endpoints; it uses existing read paths from `public.players.dupr_rating` and standings-derived team metrics.
+
+**Confirmed implementation decisions (2026-02-24):**
+1. Team-strength lookup uses the **latest available** `public.team_standings` snapshot for each team in season/division. Do not apply a `snapshot_date <= matchup_date` filter.
+2. Team-strength scalar uses percentile blending in SQL:
+   - `gw_rank = percent_rank(game_win_rate)` within season/division.
+   - `pd_rank = percent_rank(average_point_differential)` within season/division.
+   - `team_strength = 0.65 * gw_rank + 0.35 * pd_rank`.
+   - `strength_delta = our_team_strength - opp_team_strength`.
+3. Default model constants for Phase 3:
+   - `k_dupr = 1.6`
+   - `k_team = 0.45`
+   - `team_adjustment_cap = 0.35`
+4. Diagnostics are required at two levels:
+   - recommendation-level summary (metadata/sidebar)
+   - per-game diagnostics (for explainability/debug)
+5. Known-opponent DUPR coverage must be sourced from the feature bundle itself by extending function inputs with known-opponent player IDs and including them in `players_catalog`.
+
+### 3.1 Define scoring contract, math helpers, and feature flags
+
+**Files:**
+- Modify: `worker/src/runtime/lineupLab/optimizer.ts`
+- Modify: `worker/src/runtime/env.ts`
+- Modify: `worker/src/runtime/lineupLab/types.ts`
+- Test: `tests/lineup-lab-optimizer.test.ts`
+
+**Tasks (step-by-step):**
+1. Add explicit helper functions in optimizer:
+   - `logit(p)`, `sigmoid(z)`, `blendLogit(pA, pB, wA, wB)`.
+   - Guard against invalid probabilities (`<=0`, `>=1`) using existing clamp behavior.
+2. Add environment flags with defaults:
+   - `LINEUP_ENABLE_DUPR_BLEND=true`
+   - `LINEUP_DUPR_MAJOR_WEIGHT=0.65`
+   - `LINEUP_ENABLE_TEAM_STRENGTH_ADJUSTMENT=true`
+   - `LINEUP_DUPR_SLOPE=1.6`
+   - `LINEUP_TEAM_STRENGTH_FACTOR=0.45`
+   - `LINEUP_TEAM_STRENGTH_CAP=0.35`
+3. Add runtime validation for weights:
+   - DUPR weight must be between `0` and `1`.
+   - Non-DUPR weight is computed as `1 - DUPR`.
+   - `LINEUP_DUPR_SLOPE` must be positive.
+   - `LINEUP_TEAM_STRENGTH_FACTOR` must be non-negative.
+   - `LINEUP_TEAM_STRENGTH_CAP` must be positive.
+4. Add optimizer tests for helper math and invalid input guards.
+
+**Exit criteria:**
+- Math utilities are deterministic and covered by unit tests.
+- Flags can fully disable DUPR/team-strength behavior without code changes.
+
+
+**Step-end verification (mandatory):**
+- Run the `Recommend API E2E Loop (Mandatory for Every Step)` in this plan with a real `POST /api/lineup-lab/recommend` request.
+- If the response is not HTTP `200` or returns an error payload, stop, fix the root cause, and repeat this verification.
+- Proceed to the next plan step only after this loop succeeds.
+
+---
+
+### 3.2 Add DUPR and team-strength inputs to feature bundle
+
+**Files:**
+- Create: `supabase/migrations/YYYYMMDDHHMMSS_add_dupr_and_team_strength_to_lineup_bundle.sql`
+- Modify: `worker/src/runtime/lineupLab/repository.ts`
+- Test: `tests/lineup-lab-feature-bundle-migration.test.ts`
+- Test: `tests/lineup-lab-repository.test.ts`
+
+**Tasks (step-by-step):**
+1. Update `analytics.fn_lineup_lab_feature_bundle(...)` to include:
+   - `players_catalog[].dupr_rating`
+   - new top-level object `team_strength`:
+     - `our_team_id`, `opp_team_id`
+     - `our_team_strength`, `opp_team_strength`
+     - `strength_delta`
+     - `snapshot_date`
+2. Team strength source-of-truth:
+   - Use `public.team_standings` latest snapshot for season/division and each team.
+   - Do **not** gate by matchup date; latest snapshot is authoritative for this phase.
+3. Define a deterministic strength scalar formula in SQL (initial version):
+   - normalize and combine `game_win_rate` and `average_point_differential` using percentile ranks inside season/division.
+   - `team_strength = 0.65 * percent_rank(game_win_rate) + 0.35 * percent_rank(average_point_differential)`.
+   - keep formula simple and documented in SQL comments.
+4. Keep backward compatibility:
+   - If team standings not found, return `null` strengths and continue.
+5. Known-opponent coverage update:
+   - extend feature-bundle function inputs to accept known-opponent player IDs.
+   - include those IDs in `players_catalog` so DUPR gating can evaluate all four players in known-opponent mode.
+6. Add tests asserting bundle contains `dupr_rating` and `team_strength` keys.
+
+**Exit criteria:**
+- Feature bundle includes DUPR values when present and team strength for both teams.
+- Missing data paths degrade safely without breaking recommendations.
+
+
+**Step-end verification (mandatory):**
+- Run the `Recommend API E2E Loop (Mandatory for Every Step)` in this plan with a real `POST /api/lineup-lab/recommend` request.
+- If the response is not HTTP `200` or returns an error payload, stop, fix the root cause, and repeat this verification.
+- Proceed to the next plan step only after this loop succeeds.
+
+---
+
+### 3.3 Build DUPR game-level probability and strict coverage gate
+
+**Files:**
+- Modify: `worker/src/runtime/lineupLab/optimizer.ts`
+- Modify: `worker/src/runtime/lineupLab/types.ts`
+- Test: `tests/lineup-lab-optimizer.test.ts`
+
+**Tasks (step-by-step):**
+1. Add player-level DUPR lookup map from `bundle.players_catalog`.
+2. For each scored game, compute:
+   - our pair DUPR average (2 players)
+   - opponent pair DUPR average (2 players)
+   - four-player coverage count (`0..4`)
+3. Strict gating rule:
+   - if coverage count is `4`, DUPR branch is eligible.
+   - otherwise DUPR branch returns `null` and contributes `0`.
+4. Convert DUPR delta to probability:
+   - `dupr_delta = our_pair_avg - opp_pair_avg`
+   - `p_dupr = sigmoid(k_dupr * dupr_delta)` with bounded output.
+   - default `k_dupr = 1.6` (configurable via env).
+5. Add tests:
+   - all 4 ratings present -> DUPR branch activates.
+   - 3/4 or lower -> DUPR branch fully off.
+   - larger positive delta raises win probability directionally.
+
+**Exit criteria:**
+- DUPR behavior matches contract exactly (binary gate).
+- Test coverage proves no partial-weight leakage when coverage < 4.
+
+
+**Step-end verification (mandatory):**
+- Run the `Recommend API E2E Loop (Mandatory for Every Step)` in this plan with a real `POST /api/lineup-lab/recommend` request.
+- If the response is not HTTP `200` or returns an error payload, stop, fix the root cause, and repeat this verification.
+- Proceed to the next plan step only after this loop succeeds.
+
+---
+
+### 3.4 Build non-DUPR path with team-strength adjustment
+
+**Files:**
+- Modify: `worker/src/runtime/lineupLab/optimizer.ts`
+- Test: `tests/lineup-lab-optimizer.test.ts`
+
+**Tasks (step-by-step):**
+1. Define `p_non_dupr` as:
+   - existing blended model output (`current path`)
+   - plus team-strength adjustment in log-odds space.
+2. Team-strength adjustment:
+   - `team_delta = our_team_strength - opp_team_strength`
+   - `adj_team = clamp(k_team * team_delta, -cap, +cap)`
+   - `p_non_dupr = sigmoid(logit(p_current) + adj_team)`
+   - defaults: `k_team = 0.45`, `cap = 0.35` (configurable via env).
+3. Ensure team adjustment applies in both modes:
+   - blind (`scoreSchedule`)
+   - known-opponent (`scoreKnownOpponentSchedule`)
+4. Add tests:
+   - team strength unavailable -> output equals prior current path.
+   - positive team delta increases probability; negative decreases.
+   - adjustment cap enforced.
+
+**Exit criteria:**
+- Team strength impacts probabilities deterministically and safely.
+- Existing model remains intact when standings data is missing.
+
+
+**Step-end verification (mandatory):**
+- Run the `Recommend API E2E Loop (Mandatory for Every Step)` in this plan with a real `POST /api/lineup-lab/recommend` request.
+- If the response is not HTTP `200` or returns an error payload, stop, fix the root cause, and repeat this verification.
+- Proceed to the next plan step only after this loop succeeds.
+
+---
+
+### 3.5 Apply final blend policy and expose diagnostics
+
+**Files:**
+- Modify: `worker/src/runtime/lineupLab/optimizer.ts`
+- Modify: `worker/src/runtime/lineupLab/service.ts`
+- Modify: `worker/src/runtime/lineupLab/types.ts`
+- Modify: `src/features/lineup-lab/types.ts`
+- Modify: `src/features/lineup-lab/useLineupLabController.ts`
+- Modify: `src/features/lineup-lab/components/ScheduleMetadataHeader.vue`
+- Modify/Create: `src/features/lineup-lab/components/LineupLabSidebar.vue` (or `LineupLabSidebarContent.vue`) diagnostics block
+- Test: `tests/lineup-lab-optimizer.test.ts`
+- Test: `tests/lineup-lab-tab-shell.test.ts`
+- Test: `tests/lineup-recommendation-card.test.ts` (or a dedicated `tests/lineup-lab-metadata-diagnostics.test.ts`)
+
+**Tasks (step-by-step):**
+1. Final probability policy per game:
+   - if DUPR gate passes: `p_final = blend_logit(p_dupr, p_non_dupr, 0.65, 0.35)`
+   - else: `p_final = p_non_dupr`
+2. Add payload diagnostics:
+   - recommendation-level summary:
+     - `duprApplied` (boolean)
+     - `duprCoverageCount` (0-4 aggregate/reporting value)
+     - `duprWeightApplied` (`0` or `0.65`)
+     - `teamStrengthApplied` (boolean)
+   - per-game diagnostics:
+     - `duprApplied` (boolean)
+     - `duprCoverageCount` (`0..4`)
+     - `duprWeightApplied` (`0` or `0.65`)
+     - `teamStrengthApplied` (boolean)
+3. Implement required client handling and display:
+   - map diagnostics in frontend types/controller state without breaking old payloads.
+   - render recommendation-level diagnostics in metadata header and/or sidebar.
+   - expose per-game diagnostics in schedule detail surfaces.
+   - include explicit fallback text when DUPR or team strength is not applied.
+4. Ensure diagnostics are optional and backward-compatible in clients:
+   - missing diagnostics must not break rendering.
+   - UI should show `-` or `Not applied` when fields are absent.
+5. Add tests:
+   - backend branch behavior and diagnostics values.
+   - frontend render assertions for both DUPR-applied and DUPR-not-applied responses.
+
+**Exit criteria:**
+- Final blend exactly matches agreed policy.
+- Operators can inspect why a game probability moved.
+- Lineup Lab UI visibly reports whether DUPR and team-strength adjustments were applied.
+- Client tests covering diagnostics rendering pass.
+
+
+**Step-end verification (mandatory):**
+- Run the `Recommend API E2E Loop (Mandatory for Every Step)` in this plan with a real `POST /api/lineup-lab/recommend` request.
+- If the response is not HTTP `200` or returns an error payload, stop, fix the root cause, and repeat this verification.
+- Proceed to the next plan step only after this loop succeeds.
+
+---
+
+### 3.6 Calibration, acceptance gates, and controlled rollout
+
+**Files:**
+- Modify/Create: `worker/eval/runners/eval-lineup-calibration.ts`
+- Modify/Create: `worker/eval/datasets/lineup_holdout_weekly.json`
+- Create: `docs/metrics/lineup-dupr-team-strength-eval.md`
+
+**Tasks (step-by-step):**
+1. Evaluate baseline vs new blend on holdout data:
+   - Brier score
+   - log-loss
+   - calibration by decile
+2. Add focused validation for test cohorts (Bounce Philly/Jersey Devil 4.0):
+   - verify DUPR gate activates where all four ratings are present.
+   - verify activation rate and directional behavior.
+3. Set go/no-go thresholds (must be written before shipping):
+   - no calibration regression
+   - no p95 latency breach
+   - no increase in pathological extreme probabilities.
+4. Roll out behind flags and default to off in production until thresholds pass.
+
+**Exit criteria:**
+- Quantitative evidence supports turning on feature flags.
+- Rollback path verified (toggle flags off only).
+
+
+**Step-end verification (mandatory):**
+- Run the `Recommend API E2E Loop (Mandatory for Every Step)` in this plan with a real `POST /api/lineup-lab/recommend` request.
+- If the response is not HTTP `200` or returns an error payload, stop, fix the root cause, and repeat this verification.
+- Proceed to the next plan step only after this loop succeeds.
+
+---
+
+## Phase 4: Security and Write Paths for Captain Inputs
 
 **Outcome:** Introduce captain-editable ratings/preferences safely.
 
-### 3.1 Authentication and authorization prerequisites
+### 4.1 Authentication and authorization prerequisites
 
 **Files:**
 - Modify: worker auth middleware/runtime routes (`worker/src/runtime/index.ts` and related auth files)
@@ -424,7 +696,7 @@ This v2 plan reorders delivery around those constraints.
 
 ---
 
-### 3.2 DUPR and preference schemas + endpoints
+### 4.2 DUPR and preference schemas + endpoints
 
 **Files:**
 - Create: `supabase/migrations/YYYYMMDDHHMMSS_add_lineup_preferences_and_dupr_write_paths.sql`
@@ -450,7 +722,7 @@ This v2 plan reorders delivery around those constraints.
 
 ---
 
-### 3.3 Integrate preferences as bounded soft constraints
+### 4.3 Integrate preferences as bounded soft constraints
 
 **Files:**
 - Modify: `worker/src/runtime/lineupLab/optimizer.ts`
@@ -472,11 +744,11 @@ This v2 plan reorders delivery around those constraints.
 
 ---
 
-## Phase 4: Optimizer Architecture Upgrades Under Runtime Budgets
+## Phase 5: Optimizer Architecture Upgrades Under Runtime Budgets
 
 **Outcome:** Increase recommendation quality only where data density and compute budgets justify it.
 
-### 4.1 Scenario representation redesign
+### 5.1 Scenario representation redesign
 
 **Files:**
 - Modify: analytics scenario MV definition in migration
@@ -498,7 +770,7 @@ This v2 plan reorders delivery around those constraints.
 
 ---
 
-### 4.2 Scenario-aware construction with performance guardrails
+### 5.2 Scenario-aware construction with performance guardrails
 
 **Files:**
 - Modify: `worker/src/runtime/lineupLab/optimizer.ts`
@@ -521,7 +793,7 @@ This v2 plan reorders delivery around those constraints.
 
 ---
 
-### 4.3 Local search and diversification (optional, gated)
+### 5.3 Local search and diversification (optional, gated)
 
 **Files:**
 - Modify: `worker/src/runtime/lineupLab/optimizer.ts`
@@ -542,11 +814,11 @@ This v2 plan reorders delivery around those constraints.
 
 ---
 
-## Phase 5: Rollout, A/B Validation, and Production Guardrails
+## Phase 6: Rollout, A/B Validation, and Production Guardrails
 
 **Outcome:** Safe production adoption with measurable wins.
 
-### 5.1 Offline backtest harness and acceptance thresholds
+### 6.1 Offline backtest harness and acceptance thresholds
 
 **Files:**
 - Create: `worker/eval/runners/eval-lineup-ab.ts`
@@ -569,7 +841,7 @@ This v2 plan reorders delivery around those constraints.
 
 ---
 
-### 5.2 Feature flags and rollback controls
+### 6.2 Feature flags and rollback controls
 
 **Files:**
 - Modify: worker config + env parsing (`worker/src/runtime/env.ts`)
@@ -643,6 +915,7 @@ This v2 plan reorders delivery around those constraints.
 - `npm run test` includes lineup-lab suites.
 - Add targeted integration tests for new endpoints and mode routing.
 - Add deterministic optimizer tests for known-opponent mode.
+- Add frontend tests for diagnostics rendering and backward-compatible payload handling.
 - At the end of each numbered plan step, run and pass the `Recommend API E2E Loop (Mandatory for Every Step)` before moving forward.
 
 ### Product verification
@@ -650,6 +923,7 @@ This v2 plan reorders delivery around those constraints.
 - Mode toggle under `Matchup` enforces blind/known interaction differences.
 - Known-opponent input validation prevents partial/invalid submissions.
 - Metadata is displayed at the top of schedule configuration (`expectedWins`, `conservativeWins`, `matchupWin%`, `gameConfidence`, `matchupConfidence`).
+- Phase 3 requirement: metadata/sidebar explicitly shows recommendation-level `duprApplied`, `duprCoverageCount`, `duprWeightApplied`, and `teamStrengthApplied`, and schedule/detail surfaces expose per-game diagnostics (or clear not-applied fallback).
 - Chat transcript remains independent and does not render lineup recommendation cards.
 - Run and pass: `npx playwright test e2e/lineup-lab-ui-mock.spec.ts`.
 - Run and pass: `npx playwright test e2e/lineup-lab-ui-visual.spec.ts` against approved baselines derived from `designs/lineup_lab_new.png`.
@@ -667,14 +941,15 @@ This v2 plan reorders delivery around those constraints.
 1. Phase 0: 4-6 days
 2. Phase 1: 5-7 days
 3. Phase 2: 6-8 days (includes UI shell migration to standalone tab before backend mode delivery)
-4. Phase 3: 6-9 days
-5. Phase 4: 5-8 days (gated, may be partially skipped)
-6. Phase 5: 2-3 days
+4. Phase 3: 4-6 days (DUPR + team-strength probability integration)
+5. Phase 4: 6-9 days
+6. Phase 5: 5-8 days (gated, may be partially skipped)
+7. Phase 6: 2-3 days
 
-Total: ~28-41 days, with quality gates allowing partial shipment earlier.
+Total: ~32-47 days, with quality gates allowing partial shipment earlier.
 
 ---
 
 ## Immediate Next Task (Recommended)
 
-Start with **Phase 2.1 standalone Lineup Lab tab/layout migration**, then complete **Phase 2.2 UI interaction contract** before backend mode routing (`2.3+`). This preserves UI clarity and prevents rework while known-opponent contracts are finalized.
+Start with **Phase 3.1 scoring contract and flags**, then complete **Phase 3.2 feature-bundle inputs** before any optimizer blending logic (`3.3+`). This guarantees the model implementation has stable, testable inputs before probability behavior changes.

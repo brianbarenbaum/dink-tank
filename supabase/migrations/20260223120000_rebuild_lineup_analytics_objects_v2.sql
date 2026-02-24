@@ -5,6 +5,8 @@ drop function if exists analytics.fn_lineup_lab_feature_bundle(uuid, integer, in
 drop function if exists analytics.fn_lineup_lab_feature_bundle(uuid, integer, integer, uuid, uuid, uuid[], integer, uuid, timestamptz);
 drop function if exists analytics.refresh_lineup_analytics_views();
 
+drop view if exists analytics.vw_team_game_pairs;
+drop view if exists analytics.vw_game_events_canonical;
 drop view if exists analytics.vw_pair_vs_pair_features;
 drop view if exists analytics.vw_pair_baseline_features;
 drop view if exists analytics.vw_opponent_pairing_scenarios;
@@ -626,6 +628,57 @@ create index mv_opponent_pairing_scenarios_team_rank_idx
 create index mv_opponent_pairing_scenarios_team_prob_idx
 	on analytics.mv_opponent_pairing_scenarios(team_id, scenario_probability desc);
 
+create view analytics.vw_game_events_canonical as
+select
+	matchup_id,
+	game_number,
+	lineup_event_id,
+	event_created_at,
+	division_id,
+	season_year,
+	season_number,
+	snapshot_date,
+	home_team_id,
+	away_team_id,
+	match_type,
+	home_player_1,
+	home_player_2,
+	away_player_1,
+	away_player_2,
+	home_score,
+	away_score,
+	home_rows,
+	away_rows,
+	is_complete_game,
+	winner_side,
+	point_margin
+from analytics.mv_game_events_canonical;
+
+create view analytics.vw_team_game_pairs as
+select
+	matchup_id,
+	game_number,
+	lineup_event_id,
+	event_created_at,
+	division_id,
+	season_year,
+	season_number,
+	snapshot_date,
+	match_type,
+	team_side,
+	team_id,
+	opp_team_id,
+	player_1_id,
+	player_2_id,
+	pair_player_low_id,
+	pair_player_high_id,
+	pair_key,
+	team_score,
+	opp_score,
+	point_diff,
+	won_game
+from analytics.mv_team_game_pairs;
+
 create view analytics.vw_pair_baseline_features as
 select
 	division_id,
@@ -958,6 +1011,8 @@ comment on materialized view analytics.mv_team_game_pairs is 'lineup_analytics_v
 comment on materialized view analytics.mv_pair_baseline_features is 'lineup_analytics_v2';
 comment on materialized view analytics.mv_pair_vs_pair_features is 'lineup_analytics_v2';
 comment on materialized view analytics.mv_opponent_pairing_scenarios is 'lineup_analytics_v2';
+comment on view analytics.vw_game_events_canonical is 'lineup_analytics_v2';
+comment on view analytics.vw_team_game_pairs is 'lineup_analytics_v2';
 comment on view analytics.vw_pair_baseline_features is 'lineup_analytics_v2';
 comment on view analytics.vw_pair_vs_pair_features is 'lineup_analytics_v2';
 comment on view analytics.vw_opponent_pairing_scenarios is 'lineup_analytics_v2';
