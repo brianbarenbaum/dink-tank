@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
 	blendWinProbabilitySignals,
 	recommendPairSets,
+	recommendPairSetsKnownOpponent,
 	resolveCandidateMatchTypeWinRate,
 	toRecommendations,
 } from "../worker/src/runtime/lineupLab/optimizer";
@@ -29,6 +30,29 @@ const women = [
 ];
 
 const allPlayers = [...men, ...women];
+
+const buildKnownOpponentRounds = () => {
+	const template: Array<Array<"mixed" | "female" | "male">> = [
+		["mixed", "mixed", "mixed", "mixed"],
+		["female", "female", "male", "male"],
+		["mixed", "mixed", "mixed", "mixed"],
+		["female", "female", "male", "male"],
+		["mixed", "mixed", "mixed", "mixed"],
+		["female", "female", "male", "male"],
+		["mixed", "mixed", "mixed", "mixed"],
+		["female", "female", "male", "male"],
+	];
+	return template.map((slotTypes, roundIndex) => ({
+		roundNumber: roundIndex + 1,
+		games: slotTypes.map((matchType, slotIndex) => ({
+			roundNumber: roundIndex + 1,
+			slotNumber: slotIndex + 1,
+			matchType,
+			opponentPlayerAId: men[slotIndex % men.length] ?? men[0] ?? "",
+			opponentPlayerBId: women[(slotIndex + 1) % women.length] ?? women[0] ?? "",
+		})),
+	}));
+};
 
 const baseBundle: LineupLabFeatureBundle = {
 	candidate_pairs: [],
@@ -142,9 +166,10 @@ describe("lineup lab optimizer", () => {
 				seasonYear: 2025,
 				seasonNumber: 3,
 				teamId: "a7d5c302-9ee0-4bd6-9205-971efe6af562",
-				oppTeamId: "6bb73493-1a15-4527-9765-6aadfaca773b",
-				matchupId: "99bb7ced-889b-4e42-91b8-f84878c5c43b",
-				availablePlayerIds: allPlayers,
+					oppTeamId: "6bb73493-1a15-4527-9765-6aadfaca773b",
+					matchupId: "99bb7ced-889b-4e42-91b8-f84878c5c43b",
+					mode: "blind",
+					availablePlayerIds: allPlayers,
 				objective: "MAX_EXPECTED_WINS",
 				maxRecommendations: 3,
 				downsideQuantile: 0.2,
@@ -229,9 +254,10 @@ describe("lineup lab optimizer", () => {
 				seasonYear: 2025,
 				seasonNumber: 3,
 				teamId: "a7d5c302-9ee0-4bd6-9205-971efe6af562",
-				oppTeamId: "6bb73493-1a15-4527-9765-6aadfaca773b",
-				matchupId: "99bb7ced-889b-4e42-91b8-f84878c5c43b",
-				availablePlayerIds: allPlayers,
+					oppTeamId: "6bb73493-1a15-4527-9765-6aadfaca773b",
+					matchupId: "99bb7ced-889b-4e42-91b8-f84878c5c43b",
+					mode: "blind",
+					availablePlayerIds: allPlayers,
 				objective: "MAX_EXPECTED_WINS",
 				maxRecommendations: 2,
 				downsideQuantile: 0.2,
@@ -245,9 +271,10 @@ describe("lineup lab optimizer", () => {
 				seasonYear: 2025,
 				seasonNumber: 3,
 				teamId: "a7d5c302-9ee0-4bd6-9205-971efe6af562",
-				oppTeamId: "6bb73493-1a15-4527-9765-6aadfaca773b",
-				matchupId: "99bb7ced-889b-4e42-91b8-f84878c5c43b",
-				availablePlayerIds: allPlayers,
+					oppTeamId: "6bb73493-1a15-4527-9765-6aadfaca773b",
+					matchupId: "99bb7ced-889b-4e42-91b8-f84878c5c43b",
+					mode: "blind",
+					availablePlayerIds: allPlayers,
 				objective: "MINIMIZE_DOWNSIDE",
 				maxRecommendations: 2,
 				downsideQuantile: 0.2,
@@ -260,5 +287,30 @@ describe("lineup lab optimizer", () => {
 		expect(safeScores[0]).toBeTruthy();
 		expect((maxScores[0]?.expectedWins ?? 0) >= (maxScores[1]?.expectedWins ?? 0)).toBe(true);
 		expect((safeScores[0]?.floorWinsQ20 ?? 0) >= (safeScores[1]?.floorWinsQ20 ?? 0)).toBe(true);
+	});
+
+	it("builds deterministic known-opponent schedules", () => {
+		const request = {
+			divisionId: "e8d04726-4c07-447c-a609-9914d1378e8d",
+			seasonYear: 2025,
+			seasonNumber: 3,
+			teamId: "a7d5c302-9ee0-4bd6-9205-971efe6af562",
+			oppTeamId: "6bb73493-1a15-4527-9765-6aadfaca773b",
+			matchupId: "99bb7ced-889b-4e42-91b8-f84878c5c43b",
+			mode: "known_opponent" as const,
+			availablePlayerIds: allPlayers,
+			objective: "MAX_EXPECTED_WINS" as const,
+			maxRecommendations: 3,
+			downsideQuantile: 0.2,
+			scenarioLimit: 12,
+			opponentRounds: buildKnownOpponentRounds(),
+		};
+		const first = recommendPairSetsKnownOpponent(request, baseBundle);
+		const second = recommendPairSetsKnownOpponent(request, baseBundle);
+
+		expect(first).toHaveLength(1);
+		expect(second).toHaveLength(1);
+		expect(first[0]?.pairSetId).toBe(second[0]?.pairSetId);
+		expect(first[0]?.rounds).toHaveLength(8);
 	});
 });

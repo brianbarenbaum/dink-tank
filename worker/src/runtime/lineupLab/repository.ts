@@ -12,8 +12,48 @@ import type {
 
 let cachedPool: Pool | null = null;
 let cachedPoolUrl: string | null = null;
+let cachedContextPool: Pool | null = null;
+let cachedContextPoolUrl: string | null = null;
 const TRANSIENT_RETRY_ATTEMPTS = 3;
 const MIN_SUGGESTED_PLAYERS = 8;
+const LINEUP_LAB_CONTEXT_QUERY_TIMEOUT_MS = 2_000;
+
+interface RosterPlayerRow {
+	player_id: string;
+	first_name: string | null;
+	last_name: string | null;
+	gender: string | null;
+	is_sub: boolean;
+}
+
+const sortRosterPlayers = <
+	T extends {
+		playerId: string;
+		firstName: string | null;
+		lastName: string | null;
+		isSub: boolean;
+	},
+>(
+	players: T[],
+): T[] =>
+	[...players].sort((left, right) => {
+		if (left.isSub !== right.isSub) {
+			return Number(left.isSub) - Number(right.isSub);
+		}
+		const lastNameCompare = (left.lastName ?? "").localeCompare(
+			right.lastName ?? "",
+		);
+		if (lastNameCompare !== 0) {
+			return lastNameCompare;
+		}
+		const firstNameCompare = (left.firstName ?? "").localeCompare(
+			right.firstName ?? "",
+		);
+		if (firstNameCompare !== 0) {
+			return firstNameCompare;
+		}
+		return left.playerId.localeCompare(right.playerId);
+	});
 
 export class LineupLabInputError extends Error {
 	public constructor(message: string) {
@@ -45,26 +85,45 @@ const resolveConnectionString = (env: WorkerEnv): string => {
 	return parsed.toString();
 };
 
-const getPool = (env: WorkerEnv): Pool => {
+const getPool = (
+	env: WorkerEnv,
+	options?: { contextQueryTimeoutMs?: number },
+): Pool => {
+	const isContextPool = typeof options?.contextQueryTimeoutMs === "number";
+	const effectiveQueryTimeoutMs = isContextPool
+		? (options?.contextQueryTimeoutMs ?? LINEUP_LAB_CONTEXT_QUERY_TIMEOUT_MS)
+		: env.SQL_QUERY_TIMEOUT_MS;
 	const connectionString = resolveConnectionString(env);
-	if (cachedPool && cachedPoolUrl === connectionString) {
+	if (isContextPool) {
+		if (cachedContextPool && cachedContextPoolUrl === connectionString) {
+			return cachedContextPool;
+		}
+	} else if (cachedPool && cachedPoolUrl === connectionString) {
 		return cachedPool;
 	}
 
-	cachedPool = new Pool({
+	const pool = new Pool({
 		connectionString,
 		ssl: env.SUPABASE_DB_SSL_NO_VERIFY
 			? { rejectUnauthorized: false }
 			: { rejectUnauthorized: true },
 		max: 4,
-		connectionTimeoutMillis: Math.min(10_000, env.SQL_QUERY_TIMEOUT_MS),
+		connectionTimeoutMillis: Math.min(10_000, effectiveQueryTimeoutMs),
 		idleTimeoutMillis: 5_000,
 		maxUses: 20,
-		query_timeout: Math.max(env.SQL_QUERY_TIMEOUT_MS, 15_000),
+		query_timeout: effectiveQueryTimeoutMs,
 		allowExitOnIdle: true,
 	});
-	cachedPoolUrl = connectionString;
-	return cachedPool;
+
+	if (isContextPool) {
+		cachedContextPool = pool;
+		cachedContextPoolUrl = connectionString;
+	} else {
+		cachedPool = pool;
+		cachedPoolUrl = connectionString;
+	}
+
+	return pool;
 };
 
 const isTransientDbError = (error: unknown): boolean => {
@@ -86,15 +145,26 @@ const isTransientDbError = (error: unknown): boolean => {
 const sleep = async (ms: number): Promise<void> =>
 	new Promise((resolve) => setTimeout(resolve, ms));
 
-const resetCachedPool = async (): Promise<void> => {
-	if (!cachedPool) {
+const resetCachedPool = async (options?: {
+	contextQueryTimeoutMs?: number;
+}): Promise<void> => {
+	const isContextPool = typeof options?.contextQueryTimeoutMs === "number";
+	if (isContextPool && !cachedContextPool) {
 		return;
 	}
-	const existingPool = cachedPool;
-	cachedPool = null;
-	cachedPoolUrl = null;
+	if (!isContextPool && !cachedPool) {
+		return;
+	}
+	const existingPool = isContextPool ? cachedContextPool : cachedPool;
+	if (isContextPool) {
+		cachedContextPool = null;
+		cachedContextPoolUrl = null;
+	} else {
+		cachedPool = null;
+		cachedPoolUrl = null;
+	}
 	try {
-		await existingPool.end();
+		await existingPool?.end();
 	} catch {
 		// best-effort pool reset for transient connection issues
 	}
@@ -103,10 +173,11 @@ const resetCachedPool = async (): Promise<void> => {
 const runWithPoolRetry = async <T>(
 	env: WorkerEnv,
 	operation: (pool: Pool) => Promise<T>,
+	options?: { contextQueryTimeoutMs?: number },
 ): Promise<T> => {
 	let lastError: unknown;
 	for (let attempt = 1; attempt <= TRANSIENT_RETRY_ATTEMPTS; attempt += 1) {
-		const pool = getPool(env);
+		const pool = getPool(env, options);
 		try {
 			return await operation(pool);
 		} catch (error) {
@@ -114,7 +185,7 @@ const runWithPoolRetry = async <T>(
 			if (!isTransientDbError(error) || attempt === TRANSIENT_RETRY_ATTEMPTS) {
 				throw error;
 			}
-			await resetCachedPool();
+			await resetCachedPool(options);
 			await sleep(100 * attempt);
 		}
 	}
@@ -123,7 +194,9 @@ const runWithPoolRetry = async <T>(
 
 const isUndefinedFeatureBundleFunctionError = (error: unknown): boolean => {
 	const message =
-		error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+		error instanceof Error
+			? error.message.toLowerCase()
+			: String(error).toLowerCase();
 	const code =
 		typeof error === "object" && error !== null && "code" in error
 			? String((error as { code?: unknown }).code ?? "")
@@ -138,20 +211,23 @@ const isUndefinedFeatureBundleFunctionError = (error: unknown): boolean => {
 export const fetchLineupLabDivisions = async (
 	env: WorkerEnv,
 ): Promise<LineupLabDivisionOption[]> => {
-	const result = await runWithPoolRetry(env, (pool) =>
-		pool.query<{
-			division_id: string;
-			division_name: string;
-			season_year: number;
-			season_number: number;
-			location: string | null;
-		}>(
-			`select d.division_id, d.division_name, d.season_year, d.season_number, r.location
+	const result = await runWithPoolRetry(
+		env,
+		(pool) =>
+			pool.query<{
+				division_id: string;
+				division_name: string;
+				season_year: number;
+				season_number: number;
+				location: string | null;
+			}>(
+				`select d.division_id, d.division_name, d.season_year, d.season_number, r.location
 			 from public.divisions d
 			 join public.regions r on r.region_id = d.region_id
 			 where upper(replace(coalesce(r.location, ''), ' ', '')) = 'NJ/PA'
 			 order by d.season_year desc, d.season_number desc, d.division_name asc`,
-		),
+			),
+		{ contextQueryTimeoutMs: LINEUP_LAB_CONTEXT_QUERY_TIMEOUT_MS },
 	);
 
 	return result.rows.map((row) => ({
@@ -167,9 +243,11 @@ export const fetchLineupLabTeams = async (
 	env: WorkerEnv,
 	divisionId: string,
 ): Promise<LineupLabTeamOption[]> => {
-	const result = await runWithPoolRetry(env, (pool) =>
-		pool.query<{ team_id: string; team_name: string }>(
-			`with team_sources as (
+	const result = await runWithPoolRetry(
+		env,
+		(pool) =>
+			pool.query<{ team_id: string; team_name: string }>(
+				`with team_sources as (
 			   select t.team_id, t.team_name
 			   from public.teams t
 			   where t.division_id = $1::uuid
@@ -197,8 +275,9 @@ export const fetchLineupLabTeams = async (
 			 from normalized n
 			 left join public.teams t on t.team_id = n.team_id
 			 order by coalesce(n.team_name, t.team_name, 'Unknown Team') asc`,
-			[divisionId],
-		),
+				[divisionId],
+			),
+		{ contextQueryTimeoutMs: LINEUP_LAB_CONTEXT_QUERY_TIMEOUT_MS },
 	);
 
 	return result.rows.map((row) => ({
@@ -216,32 +295,29 @@ export const fetchLineupLabMatchups = async (
 		seasonNumber: number;
 	},
 ): Promise<LineupLabMatchupContextResponse> => {
-	const [matchups, rosterPlayers] = await runWithPoolRetry(env, async (pool) => {
-		const matchupRows = await pool.query<{
-			matchup_id: string;
-			week_number: number | null;
-			scheduled_time: string | null;
-			home_team_id: string | null;
-			away_team_id: string | null;
-			home_name: string | null;
-			away_name: string | null;
-		}>(
-			`select matchup_id, week_number, scheduled_time, home_team_id, away_team_id, home_name, away_name
+	const [matchups, rosterPlayers, opponentRosterPlayers] =
+		await runWithPoolRetry(
+			env,
+			async (pool) => {
+				const matchupRows = await pool.query<{
+					matchup_id: string;
+					week_number: number | null;
+					scheduled_time: string | null;
+					home_team_id: string | null;
+					away_team_id: string | null;
+					home_name: string | null;
+					away_name: string | null;
+				}>(
+					`select matchup_id, week_number, scheduled_time, home_team_id, away_team_id, home_name, away_name
 			 from public.matchups
 			 where division_id = $1::uuid
 			   and (home_team_id = $2::uuid or away_team_id = $2::uuid)
 			 order by week_number asc nulls last, scheduled_time asc nulls last`,
-			[params.divisionId, params.teamId],
-		);
+					[params.divisionId, params.teamId],
+				);
 
-		const playerRows = await pool.query<{
-			player_id: string;
-			first_name: string | null;
-			last_name: string | null;
-			gender: string | null;
-			is_sub: boolean;
-		}>(
-			`select distinct on (pr.player_id)
+				const playerRows = await pool.query<RosterPlayerRow>(
+					`select distinct on (pr.player_id)
 			    pr.player_id,
 			    p.first_name,
 			    p.last_name,
@@ -254,16 +330,79 @@ export const fetchLineupLabMatchups = async (
 			   and pr.season_year = $3
 			   and pr.season_number = $4
 			 order by pr.player_id asc, pr.snapshot_date desc, pr.updated_at desc`,
-			[
-				params.divisionId,
-				params.teamId,
-				params.seasonYear,
-				params.seasonNumber,
-			],
+					[
+						params.divisionId,
+						params.teamId,
+						params.seasonYear,
+						params.seasonNumber,
+					],
+				);
+
+				const opponentPlayerRows = await pool.query<{
+					matchup_id: string;
+					player_id: string;
+					first_name: string | null;
+					last_name: string | null;
+					gender: string | null;
+					is_sub: boolean;
+				}>(
+					`select distinct on (m.matchup_id, pr.player_id)
+				    m.matchup_id,
+				    pr.player_id,
+				    p.first_name,
+				    p.last_name,
+				    p.gender,
+				    coalesce(pr.is_sub, false) as is_sub
+				 from public.matchups m
+				 join public.player_rosters pr
+				   on pr.division_id = m.division_id
+				  and pr.season_year = $3
+				  and pr.season_number = $4
+				  and pr.team_id = case
+				    when m.home_team_id = $2::uuid then m.away_team_id
+				    else m.home_team_id
+				  end
+				 left join public.players p on p.player_id = pr.player_id
+			 where m.division_id = $1::uuid
+			   and (m.home_team_id = $2::uuid or m.away_team_id = $2::uuid)
+				 order by m.matchup_id asc, pr.player_id asc, pr.snapshot_date desc, pr.updated_at desc`,
+					[
+						params.divisionId,
+						params.teamId,
+						params.seasonYear,
+						params.seasonNumber,
+					],
+				);
+
+				return [matchupRows, playerRows, opponentPlayerRows] as const;
+			},
+			{ contextQueryTimeoutMs: LINEUP_LAB_CONTEXT_QUERY_TIMEOUT_MS },
 		);
 
-		return [matchupRows, playerRows] as const;
-	});
+	const opponentRosterByMatchupId = new Map<
+		string,
+		Array<{
+			playerId: string;
+			firstName: string | null;
+			lastName: string | null;
+			gender: string | null;
+			isSub: boolean;
+		}>
+	>();
+	for (const row of opponentRosterPlayers.rows) {
+		const current = opponentRosterByMatchupId.get(row.matchup_id) ?? [];
+		current.push({
+			playerId: row.player_id,
+			firstName: row.first_name,
+			lastName: row.last_name,
+			gender: row.gender,
+			isSub: row.is_sub,
+		});
+		opponentRosterByMatchupId.set(row.matchup_id, current);
+	}
+	for (const [matchupId, players] of opponentRosterByMatchupId.entries()) {
+		opponentRosterByMatchupId.set(matchupId, sortRosterPlayers(players));
+	}
 
 	const mappedMatchups: LineupLabMatchupOption[] = matchups.rows
 		.filter((row) => row.home_team_id || row.away_team_id)
@@ -283,36 +422,21 @@ export const fetchLineupLabMatchups = async (
 				oppTeamName: teamIsHome
 					? (row.away_name ?? "Opponent")
 					: (row.home_name ?? "Opponent"),
+				opponentRosterPlayers:
+					opponentRosterByMatchupId.get(row.matchup_id) ?? [],
 			};
 		})
 		.filter((row) => row.oppTeamId.length > 0);
 
-	const sortedRosterPlayers = rosterPlayers.rows
-		.map((row) => ({
+	const sortedRosterPlayers = sortRosterPlayers(
+		rosterPlayers.rows.map((row) => ({
 			playerId: row.player_id,
 			firstName: row.first_name,
 			lastName: row.last_name,
 			gender: row.gender,
 			isSub: row.is_sub,
-		}))
-		.sort((left, right) => {
-			if (left.isSub !== right.isSub) {
-				return Number(left.isSub) - Number(right.isSub);
-			}
-			const lastNameCompare = (left.lastName ?? "").localeCompare(
-				right.lastName ?? "",
-			);
-			if (lastNameCompare !== 0) {
-				return lastNameCompare;
-			}
-			const firstNameCompare = (left.firstName ?? "").localeCompare(
-				right.firstName ?? "",
-			);
-			if (firstNameCompare !== 0) {
-				return firstNameCompare;
-			}
-			return left.playerId.localeCompare(right.playerId);
-		});
+		})),
+	);
 
 	const selectedPlayerIds = new Set<string>();
 	const suggestedAvailablePlayerIds: string[] = [];
@@ -369,17 +493,29 @@ const asFeatureBundle = (payload: unknown): LineupLabFeatureBundle => {
 		};
 	}
 
-	const candidatePairs = Array.isArray((payload as { candidate_pairs?: unknown }).candidate_pairs)
-		? ((payload as { candidate_pairs: LineupLabFeatureBundle["candidate_pairs"] }).candidate_pairs ?? [])
+	const candidatePairs = Array.isArray(
+		(payload as { candidate_pairs?: unknown }).candidate_pairs,
+	)
+		? ((
+				payload as {
+					candidate_pairs: LineupLabFeatureBundle["candidate_pairs"];
+				}
+			).candidate_pairs ?? [])
 		: [];
 	const opponentScenarios = Array.isArray(
 		(payload as { opponent_scenarios?: unknown }).opponent_scenarios,
 	)
-		? ((payload as { opponent_scenarios: LineupLabFeatureBundle["opponent_scenarios"] })
-				.opponent_scenarios ?? [])
+		? ((
+				payload as {
+					opponent_scenarios: LineupLabFeatureBundle["opponent_scenarios"];
+				}
+			).opponent_scenarios ?? [])
 		: [];
-	const pairMatchups = Array.isArray((payload as { pair_matchups?: unknown }).pair_matchups)
-		? ((payload as { pair_matchups: LineupLabFeatureBundle["pair_matchups"] }).pair_matchups ?? [])
+	const pairMatchups = Array.isArray(
+		(payload as { pair_matchups?: unknown }).pair_matchups,
+	)
+		? ((payload as { pair_matchups: LineupLabFeatureBundle["pair_matchups"] })
+				.pair_matchups ?? [])
 		: [];
 
 	return {
@@ -392,7 +528,7 @@ const asFeatureBundle = (payload: unknown): LineupLabFeatureBundle => {
 				"string" ||
 			(payload as { max_last_seen_at?: unknown }).max_last_seen_at === null
 				? ((payload as { max_last_seen_at: string | null }).max_last_seen_at ??
-						null)
+					null)
 				: null,
 		data_staleness_hours:
 			typeof (payload as { data_staleness_hours?: unknown })
@@ -406,9 +542,14 @@ const asFeatureBundle = (payload: unknown): LineupLabFeatureBundle => {
 		candidate_pairs: candidatePairs,
 		opponent_scenarios: opponentScenarios,
 		pair_matchups: pairMatchups,
-		players_catalog: Array.isArray((payload as { players_catalog?: unknown }).players_catalog)
-			? ((payload as { players_catalog: LineupLabFeatureBundle["players_catalog"] })
-					.players_catalog ?? [])
+		players_catalog: Array.isArray(
+			(payload as { players_catalog?: unknown }).players_catalog,
+		)
+			? ((
+					payload as {
+						players_catalog: LineupLabFeatureBundle["players_catalog"];
+					}
+				).players_catalog ?? [])
 			: [],
 	};
 };

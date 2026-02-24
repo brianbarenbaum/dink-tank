@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { LineupRecommendationPayload } from "../types";
+import type { LineupRecommendationPayload } from "../../lineup-lab/types";
 
 interface UtilitiesPanelProps {
 	payload: LineupRecommendationPayload | null;

@@ -2,7 +2,7 @@
 import { CircleHelp } from "lucide-vue-next";
 import { computed, onMounted, onUnmounted, ref } from "vue";
 
-import type { LineupRecommendationPayload } from "../types";
+import type { LineupRecommendationPayload } from "../../lineup-lab/types";
 
 interface LineupRecommendationCardProps {
 	payload: LineupRecommendationPayload;

@@ -37,7 +37,7 @@ test("desktop chat interface major layout parity", async ({ page }) => {
 	).toBeVisible();
 
 	await page.screenshot({
-		path: path.join(outputDir, "chat-desktop-v1.png"),
+		path: path.join(outputDir, "chat-desktop-v2.png"),
 		fullPage: true,
 	});
 });
@@ -58,7 +58,7 @@ test("mobile chat interface major layout parity", async ({ page }) => {
 	).toBeVisible();
 
 	await page.screenshot({
-		path: path.join(outputDir, "chat-mobile-v1.png"),
+		path: path.join(outputDir, "chat-mobile-v2.png"),
 		fullPage: true,
 	});
 });

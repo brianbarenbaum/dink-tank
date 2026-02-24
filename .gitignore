@@ -36,3 +36,4 @@ validation_screenshots/
 data-ingestion/sqlite/*.db
 worker/.wrangler/
 worker/eval/artifacts
+.envrc

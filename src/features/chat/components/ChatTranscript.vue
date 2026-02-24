@@ -8,17 +8,11 @@ import type { ChatMessage } from "../types";
 interface ChatTranscriptProps {
 	messages: ChatMessage[];
 	isSending?: boolean;
-	selectedRecommendationId?: string | null;
 }
 
 const props = withDefaults(defineProps<ChatTranscriptProps>(), {
 	isSending: false,
-	selectedRecommendationId: null,
 });
-defineEmits<{
-	selectRecommendation: [messageId: string];
-	inspectRecommendation: [messageId: string];
-}>();
 
 const transcriptEl = ref<HTMLElement | null>(null);
 
@@ -47,9 +41,6 @@ watch(
       v-for="message in messages"
       :key="message.id"
       :message="message"
-      :selected="props.selectedRecommendationId === message.id"
-      @select-recommendation="$emit('selectRecommendation', $event)"
-      @inspect-recommendation="$emit('inspectRecommendation', $event)"
     />
     <article
       v-if="props.isSending"

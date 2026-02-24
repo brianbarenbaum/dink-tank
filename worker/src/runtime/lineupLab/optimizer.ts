@@ -84,6 +84,13 @@ interface ScheduledSlot {
 	pair: PairRecord;
 }
 
+interface KnownOpponentSlot {
+	roundNumber: number;
+	slotNumber: number;
+	matchType: LineupMatchType;
+	opponentPair: OpponentPair;
+}
+
 const MAX_PLAYER_GAMES = 8;
 const MAX_PAIR_GAMES = 2;
 const TOTAL_ROUNDS = 8;
@@ -363,6 +370,35 @@ const standardDeviation = (values: number[], weights: number[]): number => {
 			return acc + (weights[index] ?? 0) * delta * delta;
 		}, 0) / totalWeight;
 	return Math.sqrt(Math.max(variance, 0));
+};
+
+const buildWinDistribution = (gameProbabilities: number[]): number[] => {
+	const maxWins = gameProbabilities.length;
+	const distribution = new Array<number>(maxWins + 1).fill(0);
+	distribution[0] = 1;
+	for (const rawProbability of gameProbabilities) {
+		const probability = clampProbability(rawProbability);
+		for (let wins = maxWins; wins >= 0; wins -= 1) {
+			const keepLoss = distribution[wins] * (1 - probability);
+			const addWin = wins > 0 ? distribution[wins - 1] * probability : 0;
+			distribution[wins] = keepLoss + addWin;
+		}
+	}
+	return distribution;
+};
+
+const quantileFromDistribution = (
+	distribution: number[],
+	q: number,
+): number => {
+	let cumulative = 0;
+	for (let wins = 0; wins < distribution.length; wins += 1) {
+		cumulative += distribution[wins] ?? 0;
+		if (cumulative >= q) {
+			return wins;
+		}
+	}
+	return Math.max(0, distribution.length - 1);
 };
 
 const confidenceFromCoverage = (coverage: number): "LOW" | "MEDIUM" | "HIGH" => {
@@ -683,6 +719,38 @@ const getPairScore = (
 	return record.baseWinRate + record.baseReliability * 0.05 - fatiguePenalty - repeatPenalty + randomNoise;
 };
 
+const getKnownOpponentPairScore = (
+	context: BuildContext,
+	record: PairRecord,
+	opponentPair: OpponentPair,
+	state: MutableScheduleState,
+): number => {
+	const probability = getMatchupProbability(
+		context,
+		{
+			roundNumber: 0,
+			slotNumber: 0,
+			matchType: record.matchType,
+			playerAId: record.playerAId,
+			playerBId: record.playerBId,
+			winProbability: 0.5,
+		},
+		opponentPair,
+	);
+	const blendedProbability = blendWinProbabilitySignals({
+		baseWinRate: probability.winRate,
+		pdWinProbability: probability.pdWinProbability,
+		reliability: probability.reliability,
+		signalCorrelation: probability.signalCorrelation,
+	});
+	const aCount = playerGameCount(state, record.playerAId);
+	const bCount = playerGameCount(state, record.playerBId);
+	const pairCount = pairUsageCount(state, record.pairKey);
+	const fatiguePenalty = (aCount + bCount) * 0.02;
+	const repeatPenalty = pairCount * 0.08;
+	return blendedProbability + probability.reliability * 0.04 - fatiguePenalty - repeatPenalty;
+};
+
 const getEligiblePairsForSlot = (
 	slotType: LineupMatchType,
 	state: MutableScheduleState,
@@ -774,6 +842,66 @@ const solveRound = (
 	return recurse(0) ? assignments : null;
 };
 
+const solveRoundKnownOpponent = (
+	context: BuildContext,
+	slotInputs: KnownOpponentSlot[],
+	state: MutableScheduleState,
+): PairRecord[] | null => {
+	const assignments: PairRecord[] = [];
+	const roundPlayers = new Set<string>();
+
+	const recurse = (slotIndex: number): boolean => {
+		if (slotIndex >= slotInputs.length) {
+			return true;
+		}
+		const slot = slotInputs[slotIndex];
+		if (!slot) {
+			return false;
+		}
+		const candidates = getEligiblePairsForSlot(
+			slot.matchType,
+			state,
+			roundPlayers,
+			context.pairRecordsByType,
+		)
+			.map((record) => ({
+				record,
+				score: getKnownOpponentPairScore(
+					context,
+					record,
+					slot.opponentPair,
+					state,
+				),
+			}))
+			.sort((left, right) => {
+				if (right.score !== left.score) {
+					return right.score - left.score;
+				}
+				return left.record.pairKey.localeCompare(right.record.pairKey);
+			})
+			.slice(0, 18);
+
+		for (const candidate of candidates) {
+			const record = candidate.record;
+			assignments.push(record);
+			roundPlayers.add(record.playerAId);
+			roundPlayers.add(record.playerBId);
+			applyPairToState(state, record, 1);
+			if (recurse(slotIndex + 1)) {
+				return true;
+			}
+			applyPairToState(state, record, -1);
+			roundPlayers.delete(record.playerAId);
+			roundPlayers.delete(record.playerBId);
+			assignments.pop();
+		}
+
+		return false;
+	};
+
+	return recurse(0) ? assignments : null;
+};
+
 const buildScheduleRounds = (context: BuildContext, seed: number): LineupScheduledRound[] | null => {
 	const rand = seededRandom(seed);
 	const state: MutableScheduleState = {
@@ -810,6 +938,82 @@ const buildScheduleRounds = (context: BuildContext, seed: number): LineupSchedul
 	}
 
 	return rounds;
+};
+
+const normalizeKnownOpponentSlots = (
+	request: LineupLabRecommendRequest,
+): KnownOpponentSlot[] => {
+	const slots: KnownOpponentSlot[] = [];
+	for (const round of request.opponentRounds ?? []) {
+		for (const game of round.games) {
+			const opponentSorted = [game.opponentPlayerAId, game.opponentPlayerBId].sort(
+				(left, right) => left.localeCompare(right),
+			);
+			slots.push({
+				roundNumber: round.roundNumber,
+				slotNumber: game.slotNumber,
+				matchType: game.matchType,
+				opponentPair: {
+					lowId: opponentSorted[0] ?? "",
+					highId: opponentSorted[1] ?? "",
+					weight: 1,
+				},
+			});
+		}
+	}
+	return slots.sort((left, right) => {
+		if (left.roundNumber !== right.roundNumber) {
+			return left.roundNumber - right.roundNumber;
+		}
+		return left.slotNumber - right.slotNumber;
+	});
+};
+
+const buildScheduleRoundsKnownOpponent = (
+	context: BuildContext,
+	request: LineupLabRecommendRequest,
+): {
+	rounds: LineupScheduledRound[];
+	opponentSlotMap: Map<string, OpponentPair>;
+} => {
+	const normalizedSlots = normalizeKnownOpponentSlots(request);
+	if (normalizedSlots.length !== TOTAL_ROUNDS * 4) {
+		throw new Error("Known-opponent request is missing slot assignments.");
+	}
+	const opponentSlotMap = new Map<string, OpponentPair>();
+	for (const slot of normalizedSlots) {
+		opponentSlotMap.set(
+			`${slot.roundNumber}:${slot.slotNumber}`,
+			slot.opponentPair,
+		);
+	}
+
+	const state: MutableScheduleState = {
+		playerGames: new Map<string, number>(),
+		pairUsage: new Map<string, number>(),
+	};
+	const rounds: LineupScheduledRound[] = [];
+	for (let roundNumber = 1; roundNumber <= TOTAL_ROUNDS; roundNumber += 1) {
+		const slotInputs = normalizedSlots.filter(
+			(slot) => slot.roundNumber === roundNumber,
+		);
+		const solved = solveRoundKnownOpponent(context, slotInputs, state);
+		if (!solved) {
+			throw new Error(
+				"Unable to generate a known-opponent schedule with current constraints.",
+			);
+		}
+		const games: LineupScheduledGame[] = solved.map((pair, slotIndex) => ({
+			roundNumber,
+			slotNumber: slotIndex + 1,
+			matchType: pair.matchType,
+			playerAId: pair.playerAId,
+			playerBId: pair.playerBId,
+			winProbability: 0.5,
+		}));
+		rounds.push({ roundNumber, games });
+	}
+	return { rounds, opponentSlotMap };
 };
 
 const getMatchupProbability = (
@@ -1052,6 +1256,113 @@ const scoreSchedule = (
 	};
 };
 
+const scoreKnownOpponentSchedule = (
+	context: BuildContext,
+	rounds: LineupScheduledRound[],
+	opponentSlotMap: Map<string, OpponentPair>,
+): ScoredSchedule => {
+	const games = rounds.flatMap((round) => round.games);
+	const winProbabilities: number[] = [];
+	const reliabilities: number[] = [];
+	const roundsWithWinProbability = rounds.map((round) => ({
+		roundNumber: round.roundNumber,
+		games: round.games.map((game) => {
+			const opponentPair = opponentSlotMap.get(
+				`${game.roundNumber}:${game.slotNumber}`,
+			);
+			const probability = opponentPair
+				? getMatchupProbability(context, game, opponentPair)
+				: {
+						winRate: 0.5,
+						pdWinProbability: 0.5,
+						reliability: 0,
+						signalCorrelation: null,
+					};
+			const blendedWinProbability = blendWinProbabilitySignals({
+				baseWinRate: probability.winRate,
+				pdWinProbability: probability.pdWinProbability,
+				reliability: probability.reliability,
+				signalCorrelation: probability.signalCorrelation,
+			});
+			winProbabilities.push(blendedWinProbability);
+			reliabilities.push(probability.reliability);
+			return {
+				...game,
+				winProbability: Number(blendedWinProbability.toFixed(3)),
+			};
+		}),
+	}));
+
+	const distribution = buildWinDistribution(winProbabilities);
+	const expectedWins = winProbabilities.reduce((acc, value) => acc + value, 0);
+	const floorWinsQ20 = quantileFromDistribution(
+		distribution,
+		context.downsideQuantile,
+	);
+	const variance = winProbabilities.reduce(
+		(acc, probability) => acc + probability * (1 - probability),
+		0,
+	);
+	const volatility = Math.sqrt(Math.max(variance, 0));
+	const matchupWinProbability = estimateMatchupWinProbability(winProbabilities);
+	const coverage =
+		reliabilities.reduce((acc, value) => acc + value, 0) /
+		Math.max(reliabilities.length, 1);
+	const gameConfidence = confidenceFromCoverage(coverage);
+	const matchupConfidence = matchupConfidenceFromSignals(
+		coverage,
+		matchupWinProbability,
+		[1],
+	);
+
+	const pairUsageMap = new Map<
+		string,
+		{ playerAId: string; playerBId: string; count: number }
+	>();
+	for (const game of games) {
+		const key = toPairKey(game.playerAId, game.playerBId);
+		const existing = pairUsageMap.get(key);
+		if (existing) {
+			existing.count += 1;
+			continue;
+		}
+		pairUsageMap.set(key, {
+			playerAId: game.playerAId,
+			playerBId: game.playerBId,
+			count: 1,
+		});
+	}
+	const pairUsage = [...pairUsageMap.values()].sort(
+		(left, right) => right.count - left.count,
+	);
+	const topPairs = pairUsage.slice(0, 6).map((pair) => ({
+		playerAId: pair.playerAId,
+		playerBId: pair.playerBId,
+	}));
+	const signature = roundsWithWinProbability
+		.flatMap((round) =>
+			round.games.map(
+				(game) =>
+					`${round.roundNumber}:${game.slotNumber}:${game.matchType}:${toPairKey(game.playerAId, game.playerBId)}`,
+			),
+		)
+		.join("|");
+	const pairSetId = createHash("sha1").update(signature).digest("hex").slice(0, 12);
+
+	return {
+		pairSetId,
+		rounds: roundsWithWinProbability,
+		expectedWins: Number(expectedWins.toFixed(3)),
+		floorWinsQ20: Number(floorWinsQ20.toFixed(3)),
+		matchupWinProbability: Number(matchupWinProbability.toFixed(3)),
+		volatility: Number(volatility.toFixed(3)),
+		gameConfidence,
+		matchupConfidence,
+		pairUsage,
+		pairs: topPairs,
+	};
+};
+
 const rankSchedules = (
 	schedules: ScoredSchedule[],
 	objective: LineupLabObjective,
@@ -1117,6 +1428,19 @@ export const recommendPairSets = (
 	}
 
 	return rankSchedules([...uniqueById.values()], context.objective);
+};
+
+export const recommendPairSetsKnownOpponent = (
+	request: LineupLabRecommendRequest,
+	bundle: LineupLabFeatureBundle,
+): ScoredSchedule[] => {
+	const context = buildContext(request, bundle);
+	const { rounds, opponentSlotMap } = buildScheduleRoundsKnownOpponent(
+		context,
+		request,
+	);
+	const scored = scoreKnownOpponentSchedule(context, rounds, opponentSlotMap);
+	return rankSchedules([scored], context.objective);
 };
 
 export const toRecommendations = (

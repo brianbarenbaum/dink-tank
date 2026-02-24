@@ -10,6 +10,7 @@ const baseEnv: WorkerEnv = {
 	LLM_MODEL: "gpt-4.1-mini",
 	LLM_REASONING_LEVEL: "medium",
 	SQL_QUERY_TIMEOUT_MS: 10_000,
+	SQL_CAPTURE_EXPLAIN_PLAN: false,
 	EXPOSE_ERROR_DETAILS: false,
 	LANGFUSE_PUBLIC_KEY: "pk-lf-test",
 	LANGFUSE_SECRET_KEY: "sk-lf-test",

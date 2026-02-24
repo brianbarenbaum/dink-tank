@@ -18,6 +18,27 @@ The local endpoint is `http://127.0.0.1:8787/api/chat`.
 
 If your local Worker logs TLS trust errors when connecting to Supabase (`self signed certificate in certificate chain`), set `SUPABASE_DB_SSL_NO_VERIFY=true` in `worker/.dev.vars` for local development only.
 
+### Recommended Hyperdrive Local Development (No `--remote`)
+
+For day-to-day local development, use local Wrangler runtime with a Hyperdrive local connection string. This still connects to your remote Supabase database, but avoids the extra latency and instability of remote preview mode.
+
+1. Export a Hyperdrive local connection string in your shell:
+
+```bash
+export CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE="postgresql://<user>:<password>@db.<project-ref>.supabase.co:5432/postgres?sslmode=require"
+```
+
+2. Run local dev without `--remote`:
+
+```bash
+npx wrangler dev --config worker/wrangler.toml
+```
+
+Why this is recommended:
+- It keeps the Worker runtime local for fast feedback loops.
+- It still uses your remote Supabase Postgres instance.
+- It avoids remote-preview transport issues that can produce long request stalls during local debugging.
+
 ## Code Map
 
 - `worker/src/runtime/` is the live `/api/chat` runtime path.
@@ -32,7 +53,11 @@ If your local Worker logs TLS trust errors when connecting to Supabase (`self si
    - `[[hyperdrive]]`
    - `binding = "HYPERDRIVE"`
    - `id = "<your-id>"`
-3. Deploy or run remote dev. The worker will prefer `env.HYPERDRIVE.connectionString` automatically.
+3. Deploy for production usage. Remote dev remains available for targeted troubleshooting. The worker will prefer `env.HYPERDRIVE.connectionString` automatically.
+
+Notes:
+- Use local runtime + `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` for routine development.
+- If you explicitly need remote preview behavior for debugging, `wrangler dev --remote` remains available.
 
 ## Deferred Authentication
 

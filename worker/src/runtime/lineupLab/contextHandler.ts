@@ -28,31 +28,13 @@ const parseRequiredUuid = (
 	return { ok: true, value };
 };
 
-const isQueryReadTimeout = (error: unknown): boolean =>
-	error instanceof Error && /query read timeout/i.test(error.message);
-
-const withSingleTimeoutRetry = async <T>(
-	operation: () => Promise<T>,
-): Promise<T> => {
-	try {
-		return await operation();
-	} catch (error) {
-		if (!isQueryReadTimeout(error)) {
-			throw error;
-		}
-		return operation();
-	}
-};
-
 export const handleLineupLabDivisionsRequest = async (
 	request: Request,
 	env: WorkerEnv,
 ): Promise<Response> => {
 	const context = createRequestContext(request);
 	try {
-		const divisions = await withSingleTimeoutRetry(() =>
-			fetchLineupLabDivisions(env),
-		);
+		const divisions = await fetchLineupLabDivisions(env);
 		return json({ divisions }, 200);
 	} catch (error) {
 		const message =
@@ -83,13 +65,14 @@ export const handleLineupLabTeamsRequest = async (
 		logWarn("lineup_lab_invalid_request", context, {
 			reason: divisionIdResult.error,
 		});
-		return json({ error: "invalid_request", message: divisionIdResult.error }, 400);
+		return json(
+			{ error: "invalid_request", message: divisionIdResult.error },
+			400,
+		);
 	}
 
 	try {
-		const teams = await withSingleTimeoutRetry(() =>
-			fetchLineupLabTeams(env, divisionIdResult.value),
-		);
+		const teams = await fetchLineupLabTeams(env, divisionIdResult.value);
 		return json({ teams }, 200);
 	} catch (error) {
 		const message =
@@ -116,8 +99,14 @@ export const handleLineupLabMatchupsRequest = async (
 		url.searchParams.get("divisionId"),
 		"divisionId",
 	);
-	const teamIdResult = parseRequiredUuid(url.searchParams.get("teamId"), "teamId");
-	const seasonYear = Number.parseInt(url.searchParams.get("seasonYear") ?? "", 10);
+	const teamIdResult = parseRequiredUuid(
+		url.searchParams.get("teamId"),
+		"teamId",
+	);
+	const seasonYear = Number.parseInt(
+		url.searchParams.get("seasonYear") ?? "",
+		10,
+	);
 	const seasonNumber = Number.parseInt(
 		url.searchParams.get("seasonNumber") ?? "",
 		10,
@@ -140,14 +129,12 @@ export const handleLineupLabMatchupsRequest = async (
 	}
 
 	try {
-		const result = await withSingleTimeoutRetry(() =>
-			fetchLineupLabMatchups(env, {
-				divisionId: divisionIdResult.value,
-				teamId: teamIdResult.value,
-				seasonYear,
-				seasonNumber,
-			}),
-		);
+		const result = await fetchLineupLabMatchups(env, {
+			divisionId: divisionIdResult.value,
+			teamId: teamIdResult.value,
+			seasonYear,
+			seasonNumber,
+		});
 		return json(result, 200);
 	} catch (error) {
 		const message =

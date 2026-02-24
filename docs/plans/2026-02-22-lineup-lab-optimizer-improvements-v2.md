@@ -4,7 +4,7 @@
 
 **Goal:** Improve Lineup Lab recommendation quality and trustworthiness by fixing data/migration integrity first, then adding statistically defensible modeling and product features in risk-controlled phases.
 
-**Architecture:** This plan treats Lineup Lab as a pipeline with four hard boundaries: data freshness/integrity, feature construction, optimization, and product controls. We stabilize each boundary before adding model complexity. Every phase has explicit entry criteria, exit criteria, and rollback paths.
+**Architecture:** This plan treats Lineup Lab as a pipeline with four hard boundaries: data freshness/integrity, feature construction, optimization, and product controls. We stabilize each boundary before adding model complexity. Every phase has explicit entry criteria, exit criteria, and rollback paths. As of `2026-02-23`, product IA is split into two top-level tabs: `Chat` and `Lineup Lab`. `Chat` remains the default landing tab and is fully independent; Lineup Lab workflows do not render in chat transcript and are not sent to chat.
 
 **Tech Stack:** Supabase Postgres (functions/materialized views/RLS), Cloudflare Worker runtime (`pg`), Vue 3 + TypeScript frontend, Vitest + Playwright, SQL backtesting harness.
 
@@ -218,7 +218,7 @@ This v2 plan reorders delivery around those constraints.
 **Files:**
 - Modify: `worker/src/runtime/lineupLab/optimizer.ts`
 - Modify: `worker/src/runtime/lineupLab/types.ts`
-- Modify: `src/features/chat/components/LineupRecommendationCard.vue`
+- Modify/Create: `src/features/lineup-lab/components/ScheduleMetadataHeader.vue`
 - Modify: `tests/lineup-lab-optimizer.test.ts`
 
 **Tasks:**
@@ -239,19 +239,43 @@ This v2 plan reorders delivery around those constraints.
 
 ## Phase 2: Known-Opponent Mode (High Tactical Value, Low Data Assumption)
 
-**Outcome:** Provide deterministic response mode for captain decision support.
+**Outcome:** Provide deterministic response mode for captain decision support, implemented in a standalone Lineup Lab tab (not chat-coupled), with UI delivered before backend mode routing.
 
-### 2.1 Request/validation model expansion
+**UI source of truth:** `docs/plans/2026-02-23-lineup-lab-known-opponent-ui-spec.md`
+
+**Execution Status (2026-02-23):**
+- `2.1` Completed with standalone `Chat`/`Lineup Lab` tabs, chat-lineup state isolation, and migrated lineup UI shell in `src/features/lineup-lab/**`.
+- `2.2` Completed with sidebar mode toggle, blind/known interaction contract, opponent input/output boundary labeling, and metadata header wiring.
+- `2.3` Completed with strict mode-aware request validation and known-opponent `opponentRounds` schema enforcement.
+- `2.4` Completed with deterministic known-opponent optimizer routing (`recommendPairSetsKnownOpponent`) and handler/service test coverage.
+- `2.5` Completed with Lineup Lab-only API payload wiring, response rendering on schedule/metadata surfaces, and no chat transcript lineup payload emission.
+- Verification evidence captured with passing runs for:
+  - `npx playwright test e2e/lineup-lab-ui-mock.spec.ts`
+  - `npx playwright test e2e/lineup-lab-ui-visual.spec.ts`
+  - Real Recommend API E2E loop at `http://127.0.0.1:8787` for both `mode: "blind"` and `mode: "known_opponent"` (HTTP 200 + valid payload shape).
+
+### 2.1 Standalone Lineup Lab tab and layout migration (UI-first)
 
 **Files:**
-- Modify: `worker/src/runtime/lineupLab/types.ts`
-- Modify: `worker/src/runtime/lineupLab/validation.ts`
-- Modify: `tests/lineup-lab-validation.test.ts`
+- Modify: `src/App.vue`
+- Create/Modify: `src/features/lineup-lab/**` (tab shell, left control panel, roster panels, schedule board)
+- Modify: `src/features/chat/**` to remove lineup-lab-specific UI coupling and keep chat behavior standalone
+- Create/Modify: `docs/plans/2026-02-23-lineup-lab-known-opponent-ui-spec.md`
+- Create/Modify: component tests for top-tab navigation and isolation between chat/lineup states
 
 **Tasks:**
-1. Add `mode: "blind" | "known_opponent"`.
-2. Add strict `opponentRounds` schema for known-opponent mode.
-3. Validate slot pattern and player UUID integrity.
+1. Add top-level tab navigation: `Chat` and `Lineup Lab`.
+2. Ensure `Chat` is the default tab on app entry.
+3. Move all lineup controls and recommendation rendering to Lineup Lab tab.
+4. Keep chat state and lineup state independent (no transcript cards, no chat message side effects from lineup actions).
+5. Implement the new layout direction from `designs/lineup_lab_new.png` as the primary UI shell.
+6. Create/update and validate the UI spec as part of implementation (not post-hoc documentation), including mode behavior, anti-confusion rules, required test hooks, and Playwright completion gates.
+
+**Exit criteria:**
+- Users can switch between `Chat` and `Lineup Lab` without state leakage.
+- Chat view behaves as a standalone chat interface.
+- Lineup Lab view has enough surface area for known-opponent workflow.
+- UI spec document is updated to match the implemented behavior before Phase 2.2 begins.
 
 
 **Step-end verification (mandatory):**
@@ -261,7 +285,68 @@ This v2 plan reorders delivery around those constraints.
 
 ---
 
-### 2.2 Deterministic optimizer path
+### 2.2 Mode toggle, roster behavior, and schedule interaction contract (UI-first)
+
+**Files:**
+- Modify/Create: `src/features/lineup-lab/components/LineupLabSidebar.vue`
+- Create: `src/features/lineup-lab/components/OpponentLineupInput.vue`
+- Modify/Create: `src/features/lineup-lab/components/ScheduleConfigurationBoard.vue`
+- Modify/Create: `src/features/lineup-lab/useLineupLabController.ts`
+- Create/Modify: component tests for mode behavior and interaction affordances
+
+**Tasks:**
+1. Add mode toggle under `Matchup` in left panel: `Blind` vs `Response to Opponent`.
+2. Always render Opponent Roster panel.
+3. In `Blind` mode:
+   - Opponent roster entries are visible but not draggable.
+   - Schedule cards do not render opponent drop targets.
+4. In `Response to Opponent` mode:
+   - Opponent roster entries become draggable/selectable for assignment.
+   - Schedule cards render opponent-side input targets for each game slot.
+5. Enforce explicit visual boundary between input and output to avoid confusion:
+   - Opponent assignment area labeled as captain input.
+   - Our lineup area labeled as optimizer output (read-only until calculate result is returned).
+6. Render metadata at the top of the schedule configuration (as shown in design): expected wins, conservative wins, matchup win %, game confidence, matchup confidence.
+
+**Exit criteria:**
+- Mode behavior matches the above contract across desktop/mobile.
+- Blind mode does not expose interactive opponent assignment controls.
+- Users can distinguish opponent input from optimizer output with no ambiguous editable states.
+
+
+**Step-end verification (mandatory):**
+- Run the `Recommend API E2E Loop (Mandatory for Every Step)` in this plan with a real `POST /api/lineup-lab/recommend` request.
+- If the response is not HTTP `200` or returns an error payload, stop, fix the root cause, and repeat this verification.
+- Proceed to the next plan step only after this loop succeeds.
+
+---
+
+### 2.3 Request/validation model expansion (backend starts after UI)
+
+**Files:**
+- Modify: `worker/src/runtime/lineupLab/types.ts`
+- Modify: `worker/src/runtime/lineupLab/validation.ts`
+- Modify: `tests/lineup-lab-validation.test.ts`
+
+**Tasks:**
+1. Add `mode: "blind" | "known_opponent"` to request schema.
+2. Add strict `opponentRounds` schema for known-opponent mode.
+3. Validate slot pattern, round count, slot count, and player UUID integrity.
+4. Keep blind-mode payload valid without opponent round assignments.
+
+**Exit criteria:**
+- Validation errors are explicit and mode-specific.
+- Known-opponent payload contract matches UI interaction model.
+
+
+**Step-end verification (mandatory):**
+- Run the `Recommend API E2E Loop (Mandatory for Every Step)` in this plan with a real `POST /api/lineup-lab/recommend` request.
+- If the response is not HTTP `200` or returns an error payload, stop, fix the root cause, and repeat this verification.
+- Proceed to the next plan step only after this loop succeeds.
+
+---
+
+### 2.4 Deterministic optimizer path
 
 **Files:**
 - Modify: `worker/src/runtime/lineupLab/optimizer.ts`
@@ -287,23 +372,22 @@ This v2 plan reorders delivery around those constraints.
 
 ---
 
-### 2.3 UI and API integration
+### 2.5 Frontend API wiring in standalone Lineup Lab
 
 **Files:**
-- Modify: `src/features/chat/components/ChatSidebar.vue`
-- Create: `src/features/chat/components/OpponentLineupInput.vue`
-- Modify: `src/features/chat/useChatController.ts`
-- Modify: `src/features/chat/lineupLabClient.ts`
-- Modify: `src/features/chat/types.ts`
-- Create/Modify: component tests for mode switching and validation
+- Modify: `src/features/lineup-lab/lineupLabClient.ts` (or move from chat namespace)
+- Modify: `src/features/lineup-lab/useLineupLabController.ts`
+- Modify: `src/features/lineup-lab/types.ts`
+- Create/Modify: integration tests for mode switching, payload shape, and response rendering
 
 **Tasks:**
-1. Add “Blind” vs “Response to Opponent” mode toggle.
-2. Add opponent lineup entry UI with strong validation.
-3. Wire mode and opponent rounds into POST body.
+1. Wire mode and opponent rounds into POST body from Lineup Lab tab only.
+2. Ensure payload generation honors blind/known mode contract.
+3. Render backend outputs in the schedule surface and metadata header (not chat cards).
 
 **Exit criteria:**
-- Known-opponent workflow is fully usable from sidebar to recommendation card.
+- Known-opponent workflow is fully usable end-to-end in Lineup Lab tab.
+- No lineup recommendation payloads are emitted to chat transcript.
 
 
 **Step-end verification (mandatory):**
@@ -346,8 +430,8 @@ This v2 plan reorders delivery around those constraints.
 - Create: `supabase/migrations/YYYYMMDDHHMMSS_add_lineup_preferences_and_dupr_write_paths.sql`
 - Modify: `worker/src/runtime/lineupLab/contextHandler.ts`
 - Modify: `worker/src/runtime/lineupLab/repository.ts`
-- Modify: `src/features/chat/components/ChatSidebar.vue`
-- Modify: `src/features/chat/lineupLabClient.ts`
+- Modify: `src/features/lineup-lab/components/LineupLabSidebar.vue`
+- Modify: `src/features/lineup-lab/lineupLabClient.ts`
 - Add tests for endpoint auth and upsert behavior
 
 **Tasks:**
@@ -523,6 +607,7 @@ This v2 plan reorders delivery around those constraints.
        "teamId":"<team-uuid>",
        "oppTeamId":"<opp-team-uuid>",
        "matchupId":"<matchup-uuid>",
+       "mode":"blind",
        "availablePlayerIds":["<8-or-more-even-player-uuids>"],
        "objective":"MAX_EXPECTED_WINS",
        "maxRecommendations":3,
@@ -531,7 +616,8 @@ This v2 plan reorders delivery around those constraints.
      }'
    ```
 5. Passing condition is strict: HTTP `200` plus valid JSON response shape (`requestId` string and `recommendations` array).
-6. If the request fails (non-200, runtime exception, invalid payload shape, or empty critical fields), do not continue to the next plan step. Fix the root cause and rerun this exact loop until it passes.
+6. For known-opponent verification steps, rerun the same request with `"mode":"known_opponent"` and a valid `opponentRounds` payload that matches slot-pattern validation.
+7. If the request fails (non-200, runtime exception, invalid payload shape, or empty critical fields), do not continue to the next plan step. Fix the root cause and rerun this exact loop until it passes.
 
 ---
 
@@ -542,6 +628,7 @@ This v2 plan reorders delivery around those constraints.
 3. No optimizer search-budget increase without latency benchmark evidence.
 4. No SQL object changes without migration parity checks against a fresh DB.
 5. Every numbered plan step must end by passing the `Recommend API E2E Loop (Mandatory for Every Step)` with a real `POST /api/lineup-lab/recommend` call.
+6. Any Lineup Lab UI step is incomplete until Playwright passes for both behavioral spec checks and design parity checks; implementers must continue iterating until those checks pass.
 
 ---
 
@@ -559,9 +646,14 @@ This v2 plan reorders delivery around those constraints.
 - At the end of each numbered plan step, run and pass the `Recommend API E2E Loop (Mandatory for Every Step)` before moving forward.
 
 ### Product verification
-- Sidebar availability controls correctly map to payload.
+- Lineup Lab left-panel availability controls correctly map to payload.
+- Mode toggle under `Matchup` enforces blind/known interaction differences.
 - Known-opponent input validation prevents partial/invalid submissions.
-- Recommendation cards show model metadata (`mode`, staleness, objective, confidence).
+- Metadata is displayed at the top of schedule configuration (`expectedWins`, `conservativeWins`, `matchupWin%`, `gameConfidence`, `matchupConfidence`).
+- Chat transcript remains independent and does not render lineup recommendation cards.
+- Run and pass: `npx playwright test e2e/lineup-lab-ui-mock.spec.ts`.
+- Run and pass: `npx playwright test e2e/lineup-lab-ui-visual.spec.ts` against approved baselines derived from `designs/lineup_lab_new.png`.
+- Do not mark UI work complete if either Playwright UI suite is failing.
 
 ### Operational verification
 - Refresh workflow is documented and automated.
@@ -574,15 +666,15 @@ This v2 plan reorders delivery around those constraints.
 
 1. Phase 0: 4-6 days
 2. Phase 1: 5-7 days
-3. Phase 2: 4-6 days
+3. Phase 2: 6-8 days (includes UI shell migration to standalone tab before backend mode delivery)
 4. Phase 3: 6-9 days
 5. Phase 4: 5-8 days (gated, may be partially skipped)
 6. Phase 5: 2-3 days
 
-Total: ~26-39 days, with quality gates allowing partial shipment earlier.
+Total: ~28-41 days, with quality gates allowing partial shipment earlier.
 
 ---
 
 ## Immediate Next Task (Recommended)
 
-Start with **Phase 0.1 migration reconciliation** before any optimizer changes. Until that is complete, every downstream change risks being built on mismatched SQL definitions and unverifiable behavior.
+Start with **Phase 2.1 standalone Lineup Lab tab/layout migration**, then complete **Phase 2.2 UI interaction contract** before backend mode routing (`2.3+`). This preserves UI clarity and prevents rework while known-opponent contracts are finalized.

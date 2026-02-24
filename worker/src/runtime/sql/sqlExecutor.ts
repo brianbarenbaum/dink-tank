@@ -320,24 +320,26 @@ export const executeReadOnlySqlRows = async (
 
 	try {
 		return await runQuery();
-	} catch (error) {
-		if (!isRetryableConnectionError(error)) {
-			throw error;
-		}
-		const elapsedMs = nowMs() - requestStartedAt;
-		if (elapsedMs >= MAX_SQL_RETRY_BUDGET_MS) {
-			logSqlQueryRetrySkipped({
+		} catch (error) {
+			if (!isRetryableConnectionError(error)) {
+				throw error;
+			}
+			const retryReason =
+				error instanceof Error ? error.message : String(error);
+			const elapsedMs = nowMs() - requestStartedAt;
+			if (elapsedMs >= MAX_SQL_RETRY_BUDGET_MS) {
+				logSqlQueryRetrySkipped({
+					query: sanitized,
+					reason: retryReason,
+					elapsedMs,
+				});
+				throw error;
+			}
+			logSqlQueryRetry({
 				query: sanitized,
-				reason: error.message,
-				elapsedMs,
+				reason: retryReason,
 			});
-			throw error;
+			await resetCachedPool();
+			return runQuery();
 		}
-		logSqlQueryRetry({
-			query: sanitized,
-			reason: error.message,
-		});
-		await resetCachedPool();
-		return runQuery();
-	}
-};
+	};

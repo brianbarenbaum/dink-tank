@@ -1,12 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { poolQueryMock, MockPool } = vi.hoisted(() => {
+const { poolQueryMock, poolConfigCalls, MockPool } = vi.hoisted(() => {
 	const queryMock = vi.fn();
+	const configCalls: unknown[] = [];
 	class PoolMock {
+		constructor(config: unknown) {
+			configCalls.push(config);
+		}
 		query = queryMock;
 	}
 	return {
 		poolQueryMock: queryMock,
+		poolConfigCalls: configCalls,
 		MockPool: PoolMock,
 	};
 });
@@ -15,11 +20,15 @@ vi.mock("pg", () => ({
 	Pool: MockPool,
 }));
 
-import { fetchLineupLabFeatureBundle } from "../worker/src/runtime/lineupLab/repository";
+import {
+	fetchLineupLabDivisions,
+	fetchLineupLabFeatureBundle,
+} from "../worker/src/runtime/lineupLab/repository";
 
 describe("lineup lab repository", () => {
 	beforeEach(() => {
 		poolQueryMock.mockReset();
+		poolConfigCalls.length = 0;
 	});
 
 	it("fetches and returns lineup feature bundle payload", async () => {
@@ -64,10 +73,17 @@ describe("lineup lab repository", () => {
 
 		const bundle = await fetchLineupLabFeatureBundle(
 			{
+				OPENAI_API_KEY: "test-key",
 				SUPABASE_DB_URL:
 					"postgres://postgres:postgres@localhost:5432/postgres?test=lineup-lab-repository",
 				SUPABASE_DB_SSL_NO_VERIFY: true,
+				LLM_MODEL: "gpt-4.1-mini",
+				LLM_REASONING_LEVEL: "medium",
 				SQL_QUERY_TIMEOUT_MS: 10_000,
+				SQL_CAPTURE_EXPLAIN_PLAN: false,
+				EXPOSE_ERROR_DETAILS: false,
+				LANGFUSE_TRACING_ENVIRONMENT: "default",
+				LANGFUSE_ENABLED: false,
 			} as const,
 			{
 				divisionId: "e8d04726-4c07-447c-a609-9914d1378e8d",
@@ -76,6 +92,7 @@ describe("lineup lab repository", () => {
 				teamId: "a7d5c302-9ee0-4bd6-9205-971efe6af562",
 				oppTeamId: "6bb73493-1a15-4527-9765-6aadfaca773b",
 				matchupId: "99bb7ced-889b-4e42-91b8-f84878c5c43b",
+				mode: "blind",
 				availablePlayerIds: [
 					"11111111-1111-4111-8111-111111111111",
 					"22222222-2222-4222-8222-222222222222",
@@ -98,5 +115,39 @@ describe("lineup lab repository", () => {
 		expect(poolQueryMock.mock.calls[1]?.[1]?.[8]).toBe(scheduledTime);
 		expect(bundle.opponent_scenarios).toHaveLength(1);
 		expect(bundle.candidate_pairs).toHaveLength(1);
+	});
+
+	it("applies a 2s query timeout for context division queries", async () => {
+		poolQueryMock.mockResolvedValueOnce({
+			rows: [
+				{
+					division_id: "e8d04726-4c07-447c-a609-9914d1378e8d",
+					division_name: "4.0",
+					season_year: 2025,
+					season_number: 3,
+					location: "NJ / PA",
+				},
+			],
+		});
+
+		await fetchLineupLabDivisions({
+			OPENAI_API_KEY: "test-key",
+			SUPABASE_DB_URL:
+				"postgres://postgres:postgres@localhost:5432/postgres?test=lineup-lab-context-timeout",
+			SUPABASE_DB_SSL_NO_VERIFY: true,
+			LLM_MODEL: "gpt-4.1-mini",
+			LLM_REASONING_LEVEL: "medium",
+			SQL_QUERY_TIMEOUT_MS: 25_000,
+			SQL_CAPTURE_EXPLAIN_PLAN: false,
+			EXPOSE_ERROR_DETAILS: false,
+			LANGFUSE_TRACING_ENVIRONMENT: "default",
+			LANGFUSE_ENABLED: false,
+		} as const);
+
+		expect(poolQueryMock).toHaveBeenCalledTimes(1);
+		expect(poolConfigCalls).toHaveLength(1);
+		expect(poolConfigCalls[0]).toMatchObject({
+			query_timeout: 2000,
+		});
 	});
 });

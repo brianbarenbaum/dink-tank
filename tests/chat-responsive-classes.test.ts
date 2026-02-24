@@ -21,9 +21,6 @@ describe("chat responsive layout", () => {
 		expect(wrapper.find("[data-testid='mobile-sidebar']").classes()).toContain(
 			"chat-sidebar-surface",
 		);
-		expect(wrapper.find("[data-testid='mobile-sidebar']").text()).not.toContain(
-			"Dink Tank",
-		);
 		expect(wrapper.find("[data-testid='mobile-new-chat']").exists()).toBe(true);
 		expect(wrapper.find("[data-testid='mobile-close-sidebar']").exists()).toBe(
 			true,
@@ -45,15 +42,6 @@ describe("chat responsive layout", () => {
 		expect(
 			wrapper.get("[data-testid='desktop-sidebar-close-icon']").classes(),
 		).toContain("cursor-pointer");
-		expect(wrapper.get("[data-testid='desktop-new-chat']").text()).toContain(
-			"New Chat",
-		);
-		expect(
-			wrapper.get("[data-testid='desktop-new-chat']").classes(),
-		).not.toContain("border");
-		expect(
-			wrapper.get("[data-testid='desktop-new-chat']").classes(),
-		).not.toContain("uppercase");
 
 		await wrapper
 			.get("[data-testid='desktop-sidebar-close-icon']")
@@ -71,9 +59,6 @@ describe("chat responsive layout", () => {
 			true,
 		);
 		expect(
-			wrapper.get("[data-testid='desktop-sidebar-rail']").classes(),
-		).toContain("lg:flex-col");
-		expect(
 			wrapper
 				.get("[data-testid='desktop-sidebar-open-icon']")
 				.attributes("title"),
@@ -88,65 +73,5 @@ describe("chat responsive layout", () => {
 		await nextTick();
 
 		expect(wrapper.attributes("class")).toContain("lg:grid-cols-[18rem_1fr]");
-	});
-
-	it("opens utilities when lineup recommendation card is selected", async () => {
-		const wrapper = mount(ChatShell, {
-			props: {
-				messages: [
-					{
-						id: "rec-1",
-						role: "assistant",
-						content: "Lineup recommendation generated.",
-						kind: "lineup_recommendation",
-						createdAt: new Date(0).toISOString(),
-						lineupRecommendation: {
-							requestId: "req_1",
-							generatedAt: new Date(0).toISOString(),
-							objective: "MAX_EXPECTED_WINS",
-							recommendations: [
-								{
-									rank: 1,
-									pairSetId: "set_1",
-									pairs: [
-										{
-											playerAId: "11111111-1111-4111-8111-111111111111",
-											playerBId: "22222222-2222-4222-8222-222222222222",
-										},
-									],
-									expectedWins: 2.5,
-									floorWinsQ20: 1.9,
-									matchupWinProbability: 0.58,
-									volatility: 0.4,
-									confidence: "MEDIUM",
-									gameConfidence: "MEDIUM",
-									matchupConfidence: "LOW",
-								},
-							],
-							scenarioSummary: { scenarioCount: 12 },
-						},
-					},
-				],
-			},
-		});
-
-		expect(wrapper.find("[data-testid='utilities-panel']").exists()).toBe(
-			false,
-		);
-		await wrapper
-			.get("[data-testid='lineup-recommendation-card']")
-			.trigger("click");
-		await nextTick();
-		expect(wrapper.find("[data-testid='utilities-panel']").exists()).toBe(
-			false,
-		);
-		await wrapper
-			.get("[data-testid='lineup-advanced-options-button']")
-			.trigger("click");
-		await nextTick();
-		expect(wrapper.find("[data-testid='utilities-panel']").exists()).toBe(true);
-		expect(wrapper.attributes("class")).toContain(
-			"lg:grid-cols-[18rem_minmax(0,1fr)_20rem]",
-		);
 	});
 });

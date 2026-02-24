@@ -1,4 +1,5 @@
 import type {
+	KnownOpponentRoundInput,
 	LineupLabRecommendRequest,
 	LineupLabValidationResult,
 	ValidationFailure,
@@ -14,6 +15,17 @@ const MAX_SCENARIOS = 30;
 const UUID_PATTERN =
 	/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+const ROUND_SLOT_TEMPLATE: Array<Array<"mixed" | "female" | "male">> = [
+	["mixed", "mixed", "mixed", "mixed"],
+	["female", "female", "male", "male"],
+	["mixed", "mixed", "mixed", "mixed"],
+	["female", "female", "male", "male"],
+	["mixed", "mixed", "mixed", "mixed"],
+	["female", "female", "male", "male"],
+	["mixed", "mixed", "mixed", "mixed"],
+	["female", "female", "male", "male"],
+];
+
 const fail = (error: string): ValidationFailure => ({ ok: false, error });
 
 const isUuid = (value: unknown): value is string =>
@@ -23,6 +35,116 @@ const success = (value: LineupLabRecommendRequest): ValidationSuccess => ({
 	ok: true,
 	value,
 });
+
+const parseKnownOpponentRounds = (
+	candidate: unknown,
+): { ok: true; value: KnownOpponentRoundInput[] } | ValidationFailure => {
+	if (!Array.isArray(candidate)) {
+		return fail(
+			"opponentRounds must be an array when mode is known_opponent.",
+		);
+	}
+	if (candidate.length !== ROUND_SLOT_TEMPLATE.length) {
+		return fail("opponentRounds must include exactly 8 rounds.");
+	}
+
+	const seenRoundNumbers = new Set<number>();
+	const normalizedRounds: KnownOpponentRoundInput[] = [];
+
+	for (const rawRound of candidate) {
+		if (!rawRound || typeof rawRound !== "object" || Array.isArray(rawRound)) {
+			return fail("Each opponent round must be an object.");
+		}
+		const round = rawRound as Record<string, unknown>;
+		if (
+			typeof round.roundNumber !== "number" ||
+			!Number.isInteger(round.roundNumber) ||
+			round.roundNumber < 1 ||
+			round.roundNumber > ROUND_SLOT_TEMPLATE.length
+		) {
+			return fail("Each opponent round must include a valid roundNumber (1-8).");
+		}
+		if (seenRoundNumbers.has(round.roundNumber)) {
+			return fail("opponentRounds must not include duplicate roundNumber values.");
+		}
+		seenRoundNumbers.add(round.roundNumber);
+
+		if (!Array.isArray(round.games)) {
+			return fail("Each opponent round must include a games array.");
+		}
+		if (round.games.length !== 4) {
+			return fail("Each opponent round must include exactly 4 games.");
+		}
+
+		const expectedRoundTemplate = ROUND_SLOT_TEMPLATE[round.roundNumber - 1] ?? [];
+		const seenSlotNumbers = new Set<number>();
+		const normalizedGames: KnownOpponentRoundInput["games"] = [];
+		for (const rawGame of round.games) {
+			if (!rawGame || typeof rawGame !== "object" || Array.isArray(rawGame)) {
+				return fail("Each opponent game assignment must be an object.");
+			}
+			const game = rawGame as Record<string, unknown>;
+			if (
+				typeof game.slotNumber !== "number" ||
+				!Number.isInteger(game.slotNumber) ||
+				game.slotNumber < 1 ||
+				game.slotNumber > 4
+			) {
+				return fail("Each opponent game must include slotNumber between 1 and 4.");
+			}
+			if (seenSlotNumbers.has(game.slotNumber)) {
+				return fail("Opponent game slotNumber values must be unique per round.");
+			}
+			seenSlotNumbers.add(game.slotNumber);
+
+			if (
+				typeof game.roundNumber !== "number" ||
+				!Number.isInteger(game.roundNumber) ||
+				game.roundNumber !== round.roundNumber
+			) {
+				return fail(
+					"Each opponent game roundNumber must match its parent roundNumber.",
+				);
+			}
+			if (
+				game.matchType !== "mixed" &&
+				game.matchType !== "female" &&
+				game.matchType !== "male"
+			) {
+				return fail("Each opponent game matchType must be mixed, female, or male.");
+			}
+
+			const expectedMatchType = expectedRoundTemplate[game.slotNumber - 1];
+			if (expectedMatchType !== game.matchType) {
+				return fail(
+					`opponentRounds slot pattern mismatch at round ${round.roundNumber}, slot ${game.slotNumber}.`,
+				);
+			}
+			if (!isUuid(game.opponentPlayerAId) || !isUuid(game.opponentPlayerBId)) {
+				return fail("Opponent slot players must be valid UUIDs.");
+			}
+			if (game.opponentPlayerAId === game.opponentPlayerBId) {
+				return fail("Opponent slot players must be different within a game.");
+			}
+
+			normalizedGames.push({
+				roundNumber: round.roundNumber,
+				slotNumber: game.slotNumber,
+				matchType: game.matchType,
+				opponentPlayerAId: game.opponentPlayerAId,
+				opponentPlayerBId: game.opponentPlayerBId,
+			});
+		}
+
+		normalizedRounds.push({
+			roundNumber: round.roundNumber,
+			games: normalizedGames.sort((left, right) => left.slotNumber - right.slotNumber),
+		});
+	}
+
+	normalizedRounds.sort((left, right) => left.roundNumber - right.roundNumber);
+	return { ok: true, value: normalizedRounds };
+};
 
 export const parseLineupLabRecommendRequest = (
 	payload: unknown,
@@ -64,6 +186,10 @@ export const parseLineupLabRecommendRequest = (
 		candidate.seasonNumber <= 0
 	) {
 		return fail("seasonNumber must be a positive integer.");
+	}
+
+	if (candidate.mode !== "blind" && candidate.mode !== "known_opponent") {
+		return fail("mode must be blind or known_opponent.");
 	}
 
 	if (!Array.isArray(candidate.availablePlayerIds)) {
@@ -129,6 +255,15 @@ export const parseLineupLabRecommendRequest = (
 		);
 	}
 
+	let opponentRounds: KnownOpponentRoundInput[] | undefined;
+	if (candidate.mode === "known_opponent") {
+		const parsedRounds = parseKnownOpponentRounds(candidate.opponentRounds);
+		if (!parsedRounds.ok) {
+			return parsedRounds;
+		}
+		opponentRounds = parsedRounds.value;
+	}
+
 	return success({
 		divisionId: candidate.divisionId,
 		seasonYear: candidate.seasonYear,
@@ -136,10 +271,12 @@ export const parseLineupLabRecommendRequest = (
 		teamId: candidate.teamId,
 		oppTeamId: candidate.oppTeamId,
 		matchupId: candidate.matchupId,
+		mode: candidate.mode,
 		availablePlayerIds: candidate.availablePlayerIds,
 		objective: candidate.objective,
 		maxRecommendations,
 		downsideQuantile,
 		scenarioLimit,
+		opponentRounds,
 	});
 };

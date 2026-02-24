@@ -5,49 +5,19 @@ import { ChevronRight, Pencil } from "lucide-vue-next";
 import ChatComposer from "./ChatComposer.vue";
 import ChatSidebar from "./ChatSidebar.vue";
 import ChatTranscript from "./ChatTranscript.vue";
-import UtilitiesPanel from "./UtilitiesPanel.vue";
 
 import type { ChatMessage } from "../types";
 
 interface ChatShellProps {
+	embedded?: boolean;
 	messages?: ChatMessage[];
 	isSending?: boolean;
 	modelLabel?: string;
 	extendedThinking?: boolean;
-	lineupDivisions?: Array<{
-		divisionId: string;
-		divisionName: string;
-		seasonYear: number;
-		seasonNumber: number;
-		location: string;
-	}>;
-	lineupTeams?: Array<{ teamId: string; teamName: string }>;
-	lineupMatchups?: Array<{
-		matchupId: string;
-		weekNumber: number | null;
-		scheduledTime: string | null;
-		teamId: string;
-		oppTeamId: string;
-		teamName: string;
-		oppTeamName: string;
-	}>;
-	lineupRosterPlayers?: Array<{
-		playerId: string;
-		firstName: string | null;
-		lastName: string | null;
-		gender: string | null;
-		isSub: boolean;
-		suggested: boolean;
-	}>;
-	selectedDivisionId?: string | null;
-	selectedTeamId?: string | null;
-	selectedMatchupId?: string | null;
-	selectedAvailablePlayerIds?: string[];
-	isLoadingTeams?: boolean;
-	isLoadingMatchups?: boolean;
 }
 
 const props = withDefaults(defineProps<ChatShellProps>(), {
+	embedded: false,
 	messages: () => [
 		{
 			id: "seed-assistant",
@@ -65,77 +35,42 @@ const props = withDefaults(defineProps<ChatShellProps>(), {
 	isSending: false,
 	modelLabel: "Unknown model",
 	extendedThinking: false,
-	lineupDivisions: () => [],
-	lineupTeams: () => [],
-	lineupMatchups: () => [],
-	lineupRosterPlayers: () => [],
-	selectedDivisionId: null,
-	selectedTeamId: null,
-	selectedMatchupId: null,
-	selectedAvailablePlayerIds: () => [],
-	isLoadingTeams: false,
-	isLoadingMatchups: false,
 });
 
 const emit = defineEmits<{
 	submit: [value: string];
 	"update:extended-thinking": [value: boolean];
-	"run-lineup-lab-recommend": [];
-	"select-lineup-division": [divisionId: string];
-	"select-lineup-team": [teamId: string];
-	"select-lineup-matchup": [matchupId: string];
-	"select-lineup-player-availability": [playerId: string, isAvailable: boolean];
 }>();
 
 const mobileSidebarOpen = ref(false);
 const desktopSidebarOpen = ref(true);
-const utilitiesOpen = ref(false);
-const selectedRecommendationId = ref<string | null>(null);
 
-const selectedRecommendation = computed(() => {
-	if (!selectedRecommendationId.value) {
-		return null;
-	}
-	const message = props.messages.find(
-		(candidate) => candidate.id === selectedRecommendationId.value,
-	);
-	return message?.lineupRecommendation ?? null;
-});
-
-const onSelectExplorerItem = (item: "lineup-recommend") => {
-	if (item !== "lineup-recommend") {
-		return;
-	}
-	emit("run-lineup-lab-recommend");
-	if (mobileSidebarOpen.value) {
-		mobileSidebarOpen.value = false;
-	}
-};
-
-const onSelectRecommendation = (messageId: string) => {
-	selectedRecommendationId.value = messageId;
-	utilitiesOpen.value = true;
-};
-
-const onInspectRecommendation = (messageId: string) => {
-	selectedRecommendationId.value = messageId;
-	utilitiesOpen.value = true;
-};
-
-const desktopGridClass = computed(() => {
-	if (desktopSidebarOpen.value) {
-		return utilitiesOpen.value
-			? "lg:grid-cols-[18rem_minmax(0,1fr)_20rem]"
-			: "lg:grid-cols-[18rem_1fr]";
-	}
-	return utilitiesOpen.value
-		? "lg:grid-cols-[3rem_minmax(0,1fr)_20rem]"
-		: "lg:grid-cols-[3rem_1fr]";
-});
+const desktopGridClass = computed(() =>
+	desktopSidebarOpen.value ? "lg:grid-cols-[18rem_1fr]" : "lg:grid-cols-[3rem_1fr]",
+);
 </script>
 
 <template>
+  <template v-if="embedded">
+    <div
+      data-testid="chat-shell"
+      class="relative flex min-h-0 flex-1 flex-col gap-4 overflow-hidden"
+    >
+      <ChatTranscript
+        :messages="props.messages"
+        :is-sending="props.isSending"
+      />
+      <ChatComposer
+        :is-sending="props.isSending"
+        :model-label="props.modelLabel"
+        :extended-thinking="props.extendedThinking"
+        @submit="emit('submit', $event)"
+        @update:extended-thinking="emit('update:extended-thinking', $event)"
+      />
+    </div>
+  </template>
   <main
+    v-else
     data-testid="chat-shell"
     :class="[
       'chat-root grid min-h-screen grid-cols-1',
@@ -144,21 +79,6 @@ const desktopGridClass = computed(() => {
   >
     <ChatSidebar
       v-if="desktopSidebarOpen"
-      :lineup-divisions="props.lineupDivisions"
-      :lineup-teams="props.lineupTeams"
-      :lineup-matchups="props.lineupMatchups"
-      :lineup-roster-players="props.lineupRosterPlayers"
-      :selected-division-id="props.selectedDivisionId"
-      :selected-team-id="props.selectedTeamId"
-      :selected-matchup-id="props.selectedMatchupId"
-      :selected-available-player-ids="props.selectedAvailablePlayerIds"
-      :loading-teams="props.isLoadingTeams"
-      :loading-matchups="props.isLoadingMatchups"
-      @select-explorer-item="onSelectExplorerItem"
-      @select-division="emit('select-lineup-division', $event)"
-      @select-team="emit('select-lineup-team', $event)"
-      @select-matchup="emit('select-lineup-matchup', $event)"
-      @select-player-availability="(playerId, isAvailable) => emit('select-lineup-player-availability', playerId, isAvailable)"
       @toggle-desktop="desktopSidebarOpen = false"
     />
     <aside
@@ -197,21 +117,6 @@ const desktopGridClass = computed(() => {
       mobile
       data-testid="mobile-sidebar"
       :open="mobileSidebarOpen"
-      :lineup-divisions="props.lineupDivisions"
-      :lineup-teams="props.lineupTeams"
-      :lineup-matchups="props.lineupMatchups"
-      :lineup-roster-players="props.lineupRosterPlayers"
-      :selected-division-id="props.selectedDivisionId"
-      :selected-team-id="props.selectedTeamId"
-      :selected-matchup-id="props.selectedMatchupId"
-      :selected-available-player-ids="props.selectedAvailablePlayerIds"
-      :loading-teams="props.isLoadingTeams"
-      :loading-matchups="props.isLoadingMatchups"
-      @select-explorer-item="onSelectExplorerItem"
-      @select-division="emit('select-lineup-division', $event)"
-      @select-team="emit('select-lineup-team', $event)"
-      @select-matchup="emit('select-lineup-matchup', $event)"
-      @select-player-availability="(playerId, isAvailable) => emit('select-lineup-player-availability', playerId, isAvailable)"
       @close="mobileSidebarOpen = false"
     />
 
@@ -241,9 +146,6 @@ const desktopGridClass = computed(() => {
       <ChatTranscript
         :messages="props.messages"
         :is-sending="props.isSending"
-        :selected-recommendation-id="selectedRecommendationId"
-        @select-recommendation="onSelectRecommendation"
-        @inspect-recommendation="onInspectRecommendation"
       />
       <ChatComposer
         :is-sending="props.isSending"
@@ -253,16 +155,5 @@ const desktopGridClass = computed(() => {
         @update:extended-thinking="emit('update:extended-thinking', $event)"
       />
     </section>
-    <UtilitiesPanel
-      :open="utilitiesOpen"
-      :payload="selectedRecommendation"
-      @close="utilitiesOpen = false"
-    />
-    <UtilitiesPanel
-      mobile
-      :open="utilitiesOpen"
-      :payload="selectedRecommendation"
-      @close="utilitiesOpen = false"
-    />
   </main>
 </template>

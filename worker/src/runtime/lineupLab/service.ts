@@ -4,6 +4,7 @@ import { logWarn } from "../runtimeLogger";
 import { fetchLineupLabFeatureBundle } from "./repository";
 import {
 	recommendPairSets,
+	recommendPairSetsKnownOpponent,
 	toRecommendations,
 } from "./optimizer";
 import type {
@@ -19,7 +20,10 @@ export const runLineupLabRecommend = async (
 	context: RequestContext,
 ): Promise<LineupLabRecommendResponse> => {
 	const bundle = await fetchLineupLabFeatureBundle(env, request);
-	const pairSetScores = recommendPairSets(request, bundle);
+	const pairSetScores =
+		request.mode === "known_opponent"
+			? recommendPairSetsKnownOpponent(request, bundle)
+			: recommendPairSets(request, bundle);
 	const recommendations = toRecommendations(
 		pairSetScores,
 		request.maxRecommendations,

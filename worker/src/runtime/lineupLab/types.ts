@@ -1,4 +1,19 @@
 export type LineupLabObjective = "MAX_EXPECTED_WINS" | "MINIMIZE_DOWNSIDE";
+export type LineupLabMode = "blind" | "known_opponent";
+export type LineupMatchType = "mixed" | "female" | "male";
+
+export interface KnownOpponentGameInput {
+	roundNumber: number;
+	slotNumber: number;
+	matchType: LineupMatchType;
+	opponentPlayerAId: string;
+	opponentPlayerBId: string;
+}
+
+export interface KnownOpponentRoundInput {
+	roundNumber: number;
+	games: KnownOpponentGameInput[];
+}
 
 export interface LineupLabRecommendRequest {
 	divisionId: string;
@@ -8,10 +23,12 @@ export interface LineupLabRecommendRequest {
 	oppTeamId: string;
 	availablePlayerIds: string[];
 	matchupId: string;
+	mode: LineupLabMode;
 	objective: LineupLabObjective;
 	maxRecommendations: number;
 	downsideQuantile: number;
 	scenarioLimit: number;
+	opponentRounds?: KnownOpponentRoundInput[];
 }
 
 export interface ValidationSuccess {
@@ -92,8 +109,6 @@ export interface RecommendedPair {
 	playerBId: string;
 }
 
-export type LineupMatchType = "mixed" | "female" | "male";
-
 export interface LineupScheduledGame {
 	roundNumber: number;
 	slotNumber: number;
@@ -165,6 +180,13 @@ export interface LineupLabMatchupOption {
 	oppTeamId: string;
 	teamName: string;
 	oppTeamName: string;
+	opponentRosterPlayers: Array<{
+		playerId: string;
+		firstName: string | null;
+		lastName: string | null;
+		gender: string | null;
+		isSub: boolean;
+	}>;
 }
 
 export interface LineupLabMatchupContextResponse {

@@ -2,7 +2,7 @@ import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
 
 import LineupRecommendationCard from "../src/features/chat/components/LineupRecommendationCard.vue";
-import type { LineupRecommendationPayload } from "../src/features/chat/types";
+import type { LineupRecommendationPayload } from "../src/features/lineup-lab/types";
 
 const payload: LineupRecommendationPayload = {
 	requestId: "req_1",
