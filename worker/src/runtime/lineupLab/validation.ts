@@ -2,9 +2,31 @@ import type {
 	KnownOpponentRoundInput,
 	LineupLabRecommendRequest,
 	LineupLabValidationResult,
+	OpponentRosterEntry,
 	ValidationFailure,
 	ValidationSuccess,
 } from "./types";
+
+type NormalizedGender = "male" | "female";
+
+function normalizeGender(value: unknown): NormalizedGender | null {
+	if (value == null || typeof value !== "string") {
+		return null;
+	}
+	const normalized = value.trim().toLowerCase();
+	if (normalized === "m" || normalized === "male" || normalized === "man") {
+		return "male";
+	}
+	if (
+		normalized === "f" ||
+		normalized === "female" ||
+		normalized === "woman" ||
+		normalized === "women"
+	) {
+		return "female";
+	}
+	return null;
+}
 
 const MIN_PLAYERS = 8;
 const MAX_PLAYERS = 20;
@@ -126,6 +148,7 @@ const parseKnownOpponentRounds = (
 			if (game.opponentPlayerAId === game.opponentPlayerBId) {
 				return fail("Opponent slot players must be different within a game.");
 			}
+			// Gender validation is done after parsing opponentRoster below.
 
 			normalizedGames.push({
 				roundNumber: round.roundNumber,
@@ -145,6 +168,73 @@ const parseKnownOpponentRounds = (
 	normalizedRounds.sort((left, right) => left.roundNumber - right.roundNumber);
 	return { ok: true, value: normalizedRounds };
 };
+
+const parseOpponentRoster = (
+	candidate: unknown,
+): { ok: true; value: OpponentRosterEntry[] } | ValidationFailure => {
+	if (!Array.isArray(candidate)) {
+		return fail(
+			"opponentRoster must be an array when mode is known_opponent.",
+		);
+	}
+	const roster: OpponentRosterEntry[] = [];
+	for (let i = 0; i < candidate.length; i++) {
+		const raw = candidate[i];
+		if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+			return fail("Each opponentRoster entry must be an object with playerId and gender.");
+		}
+		const entry = raw as Record<string, unknown>;
+		if (!isUuid(entry.playerId)) {
+			return fail("Each opponentRoster entry must have a valid playerId (UUID).");
+		}
+		const gender =
+			entry.gender !== undefined && entry.gender !== null
+				? String(entry.gender)
+				: null;
+		roster.push({ playerId: entry.playerId, gender });
+	}
+	return { ok: true, value: roster };
+};
+
+function validateOpponentRoundsGender(
+	opponentRounds: KnownOpponentRoundInput[],
+	roster: OpponentRosterEntry[],
+): ValidationFailure | null {
+	const genderByPlayerId = new Map<string, NormalizedGender>();
+	for (const entry of roster) {
+		const g = normalizeGender(entry.gender);
+		if (g) genderByPlayerId.set(entry.playerId, g);
+	}
+
+	for (const round of opponentRounds) {
+		for (const game of round.games) {
+			const genderA = genderByPlayerId.get(game.opponentPlayerAId) ?? null;
+			const genderB = genderByPlayerId.get(game.opponentPlayerBId) ?? null;
+			if (genderA == null || genderB == null) {
+				return fail(
+					"Opponent roster must include gender for all players in opponent assignments.",
+				);
+			}
+			if (game.matchType === "mixed") {
+				const oneMaleOneFemale =
+					(genderA === "male" && genderB === "female") ||
+					(genderA === "female" && genderB === "male");
+				if (!oneMaleOneFemale) {
+					return fail("Mixed slots must have one male and one female opponent.");
+				}
+			} else if (game.matchType === "female") {
+				if (genderA !== "female" || genderB !== "female") {
+					return fail("Female slots must have two female opponents.");
+				}
+			} else {
+				if (genderA !== "male" || genderB !== "male") {
+					return fail("Male slots must have two male opponents.");
+				}
+			}
+		}
+	}
+	return null;
+}
 
 export const parseLineupLabRecommendRequest = (
 	payload: unknown,
@@ -256,12 +346,27 @@ export const parseLineupLabRecommendRequest = (
 	}
 
 	let opponentRounds: KnownOpponentRoundInput[] | undefined;
+	let opponentRoster: OpponentRosterEntry[] | undefined;
 	if (candidate.mode === "known_opponent") {
 		const parsedRounds = parseKnownOpponentRounds(candidate.opponentRounds);
 		if (!parsedRounds.ok) {
 			return parsedRounds;
 		}
 		opponentRounds = parsedRounds.value;
+
+		const parsedRoster = parseOpponentRoster(candidate.opponentRoster);
+		if (!parsedRoster.ok) {
+			return parsedRoster;
+		}
+		opponentRoster = parsedRoster.value;
+
+		const genderError = validateOpponentRoundsGender(
+			opponentRounds,
+			opponentRoster,
+		);
+		if (genderError) {
+			return genderError;
+		}
 	}
 
 	return success({
@@ -278,5 +383,6 @@ export const parseLineupLabRecommendRequest = (
 		downsideQuantile,
 		scenarioLimit,
 		opponentRounds,
+		opponentRoster,
 	});
 };

@@ -63,6 +63,11 @@ export interface KnownOpponentRoundInput {
 	games: KnownOpponentGameInput[];
 }
 
+export interface OpponentRosterEntry {
+	playerId: string;
+	gender: string | null;
+}
+
 export interface LineupLabRecommendRequest {
 	divisionId: string;
 	seasonYear: number;
@@ -77,6 +82,8 @@ export interface LineupLabRecommendRequest {
 	downsideQuantile?: number;
 	scenarioLimit?: number;
 	opponentRounds?: KnownOpponentRoundInput[];
+	/** Required when mode is known_opponent; used for gender validation. */
+	opponentRoster?: OpponentRosterEntry[];
 }
 
 export interface LineupRecommendationPair {

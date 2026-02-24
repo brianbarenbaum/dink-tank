@@ -23,6 +23,11 @@ const parseJson = async (response: Response) => {
 	return JSON.parse(text) as Record<string, unknown>;
 };
 
+const MALE_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const FEMALE_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const FEMALE_C = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+const MALE_D = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+
 const buildKnownRounds = () =>
 	[
 		["mixed", "mixed", "mixed", "mixed"],
@@ -39,10 +44,23 @@ const buildKnownRounds = () =>
 			roundNumber: roundIndex + 1,
 			slotNumber: slotIndex + 1,
 			matchType,
-			opponentPlayerAId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-			opponentPlayerBId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+			opponentPlayerAId:
+				matchType === "mixed" || matchType === "male" ? MALE_A : FEMALE_B,
+			opponentPlayerBId:
+				matchType === "mixed"
+					? FEMALE_B
+					: matchType === "female"
+						? FEMALE_C
+						: MALE_D,
 		})),
 	}));
+
+const buildOpponentRoster = () => [
+	{ playerId: MALE_A, gender: "Male" },
+	{ playerId: FEMALE_B, gender: "Female" },
+	{ playerId: FEMALE_C, gender: "Female" },
+	{ playerId: MALE_D, gender: "Male" },
+];
 
 describe("lineup lab handler", () => {
 	const env = {
@@ -224,6 +242,7 @@ describe("lineup lab handler", () => {
 				],
 				objective: "MAX_EXPECTED_WINS",
 				opponentRounds: buildKnownRounds(),
+				opponentRoster: buildOpponentRoster(),
 			}),
 		});
 

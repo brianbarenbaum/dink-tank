@@ -2,6 +2,11 @@ import { computed, ref, type ComputedRef, type Ref } from "vue";
 
 import { createLineupLabClient, type LineupLabClient } from "./lineupLabClient";
 import {
+	isOpponentAssignmentGenderValid,
+	normalizeGender,
+	type NormalizedGender,
+} from "./opponentSlotGender";
+import {
 	SCHEDULE_SLOT_TEMPLATE,
 	SCHEDULE_SLOTS,
 	type SlotTemplateEntry,
@@ -124,12 +129,29 @@ export function createLineupLabController(client: LineupLabClient): LineupLabCon
 			return "Opponent roster is unavailable for this matchup.";
 		}
 
+		const genderByPlayerId = new Map<string, NormalizedGender>();
+		for (const player of opponentRosterPlayers.value) {
+			const g = normalizeGender(player.gender);
+			if (g) genderByPlayerId.set(player.playerId, g);
+		}
+
 		for (const slot of SCHEDULE_SLOTS) {
 			const assignment = opponentAssignments.value[
 				slotKey(slot.roundNumber, slot.slotNumber)
 			];
 			if (!hasValidOpponentPair(assignment, opponentPlayerIds)) {
 				return "Complete all opponent assignments before calculating.";
+			}
+			if (
+				!isOpponentAssignmentGenderValid(
+					slot.matchType,
+					assignment ?? { playerAId: null, playerBId: null },
+					genderByPlayerId,
+				)
+			) {
+				return slot.matchType === "mixed"
+					? "Mixed slots must have one male and one female."
+					: `${slot.matchType} slots must have two ${slot.matchType} opponents.`;
 			}
 		}
 
@@ -395,6 +417,10 @@ export function createLineupLabController(client: LineupLabClient): LineupLabCon
 				...(mode.value === "known_opponent"
 					? {
 						opponentRounds: buildOpponentRounds(),
+						opponentRoster: opponentRosterPlayers.value.map((p) => ({
+							playerId: p.playerId,
+							gender: p.gender,
+						})),
 					}
 					: {}),
 			};

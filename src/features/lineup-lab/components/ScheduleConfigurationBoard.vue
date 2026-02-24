@@ -3,6 +3,7 @@ import { computed } from "vue";
 
 import OpponentLineupInput from "./OpponentLineupInput.vue";
 
+import { getPlayersForSlot } from "../opponentSlotGender";
 import { SCHEDULE_SLOT_TEMPLATE } from "../schedule";
 import type {
 	LineupLabMode,
@@ -57,6 +58,16 @@ const getOutputGame = (roundNumber: number, slotNumber: number) =>
 	topRecommendation.value?.rounds
 		?.find((round) => round.roundNumber === roundNumber)
 		?.games.find((game) => game.slotNumber === slotNumber) ?? null;
+
+const getPlayersForSlotAt = (roundNumber: number, slotNumber: number, matchType: "mixed" | "female" | "male") => {
+	const assignment = getOpponentAssignment(roundNumber, slotNumber);
+	return getPlayersForSlot(
+		matchType,
+		props.opponentRosterPlayers,
+		assignment.playerAId,
+		assignment.playerBId,
+	);
+};
 </script>
 
 <template>
@@ -96,9 +107,12 @@ const getOutputGame = (roundNumber: number, slotNumber: number) =>
           :round-number="roundIndex + 1"
           :slot-number="slotIndex + 1"
           :match-type="matchType"
-          :players="props.opponentRosterPlayers"
+          :players-for-a="getPlayersForSlotAt(roundIndex + 1, slotIndex + 1, matchType).playersForA"
+          :players-for-b="getPlayersForSlotAt(roundIndex + 1, slotIndex + 1, matchType).playersForB"
           :player-a-id="getOpponentAssignment(roundIndex + 1, slotIndex + 1).playerAId"
           :player-b-id="getOpponentAssignment(roundIndex + 1, slotIndex + 1).playerBId"
+          :empty-message-for-a="getPlayersForSlotAt(roundIndex + 1, slotIndex + 1, matchType).emptyMessageForA"
+          :empty-message-for-b="getPlayersForSlotAt(roundIndex + 1, slotIndex + 1, matchType).emptyMessageForB"
           @update="onOpponentSlotUpdate"
         />
         <div

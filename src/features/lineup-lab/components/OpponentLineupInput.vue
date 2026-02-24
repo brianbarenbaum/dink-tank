@@ -1,17 +1,24 @@
 <script setup lang="ts">
+import { ChevronDown } from "lucide-vue-next";
+
 import type { OpponentRosterPlayer } from "../types";
 
 interface OpponentLineupInputProps {
 	roundNumber: number;
 	slotNumber: number;
 	matchType: "mixed" | "female" | "male";
-	players: OpponentRosterPlayer[];
+	playersForA: OpponentRosterPlayer[];
+	playersForB: OpponentRosterPlayer[];
 	playerAId: string | null;
 	playerBId: string | null;
+	emptyMessageForA?: string | null;
+	emptyMessageForB?: string | null;
 	disabled?: boolean;
 }
 
 const props = withDefaults(defineProps<OpponentLineupInputProps>(), {
+	emptyMessageForA: null,
+	emptyMessageForB: null,
 	disabled: false,
 });
 
@@ -23,6 +30,11 @@ const emit = defineEmits<{
 		playerBId: string | null,
 	];
 }>();
+
+const placeholderA =
+	props.matchType === "mixed" ? "Opponent player A (male)" : "Opponent player A";
+const placeholderB =
+	props.matchType === "mixed" ? "Opponent player B (female)" : "Opponent player B";
 
 const onPlayerAChange = (event: Event) => {
 	const nextValue = (event.target as HTMLSelectElement).value || null;
@@ -46,35 +58,53 @@ const toDisplayName = (player: OpponentRosterPlayer): string =>
     <p class="text-[10px] uppercase tracking-[0.14em] text-[var(--chat-muted)]">
       {{ props.matchType }} slot {{ props.slotNumber }}
     </p>
-    <select
-      class="h-11 w-full rounded-md border px-2 text-xs"
-      :value="props.playerAId ?? ''"
-      :disabled="props.disabled"
-      @change="onPlayerAChange"
-    >
-      <option value="">Opponent player A</option>
-      <option
-        v-for="player in props.players"
-        :key="`a-${player.playerId}`"
-        :value="player.playerId"
+    <div class="relative">
+      <select
+        class="lineup-select h-11 w-full rounded-md border px-2 pr-8 text-xs"
+        :value="props.playerAId ?? ''"
+        :disabled="props.disabled"
+        @change="onPlayerAChange"
       >
-        {{ toDisplayName(player) }}
-      </option>
-    </select>
-    <select
-      class="h-11 w-full rounded-md border px-2 text-xs"
-      :value="props.playerBId ?? ''"
-      :disabled="props.disabled"
-      @change="onPlayerBChange"
-    >
-      <option value="">Opponent player B</option>
-      <option
-        v-for="player in props.players"
-        :key="`b-${player.playerId}`"
-        :value="player.playerId"
+        <option value="">{{ placeholderA }}</option>
+        <option
+          v-for="player in props.playersForA"
+          :key="`a-${player.playerId}`"
+          :value="player.playerId"
+        >
+          {{ toDisplayName(player) }}
+        </option>
+      </select>
+      <ChevronDown
+        class="pointer-events-none absolute top-1/2 right-2 h-4 w-4 -translate-y-1/2 text-[var(--chat-muted)]"
+        aria-hidden="true"
+      />
+    </div>
+    <p v-if="props.emptyMessageForA" class="text-[10px] text-amber-600">
+      {{ props.emptyMessageForA }}
+    </p>
+    <div class="relative">
+      <select
+        class="lineup-select h-11 w-full rounded-md border px-2 pr-8 text-xs"
+        :value="props.playerBId ?? ''"
+        :disabled="props.disabled"
+        @change="onPlayerBChange"
       >
-        {{ toDisplayName(player) }}
-      </option>
-    </select>
+        <option value="">{{ placeholderB }}</option>
+        <option
+          v-for="player in props.playersForB"
+          :key="`b-${player.playerId}`"
+          :value="player.playerId"
+        >
+          {{ toDisplayName(player) }}
+        </option>
+      </select>
+      <ChevronDown
+        class="pointer-events-none absolute top-1/2 right-2 h-4 w-4 -translate-y-1/2 text-[var(--chat-muted)]"
+        aria-hidden="true"
+      />
+    </div>
+    <p v-if="props.emptyMessageForB" class="text-[10px] text-amber-600">
+      {{ props.emptyMessageForB }}
+    </p>
   </div>
 </template>

@@ -91,14 +91,26 @@ describe("lineup lab client", () => {
 					],
 				},
 			],
+			opponentRoster: [
+				{
+					playerId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+					gender: "Male",
+				},
+				{
+					playerId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+					gender: "Female",
+				},
+			],
 		});
 
 		const [, requestInit] = fetchMock.mock.calls[0] ?? [];
 		const body = JSON.parse(String(requestInit?.body)) as {
 			mode: string;
 			opponentRounds?: unknown[];
+			opponentRoster?: unknown[];
 		};
 		expect(body.mode).toBe("known_opponent");
 		expect(Array.isArray(body.opponentRounds)).toBe(true);
+		expect(Array.isArray(body.opponentRoster)).toBe(true);
 	});
 });

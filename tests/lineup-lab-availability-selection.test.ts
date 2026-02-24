@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createLineupLabController } from "../src/features/lineup-lab/useLineupLabController";
 import type { LineupLabClient } from "../src/features/lineup-lab/lineupLabClient";
+import { SCHEDULE_SLOT_TEMPLATE } from "../src/features/lineup-lab/schedule";
 
 const divisionId = "e8d04726-4c07-447c-a609-9914d1378e8d";
 const teamId = "a7d5c302-9ee0-4bd6-9205-971efe6af562";
@@ -55,6 +56,20 @@ const buildClient = (recommend = vi.fn()) => {
 							firstName: "Casey",
 							lastName: "Opp",
 							gender: "female",
+							isSub: false,
+						},
+						{
+							playerId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+							firstName: "Sam",
+							lastName: "Opp",
+							gender: "female",
+							isSub: false,
+						},
+						{
+							playerId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+							firstName: "Jordan",
+							lastName: "Opp",
+							gender: "male",
 							isSub: false,
 						},
 					],
@@ -140,20 +155,35 @@ describe("lineup lab availability selection", () => {
 		);
 	});
 
-	it("sends opponent rounds in known-opponent mode", async () => {
+	it("sends opponent rounds and opponentRoster in known-opponent mode", async () => {
+		const MALE_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+		const FEMALE_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+		const FEMALE_C = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+		const MALE_D = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+
 		const { client, mockRecommend } = buildClient();
 		const controller = createLineupLabController(client);
 
 		await controller.selectLineupDivision(divisionId);
 		await controller.selectLineupTeam(teamId);
 		controller.setMode("known_opponent");
-		for (let roundNumber = 1; roundNumber <= 8; roundNumber += 1) {
-			for (let slotNumber = 1; slotNumber <= 4; slotNumber += 1) {
+		for (let roundIndex = 0; roundIndex < 8; roundIndex += 1) {
+			const slotTypes = SCHEDULE_SLOT_TEMPLATE[roundIndex];
+			for (let slotIndex = 0; slotIndex < 4; slotIndex += 1) {
+				const matchType = slotTypes[slotIndex];
+				const playerAId =
+					matchType === "mixed" || matchType === "male" ? MALE_A : FEMALE_B;
+				const playerBId =
+					matchType === "mixed"
+						? FEMALE_B
+						: matchType === "female"
+							? FEMALE_C
+							: MALE_D;
 				controller.setOpponentSlotAssignment(
-					roundNumber,
-					slotNumber,
-					"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-					"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+					roundIndex + 1,
+					slotIndex + 1,
+					playerAId,
+					playerBId,
 				);
 			}
 		}
@@ -165,5 +195,7 @@ describe("lineup lab availability selection", () => {
 		expect(payload.mode).toBe("known_opponent");
 		expect(Array.isArray(payload.opponentRounds)).toBe(true);
 		expect(payload.opponentRounds).toHaveLength(8);
+		expect(Array.isArray(payload.opponentRoster)).toBe(true);
+		expect(payload.opponentRoster).toHaveLength(4);
 	});
 });
