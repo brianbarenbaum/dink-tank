@@ -100,6 +100,10 @@ export interface LineupRecommendationRound {
 		playerAId: string;
 		playerBId: string;
 		winProbability: number;
+		duprApplied?: boolean;
+		duprCoverageCount?: number;
+		duprWeightApplied?: number;
+		teamStrengthApplied?: boolean;
 	}>;
 }
 
@@ -114,6 +118,10 @@ export interface LineupRecommendationItem {
 	confidence: "LOW" | "MEDIUM" | "HIGH";
 	gameConfidence: "LOW" | "MEDIUM" | "HIGH";
 	matchupConfidence: "LOW" | "MEDIUM" | "HIGH";
+	duprApplied?: boolean;
+	duprCoverageCount?: number;
+	duprWeightApplied?: number;
+	teamStrengthApplied?: boolean;
 	rounds?: LineupRecommendationRound[];
 	pairUsage?: Array<{
 		playerAId: string;

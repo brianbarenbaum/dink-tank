@@ -18,6 +18,12 @@ describe("worker env contract", () => {
 			expect(parsed.value.SUPABASE_DB_SSL_NO_VERIFY).toBe(false);
 			expect(parsed.value.LANGFUSE_ENABLED).toBe(false);
 			expect(parsed.value.LANGFUSE_TRACING_ENVIRONMENT).toBe("default");
+			expect(parsed.value.LINEUP_ENABLE_DUPR_BLEND).toBe(true);
+			expect(parsed.value.LINEUP_DUPR_MAJOR_WEIGHT).toBe(0.65);
+			expect(parsed.value.LINEUP_ENABLE_TEAM_STRENGTH_ADJUSTMENT).toBe(true);
+			expect(parsed.value.LINEUP_DUPR_SLOPE).toBe(1.6);
+			expect(parsed.value.LINEUP_TEAM_STRENGTH_FACTOR).toBe(0.45);
+			expect(parsed.value.LINEUP_TEAM_STRENGTH_CAP).toBe(0.35);
 		}
 	});
 
@@ -90,5 +96,62 @@ describe("worker env contract", () => {
 		});
 
 		expect(parsed.ok).toBe(false);
+	});
+
+	it("accepts configured lineup scoring env vars", () => {
+		const parsed = parseWorkerEnv({
+			OPENAI_API_KEY: "test-key",
+			SUPABASE_DB_URL: "postgres://postgres:postgres@localhost:5432/postgres",
+			LINEUP_ENABLE_DUPR_BLEND: "false",
+			LINEUP_DUPR_MAJOR_WEIGHT: "0.7",
+			LINEUP_ENABLE_TEAM_STRENGTH_ADJUSTMENT: "false",
+			LINEUP_DUPR_SLOPE: "1.2",
+			LINEUP_TEAM_STRENGTH_FACTOR: "0.3",
+			LINEUP_TEAM_STRENGTH_CAP: "0.2",
+		});
+
+		expect(parsed.ok).toBe(true);
+		if (parsed.ok) {
+			expect(parsed.value.LINEUP_ENABLE_DUPR_BLEND).toBe(false);
+			expect(parsed.value.LINEUP_DUPR_MAJOR_WEIGHT).toBe(0.7);
+			expect(parsed.value.LINEUP_ENABLE_TEAM_STRENGTH_ADJUSTMENT).toBe(false);
+			expect(parsed.value.LINEUP_DUPR_SLOPE).toBe(1.2);
+			expect(parsed.value.LINEUP_TEAM_STRENGTH_FACTOR).toBe(0.3);
+			expect(parsed.value.LINEUP_TEAM_STRENGTH_CAP).toBe(0.2);
+		}
+	});
+
+	it("rejects invalid lineup dupr major weight", () => {
+		const parsed = parseWorkerEnv({
+			OPENAI_API_KEY: "test-key",
+			SUPABASE_DB_URL: "postgres://postgres:postgres@localhost:5432/postgres",
+			LINEUP_DUPR_MAJOR_WEIGHT: "1.2",
+		});
+		expect(parsed.ok).toBe(false);
+	});
+
+	it("rejects non-positive lineup dupr slope", () => {
+		const parsed = parseWorkerEnv({
+			OPENAI_API_KEY: "test-key",
+			SUPABASE_DB_URL: "postgres://postgres:postgres@localhost:5432/postgres",
+			LINEUP_DUPR_SLOPE: "0",
+		});
+		expect(parsed.ok).toBe(false);
+	});
+
+	it("rejects invalid team strength factor/cap", () => {
+		const negativeFactor = parseWorkerEnv({
+			OPENAI_API_KEY: "test-key",
+			SUPABASE_DB_URL: "postgres://postgres:postgres@localhost:5432/postgres",
+			LINEUP_TEAM_STRENGTH_FACTOR: "-0.1",
+		});
+		expect(negativeFactor.ok).toBe(false);
+
+		const nonPositiveCap = parseWorkerEnv({
+			OPENAI_API_KEY: "test-key",
+			SUPABASE_DB_URL: "postgres://postgres:postgres@localhost:5432/postgres",
+			LINEUP_TEAM_STRENGTH_CAP: "0",
+		});
+		expect(nonPositiveCap.ok).toBe(false);
 	});
 });

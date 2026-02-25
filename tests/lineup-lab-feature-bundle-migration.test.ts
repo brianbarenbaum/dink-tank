@@ -28,4 +28,18 @@ describe("lineup feature bundle migration", () => {
 		expect(sql).toMatch(/not\s+sca\.has_rows/i);
 		expect(sql).toMatch(/temporal_cutoff_mode/i);
 	});
+
+	it("adds team strength and dupr coverage to feature bundle", () => {
+		const migrationPath = resolve(
+			process.cwd(),
+			"supabase/migrations/20260224120000_add_dupr_and_team_strength_to_lineup_bundle.sql",
+		);
+		const sql = readFileSync(migrationPath, "utf8");
+
+		expect(sql).toMatch(/players_catalog/i);
+		expect(sql).toMatch(/dupr_rating/i);
+		expect(sql).toMatch(/team_strength/i);
+		expect(sql).toMatch(/percent_rank\(\)/i);
+		expect(sql).toMatch(/p_known_opponent_player_ids/i);
+	});
 });

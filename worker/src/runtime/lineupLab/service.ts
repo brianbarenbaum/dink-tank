@@ -20,10 +20,18 @@ export const runLineupLabRecommend = async (
 	context: RequestContext,
 ): Promise<LineupLabRecommendResponse> => {
 	const bundle = await fetchLineupLabFeatureBundle(env, request);
+	const scoringConfig = {
+		enableDuprBlend: env.LINEUP_ENABLE_DUPR_BLEND,
+		duprMajorWeight: env.LINEUP_DUPR_MAJOR_WEIGHT,
+		enableTeamStrengthAdjustment: env.LINEUP_ENABLE_TEAM_STRENGTH_ADJUSTMENT,
+		duprSlope: env.LINEUP_DUPR_SLOPE,
+		teamStrengthFactor: env.LINEUP_TEAM_STRENGTH_FACTOR,
+		teamStrengthCap: env.LINEUP_TEAM_STRENGTH_CAP,
+	};
 	const pairSetScores =
 		request.mode === "known_opponent"
-			? recommendPairSetsKnownOpponent(request, bundle)
-			: recommendPairSets(request, bundle);
+			? recommendPairSetsKnownOpponent(request, bundle, scoringConfig)
+			: recommendPairSets(request, bundle, scoringConfig);
 	const recommendations = toRecommendations(
 		pairSetScores,
 		request.maxRecommendations,

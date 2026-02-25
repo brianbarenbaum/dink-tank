@@ -25,6 +25,12 @@ export interface Env {
 	LANGFUSE_SECRET_KEY?: string;
 	LANGFUSE_BASE_URL?: string;
 	LANGFUSE_TRACING_ENVIRONMENT?: string;
+	LINEUP_ENABLE_DUPR_BLEND?: string;
+	LINEUP_DUPR_MAJOR_WEIGHT?: string;
+	LINEUP_ENABLE_TEAM_STRENGTH_ADJUSTMENT?: string;
+	LINEUP_DUPR_SLOPE?: string;
+	LINEUP_TEAM_STRENGTH_FACTOR?: string;
+	LINEUP_TEAM_STRENGTH_CAP?: string;
 }
 
 /**
@@ -75,6 +81,13 @@ export const handleFetch = async (
 		LANGFUSE_SECRET_KEY: env.LANGFUSE_SECRET_KEY,
 		LANGFUSE_BASE_URL: env.LANGFUSE_BASE_URL,
 		LANGFUSE_TRACING_ENVIRONMENT: env.LANGFUSE_TRACING_ENVIRONMENT,
+		LINEUP_ENABLE_DUPR_BLEND: env.LINEUP_ENABLE_DUPR_BLEND,
+		LINEUP_DUPR_MAJOR_WEIGHT: env.LINEUP_DUPR_MAJOR_WEIGHT,
+		LINEUP_ENABLE_TEAM_STRENGTH_ADJUSTMENT:
+			env.LINEUP_ENABLE_TEAM_STRENGTH_ADJUSTMENT,
+		LINEUP_DUPR_SLOPE: env.LINEUP_DUPR_SLOPE,
+		LINEUP_TEAM_STRENGTH_FACTOR: env.LINEUP_TEAM_STRENGTH_FACTOR,
+		LINEUP_TEAM_STRENGTH_CAP: env.LINEUP_TEAM_STRENGTH_CAP,
 	});
 	if (!envResult.ok) {
 		return json(
@@ -99,7 +112,10 @@ export const handleFetch = async (
 	if (url.pathname === "/api/chat" && request.method === "POST") {
 		return handleChatRequest(request, runSqlAgent, envResult.value);
 	}
-	if (url.pathname === "/api/lineup-lab/recommend" && request.method === "POST") {
+	if (
+		url.pathname === "/api/lineup-lab/recommend" &&
+		request.method === "POST"
+	) {
 		return handleLineupLabRecommendRequest(
 			request,
 			runLineupLabRecommend,

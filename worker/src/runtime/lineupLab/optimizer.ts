@@ -24,6 +24,10 @@ interface ScoredSchedule {
 	volatility: number;
 	gameConfidence: "LOW" | "MEDIUM" | "HIGH";
 	matchupConfidence: "LOW" | "MEDIUM" | "HIGH";
+	duprApplied: boolean;
+	duprCoverageCount: number;
+	duprWeightApplied: number;
+	teamStrengthApplied: boolean;
 	pairUsage: Array<{ playerAId: string; playerBId: string; count: number }>;
 	pairs: RecommendedPair[];
 }
@@ -72,6 +76,9 @@ interface BuildContext {
 	matchupSignalCorrelationByType: Record<LineupMatchType, number | null>;
 	downsideQuantile: number;
 	objective: LineupLabObjective;
+	duprByPlayerId: Map<string, number>;
+	teamStrengthDelta: number | null;
+	scoringConfig: LineupLabScoringConfig;
 }
 
 interface MutableScheduleState {
@@ -91,6 +98,15 @@ interface KnownOpponentSlot {
 	opponentPair: OpponentPair;
 }
 
+export interface LineupLabScoringConfig {
+	enableDuprBlend: boolean;
+	duprMajorWeight: number;
+	enableTeamStrengthAdjustment: boolean;
+	duprSlope: number;
+	teamStrengthFactor: number;
+	teamStrengthCap: number;
+}
+
 const MAX_PLAYER_GAMES = 8;
 const MAX_PAIR_GAMES = 2;
 const TOTAL_ROUNDS = 8;
@@ -100,6 +116,10 @@ const PD_BLEND_MIN_WEIGHT = 0.08;
 const PD_CORRELATION_GUARDRAIL = 0.85;
 const PD_CORRELATION_HARD_CAP = 0.97;
 const PD_HIGH_CORRELATION_MAX_WEIGHT = 0.12;
+const DEFAULT_DUPR_MAJOR_WEIGHT = 0.65;
+const DEFAULT_DUPR_SLOPE = 1.6;
+const DEFAULT_TEAM_STRENGTH_FACTOR = 0.45;
+const DEFAULT_TEAM_STRENGTH_CAP = 0.35;
 
 const ROUND_SLOT_TEMPLATE: Array<Array<LineupMatchType>> = [
 	["mixed", "mixed", "mixed", "mixed"],
@@ -117,6 +137,38 @@ const clampProbability = (value: number): number => {
 		return 0.5;
 	}
 	return Math.max(0.05, Math.min(0.95, value));
+};
+
+export const logit = (probability: number): number => {
+	const p = clampProbability(probability);
+	return Math.log(p / (1 - p));
+};
+
+export const sigmoid = (value: number): number => {
+	if (!Number.isFinite(value)) {
+		return 0.5;
+	}
+	return 1 / (1 + Math.exp(-value));
+};
+
+export const blendLogit = (
+	probabilityA: number,
+	probabilityB: number,
+	weightA: number,
+	weightB: number,
+): number => {
+	const safeWeightA = Number.isFinite(weightA) ? Math.max(0, weightA) : 0;
+	const safeWeightB = Number.isFinite(weightB) ? Math.max(0, weightB) : 0;
+	const totalWeight = safeWeightA + safeWeightB;
+	if (totalWeight <= 0) {
+		return clampProbability(probabilityB);
+	}
+	const normalizedWeightA = safeWeightA / totalWeight;
+	const normalizedWeightB = safeWeightB / totalWeight;
+	const blendedLogit =
+		logit(probabilityA) * normalizedWeightA +
+		logit(probabilityB) * normalizedWeightB;
+	return clampProbability(sigmoid(blendedLogit));
 };
 
 const normalizeGender = (value: unknown): Gender | null => {
@@ -270,7 +322,10 @@ const calculatePearsonCorrelation = (
 	if (varianceX <= 1e-9 || varianceY <= 1e-9) {
 		return null;
 	}
-	return Math.max(-1, Math.min(1, numerator / Math.sqrt(varianceX * varianceY)));
+	return Math.max(
+		-1,
+		Math.min(1, numerator / Math.sqrt(varianceX * varianceY)),
+	);
 };
 
 const resolvePdBlendWeight = (
@@ -281,7 +336,10 @@ const resolvePdBlendWeight = (
 	let weight =
 		PD_BLEND_MIN_WEIGHT +
 		(PD_BLEND_MAX_WEIGHT - PD_BLEND_MIN_WEIGHT) * clampedReliability;
-	if (typeof signalCorrelation !== "number" || !Number.isFinite(signalCorrelation)) {
+	if (
+		typeof signalCorrelation !== "number" ||
+		!Number.isFinite(signalCorrelation)
+	) {
 		return weight;
 	}
 	const absCorrelation = Math.abs(signalCorrelation);
@@ -291,7 +349,10 @@ const resolvePdBlendWeight = (
 	const denom = PD_CORRELATION_HARD_CAP - PD_CORRELATION_GUARDRAIL;
 	const normalized =
 		denom > 0
-			? Math.min(1, Math.max(0, (absCorrelation - PD_CORRELATION_GUARDRAIL) / denom))
+			? Math.min(
+					1,
+					Math.max(0, (absCorrelation - PD_CORRELATION_GUARDRAIL) / denom),
+				)
 			: 1;
 	const cappedMaxWeight =
 		PD_HIGH_CORRELATION_MAX_WEIGHT * (1 - 0.4 * normalized);
@@ -313,6 +374,167 @@ export const blendWinProbabilitySignals = (params: {
 	);
 	return clampProbability(
 		baseWinRate * (1 - weight) + pdWinProbability * weight,
+	);
+};
+
+const resolveScoringConfig = (
+	config?: Partial<LineupLabScoringConfig>,
+): LineupLabScoringConfig => {
+	const duprMajorWeight =
+		typeof config?.duprMajorWeight === "number"
+			? config.duprMajorWeight
+			: DEFAULT_DUPR_MAJOR_WEIGHT;
+	if (
+		!Number.isFinite(duprMajorWeight) ||
+		duprMajorWeight < 0 ||
+		duprMajorWeight > 1
+	) {
+		throw new Error("LINEUP_DUPR_MAJOR_WEIGHT must be between 0 and 1.");
+	}
+
+	const duprSlope =
+		typeof config?.duprSlope === "number"
+			? config.duprSlope
+			: DEFAULT_DUPR_SLOPE;
+	if (!Number.isFinite(duprSlope) || duprSlope <= 0) {
+		throw new Error("LINEUP_DUPR_SLOPE must be positive.");
+	}
+
+	const teamStrengthFactor =
+		typeof config?.teamStrengthFactor === "number"
+			? config.teamStrengthFactor
+			: DEFAULT_TEAM_STRENGTH_FACTOR;
+	if (!Number.isFinite(teamStrengthFactor) || teamStrengthFactor < 0) {
+		throw new Error("LINEUP_TEAM_STRENGTH_FACTOR must be non-negative.");
+	}
+
+	const teamStrengthCap =
+		typeof config?.teamStrengthCap === "number"
+			? config.teamStrengthCap
+			: DEFAULT_TEAM_STRENGTH_CAP;
+	if (!Number.isFinite(teamStrengthCap) || teamStrengthCap <= 0) {
+		throw new Error("LINEUP_TEAM_STRENGTH_CAP must be positive.");
+	}
+
+	return {
+		enableDuprBlend: config?.enableDuprBlend ?? true,
+		duprMajorWeight,
+		enableTeamStrengthAdjustment: config?.enableTeamStrengthAdjustment ?? true,
+		duprSlope,
+		teamStrengthFactor,
+		teamStrengthCap,
+	};
+};
+
+interface TeamStrengthAdjustment {
+	probability: number;
+	applied: boolean;
+}
+
+const applyTeamStrengthAdjustment = (
+	probability: number,
+	context: BuildContext,
+): TeamStrengthAdjustment => {
+	const baseProbability = clampProbability(probability);
+	const config = context.scoringConfig;
+	if (!config.enableTeamStrengthAdjustment) {
+		return { probability: baseProbability, applied: false };
+	}
+	const teamStrengthDelta = context.teamStrengthDelta;
+	if (
+		typeof teamStrengthDelta !== "number" ||
+		!Number.isFinite(teamStrengthDelta)
+	) {
+		return { probability: baseProbability, applied: false };
+	}
+
+	const rawAdjustment = config.teamStrengthFactor * teamStrengthDelta;
+	const boundedAdjustment = Math.max(
+		-config.teamStrengthCap,
+		Math.min(config.teamStrengthCap, rawAdjustment),
+	);
+	const adjustedProbability = clampProbability(
+		sigmoid(logit(baseProbability) + boundedAdjustment),
+	);
+	return {
+		probability: adjustedProbability,
+		applied: true,
+	};
+};
+
+interface DuprSignalResult {
+	probability: number | null;
+	coverageCount: number;
+	applied: boolean;
+	weightApplied: number;
+}
+
+const toDuprValue = (value: unknown): number | null =>
+	typeof value === "number" && Number.isFinite(value) ? value : null;
+
+const evaluateDuprSignal = (
+	context: BuildContext,
+	ourPlayerAId: string,
+	ourPlayerBId: string,
+	oppPlayerAId: string,
+	oppPlayerBId: string,
+): DuprSignalResult => {
+	const config = context.scoringConfig;
+	const ratings = [
+		toDuprValue(context.duprByPlayerId.get(ourPlayerAId)),
+		toDuprValue(context.duprByPlayerId.get(ourPlayerBId)),
+		toDuprValue(context.duprByPlayerId.get(oppPlayerAId)),
+		toDuprValue(context.duprByPlayerId.get(oppPlayerBId)),
+	];
+	const coverageCount = ratings.filter((rating) => rating !== null).length;
+	if (!config.enableDuprBlend || coverageCount < 4) {
+		return {
+			probability: null,
+			coverageCount,
+			applied: false,
+			weightApplied: 0,
+		};
+	}
+
+	const ourAverage = ((ratings[0] ?? 0) + (ratings[1] ?? 0)) / 2;
+	const oppAverage = ((ratings[2] ?? 0) + (ratings[3] ?? 0)) / 2;
+	const duprDelta = ourAverage - oppAverage;
+	const duprProbability = clampProbability(
+		sigmoid(config.duprSlope * duprDelta),
+	);
+	return {
+		probability: duprProbability,
+		coverageCount: 4,
+		applied: true,
+		weightApplied: config.duprMajorWeight,
+	};
+};
+
+interface MatchupScoreResult {
+	probability: number;
+	reliability: number;
+	duprApplied: boolean;
+	duprCoverageCount: number;
+	duprWeightApplied: number;
+	teamStrengthApplied: boolean;
+}
+
+const toCoverageCount = (value: number): number =>
+	Math.max(0, Math.min(4, Math.round(value)));
+
+const combineFinalProbability = (
+	pNonDupr: number,
+	duprSignal: DuprSignalResult,
+	config: LineupLabScoringConfig,
+): number => {
+	if (!duprSignal.applied || duprSignal.probability === null) {
+		return clampProbability(pNonDupr);
+	}
+	return blendLogit(
+		duprSignal.probability,
+		pNonDupr,
+		config.duprMajorWeight,
+		1 - config.duprMajorWeight,
 	);
 };
 
@@ -362,8 +584,10 @@ const standardDeviation = (values: number[], weights: number[]): number => {
 		return Math.sqrt(Math.max(variance, 0));
 	}
 	const mean =
-		values.reduce((acc, value, index) => acc + value * (weights[index] ?? 0), 0) /
-		totalWeight;
+		values.reduce(
+			(acc, value, index) => acc + value * (weights[index] ?? 0),
+			0,
+		) / totalWeight;
 	const variance =
 		values.reduce((acc, value, index) => {
 			const delta = value - mean;
@@ -401,7 +625,9 @@ const quantileFromDistribution = (
 	return Math.max(0, distribution.length - 1);
 };
 
-const confidenceFromCoverage = (coverage: number): "LOW" | "MEDIUM" | "HIGH" => {
+const confidenceFromCoverage = (
+	coverage: number,
+): "LOW" | "MEDIUM" | "HIGH" => {
 	if (coverage >= 0.66) {
 		return "HIGH";
 	}
@@ -470,8 +696,10 @@ const matchupConfidenceFromSignals = (
 const buildContext = (
 	request: LineupLabRecommendRequest,
 	bundle: LineupLabFeatureBundle,
+	config?: Partial<LineupLabScoringConfig>,
 ): BuildContext => {
 	const playerGenderMap = new Map<string, Gender>();
+	const duprByPlayerId = new Map<string, number>();
 	for (const row of bundle.players_catalog ?? []) {
 		if (typeof row?.player_id !== "string") {
 			continue;
@@ -481,6 +709,13 @@ const buildContext = (
 			continue;
 		}
 		playerGenderMap.set(row.player_id, normalizedGender);
+		const duprRating =
+			typeof row.dupr_rating === "number" && Number.isFinite(row.dupr_rating)
+				? row.dupr_rating
+				: null;
+		if (duprRating !== null) {
+			duprByPlayerId.set(row.player_id, duprRating);
+		}
 	}
 
 	const players = request.availablePlayerIds
@@ -488,7 +723,9 @@ const buildContext = (
 		.filter((player): player is PlayerMeta => Boolean(player.gender));
 
 	const maleCount = players.filter((player) => player.gender === "male").length;
-	const femaleCount = players.filter((player) => player.gender === "female").length;
+	const femaleCount = players.filter(
+		(player) => player.gender === "female",
+	).length;
 	if (maleCount < 4 || femaleCount < 4) {
 		throw new Error(
 			"Insufficient eligible players by gender. Need at least 4 men and 4 women with known gender.",
@@ -536,10 +773,10 @@ const buildContext = (
 			const pdWinProbability = clampProbability(
 				candidate
 					? resolveCandidateMatchTypePdWinProbability(
-						candidate,
-						matchType,
-						baseWinRate,
-					)
+							candidate,
+							matchType,
+							baseWinRate,
+						)
 					: baseWinRate,
 			);
 			const baseReliability =
@@ -577,7 +814,11 @@ const buildContext = (
 	};
 	for (const row of bundle.pair_matchups) {
 		const matchType = row.match_type;
-		if (matchType !== "mixed" && matchType !== "female" && matchType !== "male") {
+		if (
+			matchType !== "mixed" &&
+			matchType !== "female" &&
+			matchType !== "male"
+		) {
 			continue;
 		}
 		const winRate = clampProbability(
@@ -614,19 +855,23 @@ const buildContext = (
 		);
 	}
 
-	const candidateSignalCorrelationByType: Record<LineupMatchType, number | null> = {
+	const candidateSignalCorrelationByType: Record<
+		LineupMatchType,
+		number | null
+	> = {
 		mixed: calculatePearsonCorrelation(candidateSignalSamples.mixed),
 		female: calculatePearsonCorrelation(candidateSignalSamples.female),
 		male: calculatePearsonCorrelation(candidateSignalSamples.male),
 	};
-	const matchupSignalCorrelationByType: Record<LineupMatchType, number | null> = {
-		mixed: calculatePearsonCorrelation(matchupSignalSamples.mixed),
-		female: calculatePearsonCorrelation(matchupSignalSamples.female),
-		male: calculatePearsonCorrelation(matchupSignalSamples.male),
-	};
+	const matchupSignalCorrelationByType: Record<LineupMatchType, number | null> =
+		{
+			mixed: calculatePearsonCorrelation(matchupSignalSamples.mixed),
+			female: calculatePearsonCorrelation(matchupSignalSamples.female),
+			male: calculatePearsonCorrelation(matchupSignalSamples.male),
+		};
 
-	const rawScenarios: OpponentScenarioPrepared[] = bundle.opponent_scenarios.map(
-		(scenario, index) => {
+	const rawScenarios: OpponentScenarioPrepared[] =
+		bundle.opponent_scenarios.map((scenario, index) => {
 			const byType: Record<LineupMatchType, OpponentPair[]> = {
 				mixed: [],
 				female: [],
@@ -647,9 +892,11 @@ const buildContext = (
 					typeof (pairObj as { games_with_pair?: unknown }).games_with_pair ===
 					"number"
 						? Math.max(
-							1,
-							Math.floor((pairObj as { games_with_pair: number }).games_with_pair),
-						)
+								1,
+								Math.floor(
+									(pairObj as { games_with_pair: number }).games_with_pair,
+								),
+							)
 						: 1;
 				byType[type].push({
 					lowId: pairObj.pair_player_low_id,
@@ -668,8 +915,7 @@ const buildContext = (
 				weight: rawWeight,
 				byType,
 			};
-		},
-	);
+		});
 
 	const scenarioWeightSum = rawScenarios.reduce(
 		(acc, scenario) => acc + scenario.weight,
@@ -678,13 +924,19 @@ const buildContext = (
 	const scenarios =
 		rawScenarios.length > 0
 			? rawScenarios.map((scenario) => ({
-				...scenario,
-				weight:
-					scenarioWeightSum > 0
-						? scenario.weight / scenarioWeightSum
-						: 1 / rawScenarios.length,
-			}))
+					...scenario,
+					weight:
+						scenarioWeightSum > 0
+							? scenario.weight / scenarioWeightSum
+							: 1 / rawScenarios.length,
+				}))
 			: [];
+
+	const teamStrengthDelta =
+		typeof bundle.team_strength?.strength_delta === "number" &&
+		Number.isFinite(bundle.team_strength.strength_delta)
+			? bundle.team_strength.strength_delta
+			: null;
 
 	return {
 		players,
@@ -696,14 +948,19 @@ const buildContext = (
 		matchupSignalCorrelationByType,
 		downsideQuantile: request.downsideQuantile,
 		objective: request.objective,
+		duprByPlayerId,
+		teamStrengthDelta,
+		scoringConfig: resolveScoringConfig(config),
 	};
 };
 
 const pairUsageCount = (state: MutableScheduleState, pairKey: string): number =>
 	state.pairUsage.get(pairKey) ?? 0;
 
-const playerGameCount = (state: MutableScheduleState, playerId: string): number =>
-	state.playerGames.get(playerId) ?? 0;
+const playerGameCount = (
+	state: MutableScheduleState,
+	playerId: string,
+): number => state.playerGames.get(playerId) ?? 0;
 
 const getPairScore = (
 	record: PairRecord,
@@ -716,7 +973,13 @@ const getPairScore = (
 	const fatiguePenalty = (aCount + bCount) * 0.03;
 	const repeatPenalty = pairCount * 0.08;
 	const randomNoise = rand() * 0.015;
-	return record.baseWinRate + record.baseReliability * 0.05 - fatiguePenalty - repeatPenalty + randomNoise;
+	return (
+		record.baseWinRate +
+		record.baseReliability * 0.05 -
+		fatiguePenalty -
+		repeatPenalty +
+		randomNoise
+	);
 };
 
 const getKnownOpponentPairScore = (
@@ -725,7 +988,7 @@ const getKnownOpponentPairScore = (
 	opponentPair: OpponentPair,
 	state: MutableScheduleState,
 ): number => {
-	const probability = getMatchupProbability(
+	const matchupScore = scoreMatchupForOpponentPair(
 		context,
 		{
 			roundNumber: 0,
@@ -737,18 +1000,17 @@ const getKnownOpponentPairScore = (
 		},
 		opponentPair,
 	);
-	const blendedProbability = blendWinProbabilitySignals({
-		baseWinRate: probability.winRate,
-		pdWinProbability: probability.pdWinProbability,
-		reliability: probability.reliability,
-		signalCorrelation: probability.signalCorrelation,
-	});
 	const aCount = playerGameCount(state, record.playerAId);
 	const bCount = playerGameCount(state, record.playerBId);
 	const pairCount = pairUsageCount(state, record.pairKey);
 	const fatiguePenalty = (aCount + bCount) * 0.02;
 	const repeatPenalty = pairCount * 0.08;
-	return blendedProbability + probability.reliability * 0.04 - fatiguePenalty - repeatPenalty;
+	return (
+		matchupScore.probability +
+		matchupScore.reliability * 0.04 -
+		fatiguePenalty -
+		repeatPenalty
+	);
 };
 
 const getEligiblePairsForSlot = (
@@ -758,7 +1020,10 @@ const getEligiblePairsForSlot = (
 	pairRecordsByType: Record<LineupMatchType, PairRecord[]>,
 ): PairRecord[] =>
 	pairRecordsByType[slotType].filter((record) => {
-		if (roundPlayers.has(record.playerAId) || roundPlayers.has(record.playerBId)) {
+		if (
+			roundPlayers.has(record.playerAId) ||
+			roundPlayers.has(record.playerBId)
+		) {
 			return false;
 		}
 		if (
@@ -786,7 +1051,10 @@ const applyPairToState = (
 		record.playerBId,
 		Math.max(0, playerGameCount(state, record.playerBId) + delta),
 	);
-	state.pairUsage.set(record.pairKey, Math.max(0, pairUsageCount(state, record.pairKey) + delta));
+	state.pairUsage.set(
+		record.pairKey,
+		Math.max(0, pairUsageCount(state, record.pairKey) + delta),
+	);
 };
 
 const solveRound = (
@@ -902,7 +1170,10 @@ const solveRoundKnownOpponent = (
 	return recurse(0) ? assignments : null;
 };
 
-const buildScheduleRounds = (context: BuildContext, seed: number): LineupScheduledRound[] | null => {
+const buildScheduleRounds = (
+	context: BuildContext,
+	seed: number,
+): LineupScheduledRound[] | null => {
 	const rand = seededRandom(seed);
 	const state: MutableScheduleState = {
 		playerGames: new Map<string, number>(),
@@ -921,7 +1192,12 @@ const buildScheduleRounds = (context: BuildContext, seed: number): LineupSchedul
 			}
 			return rand() > 0.5 ? 1 : -1;
 		});
-		const solved = solveRound(slotOrder, state, context.pairRecordsByType, rand);
+		const solved = solveRound(
+			slotOrder,
+			state,
+			context.pairRecordsByType,
+			rand,
+		);
 		if (!solved) {
 			return null;
 		}
@@ -946,9 +1222,10 @@ const normalizeKnownOpponentSlots = (
 	const slots: KnownOpponentSlot[] = [];
 	for (const round of request.opponentRounds ?? []) {
 		for (const game of round.games) {
-			const opponentSorted = [game.opponentPlayerAId, game.opponentPlayerBId].sort(
-				(left, right) => left.localeCompare(right),
-			);
+			const opponentSorted = [
+				game.opponentPlayerAId,
+				game.opponentPlayerBId,
+			].sort((left, right) => left.localeCompare(right));
 			slots.push({
 				roundNumber: round.roundNumber,
 				slotNumber: game.slotNumber,
@@ -1021,7 +1298,9 @@ const getMatchupProbability = (
 	game: LineupScheduledGame,
 	opponentPair: OpponentPair,
 ): PairMatchupValue => {
-	const ourSorted = [game.playerAId, game.playerBId].sort((a, b) => a.localeCompare(b));
+	const ourSorted = [game.playerAId, game.playerBId].sort((a, b) =>
+		a.localeCompare(b),
+	);
 	const ourLow = ourSorted[0] ?? "";
 	const ourHigh = ourSorted[1] ?? "";
 	const mapValue = context.pairMatchupMap.get(
@@ -1063,71 +1342,108 @@ const getMatchupProbability = (
 	};
 };
 
-const scoreGameAgainstScenario = (
+const scoreFallbackWithTeamAdjustment = (
 	context: BuildContext,
 	game: LineupScheduledGame,
-	scenario: OpponentScenarioPrepared,
-): PairMatchupValue => {
-	const opponentPairs = scenario.byType[game.matchType] ?? [];
-	if (opponentPairs.length === 0) {
-		const fallback = context.pairRecordByKeyAndType.get(
-			pairKeyAndType(toPairKey(game.playerAId, game.playerBId), game.matchType),
-		);
-		if (fallback) {
-			return {
-				winRate: fallback.baseWinRate,
+): MatchupScoreResult => {
+	const fallback = context.pairRecordByKeyAndType.get(
+		pairKeyAndType(toPairKey(game.playerAId, game.playerBId), game.matchType),
+	);
+	const pCurrent = fallback
+		? blendWinProbabilitySignals({
+				baseWinRate: fallback.baseWinRate,
 				pdWinProbability: fallback.pdWinProbability,
 				reliability: fallback.baseReliability,
 				signalCorrelation:
 					context.candidateSignalCorrelationByType[game.matchType],
-			};
-		}
-		return {
-			winRate: 0.5,
-			pdWinProbability: 0.5,
-			reliability: 0,
-			signalCorrelation: null,
-		};
+			})
+		: 0.5;
+	const teamAdjusted = applyTeamStrengthAdjustment(pCurrent, context);
+	return {
+		probability: teamAdjusted.probability,
+		reliability: fallback?.baseReliability ?? 0,
+		duprApplied: false,
+		duprCoverageCount: 0,
+		duprWeightApplied: 0,
+		teamStrengthApplied: teamAdjusted.applied,
+	};
+};
+
+const scoreMatchupForOpponentPair = (
+	context: BuildContext,
+	game: LineupScheduledGame,
+	opponentPair: OpponentPair,
+): MatchupScoreResult => {
+	const probability = getMatchupProbability(context, game, opponentPair);
+	const pCurrent = blendWinProbabilitySignals({
+		baseWinRate: probability.winRate,
+		pdWinProbability: probability.pdWinProbability,
+		reliability: probability.reliability,
+		signalCorrelation: probability.signalCorrelation,
+	});
+	const teamAdjusted = applyTeamStrengthAdjustment(pCurrent, context);
+	const duprSignal = evaluateDuprSignal(
+		context,
+		game.playerAId,
+		game.playerBId,
+		opponentPair.lowId,
+		opponentPair.highId,
+	);
+	return {
+		probability: combineFinalProbability(
+			teamAdjusted.probability,
+			duprSignal,
+			context.scoringConfig,
+		),
+		reliability: probability.reliability,
+		duprApplied: duprSignal.applied,
+		duprCoverageCount: duprSignal.coverageCount,
+		duprWeightApplied: duprSignal.weightApplied,
+		teamStrengthApplied: teamAdjusted.applied,
+	};
+};
+
+const scoreGameAgainstScenario = (
+	context: BuildContext,
+	game: LineupScheduledGame,
+	scenario: OpponentScenarioPrepared,
+): MatchupScoreResult => {
+	const opponentPairs = scenario.byType[game.matchType] ?? [];
+	if (opponentPairs.length === 0) {
+		return scoreFallbackWithTeamAdjustment(context, game);
 	}
 
 	const totalWeight = opponentPairs.reduce((acc, pair) => acc + pair.weight, 0);
 	if (totalWeight <= 0) {
-		return {
-			winRate: 0.5,
-			pdWinProbability: 0.5,
-			reliability: 0,
-			signalCorrelation: null,
-		};
+		return scoreFallbackWithTeamAdjustment(context, game);
 	}
 
-	let weightedWinRate = 0;
-	let weightedPdWinProbability = 0;
+	let weightedProbability = 0;
 	let weightedReliability = 0;
-	let weightedSignalCorrelation = 0;
-	let weightedSignalCorrelationWeight = 0;
+	let weightedCoverage = 0;
+	let weightedDuprApplied = 0;
+	let weightedTeamStrengthApplied = 0;
 	for (const opponentPair of opponentPairs) {
-		const probability = getMatchupProbability(context, game, opponentPair);
-		weightedWinRate += probability.winRate * opponentPair.weight;
-		weightedPdWinProbability += probability.pdWinProbability * opponentPair.weight;
-		weightedReliability += probability.reliability * opponentPair.weight;
-		if (
-			typeof probability.signalCorrelation === "number" &&
-			Number.isFinite(probability.signalCorrelation)
-		) {
-			weightedSignalCorrelation +=
-				probability.signalCorrelation * opponentPair.weight;
-			weightedSignalCorrelationWeight += opponentPair.weight;
+		const result = scoreMatchupForOpponentPair(context, game, opponentPair);
+		weightedProbability += result.probability * opponentPair.weight;
+		weightedReliability += result.reliability * opponentPair.weight;
+		weightedCoverage += result.duprCoverageCount * opponentPair.weight;
+		if (result.duprApplied) {
+			weightedDuprApplied += opponentPair.weight;
+		}
+		if (result.teamStrengthApplied) {
+			weightedTeamStrengthApplied += opponentPair.weight;
 		}
 	}
 
 	return {
-		winRate: weightedWinRate / totalWeight,
-		pdWinProbability: weightedPdWinProbability / totalWeight,
+		probability: clampProbability(weightedProbability / totalWeight),
 		reliability: weightedReliability / totalWeight,
-		signalCorrelation:
-			weightedSignalCorrelationWeight > 0
-				? weightedSignalCorrelation / weightedSignalCorrelationWeight
-				: null,
+		duprApplied: weightedDuprApplied > 0,
+		duprCoverageCount: toCoverageCount(weightedCoverage / totalWeight),
+		duprWeightApplied:
+			weightedDuprApplied > 0 ? context.scoringConfig.duprMajorWeight : 0,
+		teamStrengthApplied: weightedTeamStrengthApplied > 0,
 	};
 };
 
@@ -1142,11 +1458,15 @@ const scoreSchedule = (
 	let globalCoverage = 0;
 
 	const expectedWinByGame = new Map<string, number>();
+	const duprCoverageByGame = new Map<string, number>();
+	const duprAppliedWeightByGame = new Map<string, number>();
+	const teamStrengthAppliedWeightByGame = new Map<string, number>();
 	for (const game of games) {
-		expectedWinByGame.set(
-			`${game.roundNumber}:${game.slotNumber}`,
-			0,
-		);
+		const key = `${game.roundNumber}:${game.slotNumber}`;
+		expectedWinByGame.set(key, 0);
+		duprCoverageByGame.set(key, 0);
+		duprAppliedWeightByGame.set(key, 0);
+		teamStrengthAppliedWeightByGame.set(key, 0);
 	}
 
 	for (const scenario of context.scenarios) {
@@ -1154,20 +1474,31 @@ const scoreSchedule = (
 		const scenarioGameWinProbabilities: number[] = [];
 		for (const game of games) {
 			const score = scoreGameAgainstScenario(context, game, scenario);
-			const blendedWinProbability = blendWinProbabilitySignals({
-				baseWinRate: score.winRate,
-				pdWinProbability: score.pdWinProbability,
-				reliability: score.reliability,
-				signalCorrelation: score.signalCorrelation,
-			});
-			scenarioExpectedWins += blendedWinProbability;
-			scenarioGameWinProbabilities.push(blendedWinProbability);
+			const key = `${game.roundNumber}:${game.slotNumber}`;
+			scenarioExpectedWins += score.probability;
+			scenarioGameWinProbabilities.push(score.probability);
 			globalCoverage += score.reliability * scenario.weight;
 			expectedWinByGame.set(
-				`${game.roundNumber}:${game.slotNumber}`,
-				(expectedWinByGame.get(`${game.roundNumber}:${game.slotNumber}`) ?? 0) +
-					blendedWinProbability * scenario.weight,
+				key,
+				(expectedWinByGame.get(key) ?? 0) + score.probability * scenario.weight,
 			);
+			duprCoverageByGame.set(
+				key,
+				(duprCoverageByGame.get(key) ?? 0) +
+					score.duprCoverageCount * scenario.weight,
+			);
+			if (score.duprApplied) {
+				duprAppliedWeightByGame.set(
+					key,
+					(duprAppliedWeightByGame.get(key) ?? 0) + scenario.weight,
+				);
+			}
+			if (score.teamStrengthApplied) {
+				teamStrengthAppliedWeightByGame.set(
+					key,
+					(teamStrengthAppliedWeightByGame.get(key) ?? 0) + scenario.weight,
+				);
+			}
 		}
 		scenarioTotals.push(scenarioExpectedWins);
 		scenarioMatchupWinProbabilities.push(
@@ -1204,15 +1535,46 @@ const scoreSchedule = (
 		roundNumber: round.roundNumber,
 		games: round.games.map((game) => ({
 			...game,
-			winProbability: Number(
-				(expectedWinByGame.get(`${game.roundNumber}:${game.slotNumber}`) ?? 0).toFixed(
-					3,
-				),
-			),
+			...((): LineupScheduledGame => {
+				const key = `${game.roundNumber}:${game.slotNumber}`;
+				const duprApplied = (duprAppliedWeightByGame.get(key) ?? 0) > 0;
+				const duprCoverageCount = toCoverageCount(
+					duprCoverageByGame.get(key) ?? 0,
+				);
+				const teamStrengthApplied =
+					(teamStrengthAppliedWeightByGame.get(key) ?? 0) > 0;
+				return {
+					...game,
+					winProbability: Number((expectedWinByGame.get(key) ?? 0).toFixed(3)),
+					duprApplied,
+					duprCoverageCount,
+					duprWeightApplied: duprApplied
+						? context.scoringConfig.duprMajorWeight
+						: 0,
+					teamStrengthApplied,
+				};
+			})(),
 		})),
 	}));
 
-	const pairUsageMap = new Map<string, { playerAId: string; playerBId: string; count: number }>();
+	const gameDiagnostics = roundsWithWinProbability.flatMap(
+		(round) => round.games,
+	);
+	const duprApplied = gameDiagnostics.some((game) => game.duprApplied === true);
+	const duprCoverageCount = toCoverageCount(
+		gameDiagnostics.reduce(
+			(acc, game) => acc + (game.duprCoverageCount ?? 0),
+			0,
+		) / Math.max(gameDiagnostics.length, 1),
+	);
+	const teamStrengthApplied = gameDiagnostics.some(
+		(game) => game.teamStrengthApplied === true,
+	);
+
+	const pairUsageMap = new Map<
+		string,
+		{ playerAId: string; playerBId: string; count: number }
+	>();
 	for (const game of games) {
 		const key = toPairKey(game.playerAId, game.playerBId);
 		const existing = pairUsageMap.get(key);
@@ -1226,7 +1588,9 @@ const scoreSchedule = (
 			count: 1,
 		});
 	}
-	const pairUsage = [...pairUsageMap.values()].sort((left, right) => right.count - left.count);
+	const pairUsage = [...pairUsageMap.values()].sort(
+		(left, right) => right.count - left.count,
+	);
 	const topPairs = pairUsage.slice(0, 6).map((pair) => ({
 		playerAId: pair.playerAId,
 		playerBId: pair.playerBId,
@@ -1240,7 +1604,10 @@ const scoreSchedule = (
 			),
 		)
 		.join("|");
-	const pairSetId = createHash("sha1").update(signature).digest("hex").slice(0, 12);
+	const pairSetId = createHash("sha1")
+		.update(signature)
+		.digest("hex")
+		.slice(0, 12);
 
 	return {
 		pairSetId,
@@ -1251,6 +1618,10 @@ const scoreSchedule = (
 		volatility: Number(volatility.toFixed(3)),
 		gameConfidence,
 		matchupConfidence,
+		duprApplied,
+		duprCoverageCount,
+		duprWeightApplied: duprApplied ? context.scoringConfig.duprMajorWeight : 0,
+		teamStrengthApplied,
 		pairUsage,
 		pairs: topPairs,
 	};
@@ -1264,31 +1635,30 @@ const scoreKnownOpponentSchedule = (
 	const games = rounds.flatMap((round) => round.games);
 	const winProbabilities: number[] = [];
 	const reliabilities: number[] = [];
+	let duprCoverageTotal = 0;
+	let duprApplied = false;
+	let teamStrengthApplied = false;
 	const roundsWithWinProbability = rounds.map((round) => ({
 		roundNumber: round.roundNumber,
 		games: round.games.map((game) => {
 			const opponentPair = opponentSlotMap.get(
 				`${game.roundNumber}:${game.slotNumber}`,
 			);
-			const probability = opponentPair
-				? getMatchupProbability(context, game, opponentPair)
-				: {
-						winRate: 0.5,
-						pdWinProbability: 0.5,
-						reliability: 0,
-						signalCorrelation: null,
-					};
-			const blendedWinProbability = blendWinProbabilitySignals({
-				baseWinRate: probability.winRate,
-				pdWinProbability: probability.pdWinProbability,
-				reliability: probability.reliability,
-				signalCorrelation: probability.signalCorrelation,
-			});
-			winProbabilities.push(blendedWinProbability);
-			reliabilities.push(probability.reliability);
+			const result = opponentPair
+				? scoreMatchupForOpponentPair(context, game, opponentPair)
+				: scoreFallbackWithTeamAdjustment(context, game);
+			winProbabilities.push(result.probability);
+			reliabilities.push(result.reliability);
+			duprCoverageTotal += result.duprCoverageCount;
+			duprApplied = duprApplied || result.duprApplied;
+			teamStrengthApplied = teamStrengthApplied || result.teamStrengthApplied;
 			return {
 				...game,
-				winProbability: Number(blendedWinProbability.toFixed(3)),
+				winProbability: Number(result.probability.toFixed(3)),
+				duprApplied: result.duprApplied,
+				duprCoverageCount: result.duprCoverageCount,
+				duprWeightApplied: result.duprWeightApplied,
+				teamStrengthApplied: result.teamStrengthApplied,
 			};
 		}),
 	}));
@@ -1347,7 +1717,10 @@ const scoreKnownOpponentSchedule = (
 			),
 		)
 		.join("|");
-	const pairSetId = createHash("sha1").update(signature).digest("hex").slice(0, 12);
+	const pairSetId = createHash("sha1")
+		.update(signature)
+		.digest("hex")
+		.slice(0, 12);
 
 	return {
 		pairSetId,
@@ -1358,6 +1731,12 @@ const scoreKnownOpponentSchedule = (
 		volatility: Number(volatility.toFixed(3)),
 		gameConfidence,
 		matchupConfidence,
+		duprApplied,
+		duprCoverageCount: toCoverageCount(
+			duprCoverageTotal / Math.max(games.length, 1),
+		),
+		duprWeightApplied: duprApplied ? context.scoringConfig.duprMajorWeight : 0,
+		teamStrengthApplied,
 		pairUsage,
 		pairs: topPairs,
 	};
@@ -1395,8 +1774,9 @@ const rankSchedules = (
 export const recommendPairSets = (
 	request: LineupLabRecommendRequest,
 	bundle: LineupLabFeatureBundle,
+	config?: Partial<LineupLabScoringConfig>,
 ): ScoredSchedule[] => {
-	const context = buildContext(request, bundle);
+	const context = buildContext(request, bundle, config);
 	if (context.scenarios.length === 0) {
 		throw new Error("No opponent scenarios available for recommendation.");
 	}
@@ -1412,7 +1792,9 @@ export const recommendPairSets = (
 	}
 
 	if (candidates.length === 0) {
-		throw new Error("Unable to generate valid schedules with current constraints.");
+		throw new Error(
+			"Unable to generate valid schedules with current constraints.",
+		);
 	}
 
 	const uniqueById = new Map<string, ScoredSchedule>();
@@ -1433,8 +1815,9 @@ export const recommendPairSets = (
 export const recommendPairSetsKnownOpponent = (
 	request: LineupLabRecommendRequest,
 	bundle: LineupLabFeatureBundle,
+	config?: Partial<LineupLabScoringConfig>,
 ): ScoredSchedule[] => {
-	const context = buildContext(request, bundle);
+	const context = buildContext(request, bundle, config);
 	const { rounds, opponentSlotMap } = buildScheduleRoundsKnownOpponent(
 		context,
 		request,
@@ -1458,6 +1841,10 @@ export const toRecommendations = (
 		confidence: score.gameConfidence,
 		gameConfidence: score.gameConfidence,
 		matchupConfidence: score.matchupConfidence,
+		duprApplied: score.duprApplied,
+		duprCoverageCount: score.duprCoverageCount,
+		duprWeightApplied: score.duprWeightApplied,
+		teamStrengthApplied: score.teamStrengthApplied,
 		rounds: score.rounds,
 		pairUsage: score.pairUsage,
 	}));

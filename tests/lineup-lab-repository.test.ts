@@ -66,6 +66,23 @@ describe("lineup lab repository", () => {
 								},
 							],
 							pair_matchups: [],
+							team_strength: {
+								our_team_id: "a7d5c302-9ee0-4bd6-9205-971efe6af562",
+								opp_team_id: "6bb73493-1a15-4527-9765-6aadfaca773b",
+								our_team_strength: 0.66,
+								opp_team_strength: 0.42,
+								strength_delta: 0.24,
+								snapshot_date: "2026-02-15",
+							},
+							players_catalog: [
+								{
+									player_id: "11111111-1111-4111-8111-111111111111",
+									first_name: "Alex",
+									last_name: "One",
+									gender: "male",
+									dupr_rating: 4.02,
+								},
+							],
 						},
 					},
 				],
@@ -107,14 +124,34 @@ describe("lineup lab repository", () => {
 				maxRecommendations: 3,
 				downsideQuantile: 0.2,
 				scenarioLimit: 12,
+				opponentRounds: [
+					{
+						roundNumber: 1,
+						games: [
+							{
+								roundNumber: 1,
+								slotNumber: 1,
+								matchType: "mixed",
+								opponentPlayerAId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+								opponentPlayerBId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+							},
+						],
+					},
+				],
 			},
 		);
 
 		expect(poolQueryMock).toHaveBeenCalledTimes(2);
-		expect(poolQueryMock.mock.calls[1]?.[0]).toContain("$9::timestamptz");
+		expect(poolQueryMock.mock.calls[1]?.[0]).toContain("$10::uuid[]");
 		expect(poolQueryMock.mock.calls[1]?.[1]?.[8]).toBe(scheduledTime);
+		expect(poolQueryMock.mock.calls[1]?.[1]?.[9]).toEqual([
+			"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+			"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+		]);
 		expect(bundle.opponent_scenarios).toHaveLength(1);
 		expect(bundle.candidate_pairs).toHaveLength(1);
+		expect(bundle.players_catalog?.[0]?.dupr_rating).toBe(4.02);
+		expect(bundle.team_strength?.strength_delta).toBe(0.24);
 	});
 
 	it("applies a 2s query timeout for context division queries", async () => {

@@ -108,7 +108,16 @@ export interface LineupLabFeatureBundle {
 		last_name?: string | null;
 		gender?: string | null;
 		team_id?: string | null;
+		dupr_rating?: number | null;
 	}>;
+	team_strength?: {
+		our_team_id: string;
+		opp_team_id: string;
+		our_team_strength: number | null;
+		opp_team_strength: number | null;
+		strength_delta: number | null;
+		snapshot_date: string | null;
+	} | null;
 }
 
 export interface RecommendedPair {
@@ -123,6 +132,10 @@ export interface LineupScheduledGame {
 	playerAId: string;
 	playerBId: string;
 	winProbability: number;
+	duprApplied?: boolean;
+	duprCoverageCount?: number;
+	duprWeightApplied?: number;
+	teamStrengthApplied?: boolean;
 }
 
 export interface LineupScheduledRound {
@@ -141,6 +154,10 @@ export interface LineupLabRecommendation {
 	confidence: "LOW" | "MEDIUM" | "HIGH";
 	gameConfidence: "LOW" | "MEDIUM" | "HIGH";
 	matchupConfidence: "LOW" | "MEDIUM" | "HIGH";
+	duprApplied?: boolean;
+	duprCoverageCount?: number;
+	duprWeightApplied?: number;
+	teamStrengthApplied?: boolean;
 	rounds: LineupScheduledRound[];
 	pairUsage: Array<{
 		playerAId: string;

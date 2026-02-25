@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { onMounted, onUnmounted, ref } from "vue";
 
 import OpponentLineupInput from "./OpponentLineupInput.vue";
 
@@ -48,6 +49,39 @@ const toPlayerName = (playerId: string): string =>
 
 const formatWin = (value: number): string => `${Math.round(value * 100)}%`;
 
+const openGameInfoKey = ref<string | null>(null);
+
+const toSlotKey = (roundNumber: number, slotNumber: number): string =>
+	`${roundNumber}:${slotNumber}`;
+
+const toggleGameInfo = (roundNumber: number, slotNumber: number) => {
+	const key = toSlotKey(roundNumber, slotNumber);
+	openGameInfoKey.value = openGameInfoKey.value === key ? null : key;
+};
+
+const closeInfoIfOutside = (event: MouseEvent) => {
+	const target = event.target as HTMLElement | null;
+	if (!target?.closest("[data-game-info]")) {
+		openGameInfoKey.value = null;
+	}
+};
+
+const closeInfoOnEscape = (event: KeyboardEvent) => {
+	if (event.key === "Escape") {
+		openGameInfoKey.value = null;
+	}
+};
+
+onMounted(() => {
+	document.addEventListener("click", closeInfoIfOutside);
+	document.addEventListener("keydown", closeInfoOnEscape);
+});
+
+onUnmounted(() => {
+	document.removeEventListener("click", closeInfoIfOutside);
+	document.removeEventListener("keydown", closeInfoOnEscape);
+});
+
 const getOpponentAssignment = (roundNumber: number, slotNumber: number) =>
 	props.opponentAssignments[`${roundNumber}:${slotNumber}`] ?? {
 		playerAId: null,
@@ -59,7 +93,19 @@ const getOutputGame = (roundNumber: number, slotNumber: number) =>
 		?.find((round) => round.roundNumber === roundNumber)
 		?.games.find((game) => game.slotNumber === slotNumber) ?? null;
 
-const getPlayersForSlotAt = (roundNumber: number, slotNumber: number, matchType: "mixed" | "female" | "male") => {
+const getGameWinInfo = (roundNumber: number, slotNumber: number): string => {
+	const game = getOutputGame(roundNumber, slotNumber);
+	if (!game) {
+		return "Win % is the predicted probability of winning this slot based on the available lineup model signals.";
+	}
+	return "Win % is the predicted chance this pair wins this slot. It blends baseline pair matchup rates, point-differential signal, team-strength adjustment, and DUPR blending when full four-player DUPR coverage exists. This slot adjustment signals: DUPR, Team strength.";
+};
+
+const getPlayersForSlotAt = (
+	roundNumber: number,
+	slotNumber: number,
+	matchType: "mixed" | "female" | "male",
+) => {
 	const assignment = getOpponentAssignment(roundNumber, slotNumber);
 	return getPlayersForSlot(
 		matchType,
@@ -132,8 +178,27 @@ const getPlayersForSlotAt = (roundNumber: number, slotNumber: number, matchType:
               {{ toPlayerName(getOutputGame(roundIndex + 1, slotIndex + 1)?.playerAId ?? '') }} /
               {{ toPlayerName(getOutputGame(roundIndex + 1, slotIndex + 1)?.playerBId ?? '') }}
             </p>
-            <p class="text-[10px] uppercase tracking-[0.12em] text-[var(--chat-muted)]">
+            <p class="flex items-center gap-1 text-[10px] uppercase tracking-[0.12em] text-[var(--chat-muted)]">
               Win {{ formatWin(getOutputGame(roundIndex + 1, slotIndex + 1)?.winProbability ?? 0.5) }}
+              <span data-game-info class="relative inline-flex">
+                <button
+                  type="button"
+                  :data-testid="`game-win-info-button-${roundIndex + 1}-${slotIndex + 1}`"
+                  class="inline-flex cursor-pointer items-center"
+                  aria-label="Explain game win percentage"
+                  :aria-expanded="openGameInfoKey === toSlotKey(roundIndex + 1, slotIndex + 1)"
+                  @click.stop="toggleGameInfo(roundIndex + 1, slotIndex + 1)"
+                >
+                  <span class="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full border text-[10px] font-semibold normal-case leading-none">i</span>
+                </button>
+                <span
+                  v-if="openGameInfoKey === toSlotKey(roundIndex + 1, slotIndex + 1)"
+                  :data-testid="`game-win-info-popover-${roundIndex + 1}-${slotIndex + 1}`"
+                  class="absolute top-5 left-0 z-20 w-64 rounded border bg-[var(--chat-bg)] p-2 text-xs normal-case tracking-normal text-[var(--chat-text)] shadow-lg"
+                >
+                  {{ getGameWinInfo(roundIndex + 1, slotIndex + 1) }}
+                </span>
+              </span>
             </p>
           </template>
           <p v-else class="text-[var(--chat-muted)]">Pending</p>

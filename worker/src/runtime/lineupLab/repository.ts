@@ -551,6 +551,15 @@ const asFeatureBundle = (payload: unknown): LineupLabFeatureBundle => {
 					}
 				).players_catalog ?? [])
 			: [],
+		team_strength:
+			(payload as { team_strength?: unknown }).team_strength &&
+			typeof (payload as { team_strength?: unknown }).team_strength === "object"
+				? ((
+						payload as {
+							team_strength: LineupLabFeatureBundle["team_strength"];
+						}
+					).team_strength ?? null)
+				: null,
 	};
 };
 
@@ -558,6 +567,17 @@ export const fetchLineupLabFeatureBundle = async (
 	env: WorkerEnv,
 	request: LineupLabRecommendRequest,
 ): Promise<LineupLabFeatureBundle> => {
+	const knownOpponentPlayerIds = [
+		...new Set(
+			(request.opponentRounds ?? []).flatMap((round) =>
+				round.games.flatMap((game) => [
+					game.opponentPlayerAId,
+					game.opponentPlayerBId,
+				]),
+			),
+		),
+	];
+
 	const matchupResult = await runWithPoolRetry(env, (pool) =>
 		pool.query<{
 			matchup_id: string;
@@ -614,6 +634,7 @@ export const fetchLineupLabFeatureBundle = async (
 				request.scenarioLimit,
 				request.matchupId,
 				matchup.scheduled_time,
+				knownOpponentPlayerIds,
 			];
 
 			try {
@@ -627,7 +648,8 @@ export const fetchLineupLabFeatureBundle = async (
 						$6::uuid[],
 						$7::integer,
 						$8::uuid,
-						$9::timestamptz
+						$9::timestamptz,
+						$10::uuid[]
 					) as payload`,
 					parameters,
 				);
@@ -635,10 +657,30 @@ export const fetchLineupLabFeatureBundle = async (
 				if (!isUndefinedFeatureBundleFunctionError(error)) {
 					throw error;
 				}
+				try {
+					// Backward compatibility: allow pre-Phase-3 9-arg function until migration is applied.
+					return await pool.query<{ payload: unknown }>(
+						`select analytics.fn_lineup_lab_feature_bundle(
+						$1::uuid,
+						$2::integer,
+						$3::integer,
+						$4::uuid,
+						$5::uuid,
+						$6::uuid[],
+						$7::integer,
+						$8::uuid,
+						$9::timestamptz
+					) as payload`,
+						parameters.slice(0, 9),
+					);
+				} catch (fallbackError) {
+					if (!isUndefinedFeatureBundleFunctionError(fallbackError)) {
+						throw fallbackError;
+					}
 
-				// Backward compatibility: allow old 7-arg function until migration is applied.
-				return pool.query<{ payload: unknown }>(
-					`select analytics.fn_lineup_lab_feature_bundle(
+					// Backward compatibility: allow old 7-arg function until migration is applied.
+					return pool.query<{ payload: unknown }>(
+						`select analytics.fn_lineup_lab_feature_bundle(
 						$1::uuid,
 						$2::integer,
 						$3::integer,
@@ -647,8 +689,9 @@ export const fetchLineupLabFeatureBundle = async (
 						$6::uuid[],
 						$7::integer
 					) as payload`,
-					parameters.slice(0, 7),
-				);
+						parameters.slice(0, 7),
+					);
+				}
 			}
 		},
 	);
