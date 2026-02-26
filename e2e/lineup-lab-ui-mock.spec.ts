@@ -22,6 +22,16 @@ const validationErrorFixture = loadFixture<Record<string, unknown>>(
 	"recommend-validation-error.json",
 );
 
+const OPPONENT_IDS = {
+	maleA: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+	maleB: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+	femaleA: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+	femaleB: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+} as const;
+
+const visibleByTestId = (page: Page, testId: string) =>
+	page.locator(`[data-testid="${testId}"]:visible`).first();
+
 const setupLineupRoutes = async (
 	page: Page,
 	mode: "normal" | "validation-error" = "normal",
@@ -73,21 +83,58 @@ const openLineupTab = async (page: Page) => {
 	await page.goto("/");
 	await page.getByTestId("top-tab-lineup-lab").click();
 	await expect(page.getByTestId("lineup-lab-root")).toBeVisible();
-	await expect(page.getByTestId("lineup-division-select")).toBeVisible();
+
+	if (await page.getByTestId("mobile-sidebar-toggle").isVisible()) {
+		await page.getByTestId("mobile-sidebar-toggle").click();
+		await expect(page.getByTestId("mobile-sidebar")).toBeVisible();
+	}
+
+	const divisionSelect = visibleByTestId(page, "lineup-division-select");
+	await expect(divisionSelect).toBeVisible();
+	await expect(divisionSelect.locator("option")).toHaveCount(2);
+	await divisionSelect.selectOption({ index: 1 });
+
+	const teamSelect = visibleByTestId(page, "lineup-team-select");
+	await expect(teamSelect.locator("option")).toHaveCount(2);
+	await teamSelect.selectOption({ index: 1 });
+
+	const matchupSelect = visibleByTestId(page, "lineup-matchup-select");
+	await expect(matchupSelect.locator("option")).toHaveCount(2);
+	await matchupSelect.selectOption({ index: 1 });
 };
 
 const fillKnownOpponentAssignments = async (page: Page) => {
+	const assignmentForSlot = (
+		roundNumber: number,
+		slotNumber: number,
+	): { playerAId: string; playerBId: string } => {
+		if (roundNumber % 2 === 1) {
+			return {
+				playerAId: OPPONENT_IDS.maleA,
+				playerBId: OPPONENT_IDS.femaleA,
+			};
+		}
+		if (slotNumber <= 2) {
+			return {
+				playerAId: OPPONENT_IDS.femaleA,
+				playerBId: OPPONENT_IDS.femaleB,
+			};
+		}
+		return {
+			playerAId: OPPONENT_IDS.maleA,
+			playerBId: OPPONENT_IDS.maleB,
+		};
+	};
+
 	for (let roundNumber = 1; roundNumber <= 8; roundNumber += 1) {
 		for (let slotNumber = 1; slotNumber <= 4; slotNumber += 1) {
-			const input = page.getByTestId(
+			const { playerAId, playerBId } = assignmentForSlot(roundNumber, slotNumber);
+			const input = visibleByTestId(
+				page,
 				`round-slot-${roundNumber}-${slotNumber}-opponent-input`,
 			);
-			await input.locator("select").nth(0).selectOption({
-				value: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-			});
-			await input.locator("select").nth(1).selectOption({
-				value: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
-			});
+			await input.locator("select").nth(0).selectOption({ value: playerAId });
+			await input.locator("select").nth(1).selectOption({ value: playerBId });
 		}
 	}
 };
@@ -108,42 +155,46 @@ test("blind mode layout", async ({ page }) => {
 	await setupLineupRoutes(page);
 	await openLineupTab(page);
 
-	await expect(page.getByTestId("opponent-roster-panel")).toBeVisible();
-	await expect(page.getByTestId("lineup-mode-toggle-blind")).toBeVisible();
-	await expect(page.getByTestId("round-slot-1-1-opponent-input")).toHaveCount(0);
+	await expect(
+		page
+			.getByTestId("lineup-lab-roster-sidebar")
+			.getByTestId("opponent-roster-panel"),
+	).toBeVisible();
+	await expect(visibleByTestId(page, "lineup-mode-toggle-blind")).toBeVisible();
+	await expect(visibleByTestId(page, "round-slot-1-1-opponent-input")).toHaveCount(0);
 });
 
 test("known mode layout", async ({ page }) => {
 	await setupLineupRoutes(page);
 	await openLineupTab(page);
-	await page.getByTestId("lineup-mode-toggle-known-opponent").click();
+	await visibleByTestId(page, "lineup-mode-toggle-known-opponent").click();
 
-	await expect(page.getByTestId("round-slot-1-1-opponent-input")).toBeVisible();
-	await expect(page.getByTestId("lineup-calculate-button")).toBeDisabled();
+	await expect(visibleByTestId(page, "round-slot-1-1-opponent-input")).toBeVisible();
+	await expect(visibleByTestId(page, "lineup-calculate-button")).toBeDisabled();
 });
 
 test("known mode completion gate", async ({ page }) => {
 	await setupLineupRoutes(page);
 	await openLineupTab(page);
-	await page.getByTestId("lineup-mode-toggle-known-opponent").click();
+	await visibleByTestId(page, "lineup-mode-toggle-known-opponent").click();
 
-	await expect(page.getByTestId("lineup-calculate-button")).toBeDisabled();
+	await expect(visibleByTestId(page, "lineup-calculate-button")).toBeDisabled();
 	await fillKnownOpponentAssignments(page);
-	await expect(page.getByTestId("lineup-calculate-button")).toBeEnabled();
+	await expect(visibleByTestId(page, "lineup-calculate-button")).toBeEnabled();
 });
 
 test("blind calculate flow", async ({ page }) => {
 	await setupLineupRoutes(page);
 	await openLineupTab(page);
 
-	await page.getByTestId("lineup-calculate-button").click();
+	await visibleByTestId(page, "lineup-calculate-button").click();
 
-	await expect(page.getByTestId("schedule-expected-wins")).toContainText("14.5");
-	await expect(page.getByTestId("schedule-conservative-wins")).toContainText("12");
-	await expect(page.getByTestId("schedule-matchup-win-probability")).toContainText(
+	await expect(visibleByTestId(page, "schedule-expected-wins")).toContainText("14.5");
+	await expect(visibleByTestId(page, "schedule-conservative-wins")).toContainText("12");
+	await expect(visibleByTestId(page, "schedule-matchup-win-probability")).toContainText(
 		"56%",
 	);
-	await expect(page.getByTestId("round-slot-1-1-optimizer-output")).toContainText(
+	await expect(visibleByTestId(page, "round-slot-1-1-optimizer-output")).toContainText(
 		"Taylor One",
 	);
 });
@@ -151,13 +202,13 @@ test("blind calculate flow", async ({ page }) => {
 test("known calculate flow", async ({ page }) => {
 	await setupLineupRoutes(page);
 	await openLineupTab(page);
-	await page.getByTestId("lineup-mode-toggle-known-opponent").click();
+	await visibleByTestId(page, "lineup-mode-toggle-known-opponent").click();
 	await fillKnownOpponentAssignments(page);
 
-	await page.getByTestId("lineup-calculate-button").click();
+	await visibleByTestId(page, "lineup-calculate-button").click();
 
-	await expect(page.getByTestId("schedule-expected-wins")).toContainText("15.1");
-	await expect(page.getByTestId("schedule-matchup-win-probability")).toContainText(
+	await expect(visibleByTestId(page, "schedule-expected-wins")).toContainText("15.1");
+	await expect(visibleByTestId(page, "schedule-matchup-win-probability")).toContainText(
 		"61%",
 	);
 });
@@ -166,7 +217,7 @@ test("validation error mapping", async ({ page }) => {
 	await setupLineupRoutes(page, "validation-error");
 	await openLineupTab(page);
 
-	await page.getByTestId("lineup-calculate-button").click();
+	await visibleByTestId(page, "lineup-calculate-button").click();
 	await expect(
 		page.getByText("Complete all opponent assignments before calculating."),
 	).toBeVisible();
@@ -177,7 +228,7 @@ test("mobile parity", async ({ page }) => {
 	await page.setViewportSize({ width: 375, height: 812 });
 	await openLineupTab(page);
 
-	await expect(page.getByTestId("lineup-mode-toggle-known-opponent")).toBeVisible();
-	await page.getByTestId("lineup-mode-toggle-known-opponent").click();
-	await expect(page.getByTestId("lineup-calculate-button")).toBeDisabled();
+	await expect(visibleByTestId(page, "lineup-mode-toggle-known-opponent")).toBeVisible();
+	await visibleByTestId(page, "lineup-mode-toggle-known-opponent").click();
+	await expect(visibleByTestId(page, "lineup-calculate-button")).toBeDisabled();
 });

@@ -1,3 +1,4 @@
+import { getActivePinia } from "pinia";
 import { computed, ref, type ComputedRef, type Ref } from "vue";
 
 import { createLineupLabClient, type LineupLabClient } from "./lineupLabClient";
@@ -21,6 +22,7 @@ import type {
 	OpponentAssignmentsBySlot,
 	OpponentRosterPlayer,
 } from "./types";
+import { useAuthStore } from "../../stores/auth";
 
 const MIN_PLAYERS = 8;
 
@@ -480,6 +482,20 @@ export function createLineupLabController(client: LineupLabClient): LineupLabCon
 }
 
 export const useLineupLabController = (): LineupLabController => {
-	const client = createLineupLabClient(fetch, () => null);
+	const activePinia = getActivePinia();
+	if (!activePinia) {
+		const fallbackClient = createLineupLabClient(fetch, () => null);
+		return createLineupLabController(fallbackClient);
+	}
+	const authStore = useAuthStore(activePinia);
+	const client = createLineupLabClient(
+		fetch,
+		() => authStore.accessToken,
+		{
+			ensureAccessToken: authStore.getTokenForRequest,
+			refreshAfterUnauthorized: authStore.refreshAfterUnauthorized,
+			onAuthFailure: authStore.clearSession,
+		},
+	);
 	return createLineupLabController(client);
 };

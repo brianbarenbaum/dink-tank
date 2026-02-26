@@ -2,6 +2,16 @@ export interface WorkerEnv {
 	OPENAI_API_KEY: string;
 	SUPABASE_DB_URL: string;
 	SUPABASE_DB_SSL_NO_VERIFY: boolean;
+	APP_ENV: "local" | "staging" | "production";
+	SUPABASE_URL: string;
+	SUPABASE_ANON_KEY: string;
+	AUTH_ALLOWED_ORIGINS: string[];
+	AUTH_JWT_ISSUER: string;
+	AUTH_JWT_AUDIENCE: string;
+	AUTH_BYPASS_ENABLED: boolean;
+	AUTH_TURNSTILE_BYPASS: boolean;
+	AUTH_TURNSTILE_SECRET?: string;
+	AUTH_IP_HASH_SALT: string;
 	LLM_MODEL: string;
 	LLM_REASONING_LEVEL: "low" | "medium" | "high";
 	SQL_QUERY_TIMEOUT_MS: number;
@@ -36,6 +46,9 @@ const DEFAULT_MODEL = "gpt-4.1-mini";
 const DEFAULT_REASONING_LEVEL = "medium";
 const DEFAULT_SQL_TIMEOUT_MS = 25_000;
 const DEFAULT_LANGFUSE_TRACING_ENVIRONMENT = "default";
+const DEFAULT_APP_ENV = "local";
+const DEFAULT_AUTH_AUDIENCE = "authenticated";
+const DEFAULT_LOCAL_ALLOWED_ORIGINS = ["http://localhost:5173"];
 const DEFAULT_LINEUP_ENABLE_DUPR_BLEND = true;
 const DEFAULT_LINEUP_DUPR_MAJOR_WEIGHT = 0.65;
 const DEFAULT_LINEUP_ENABLE_TEAM_STRENGTH_ADJUSTMENT = true;
@@ -43,6 +56,12 @@ const DEFAULT_LINEUP_DUPR_SLOPE = 1.6;
 const DEFAULT_LINEUP_TEAM_STRENGTH_FACTOR = 0.45;
 const DEFAULT_LINEUP_TEAM_STRENGTH_CAP = 0.35;
 const TRUE_VALUES = new Set(["1", "true", "yes", "on"]);
+
+const parseAllowedOrigins = (input: string | undefined): string[] =>
+	(input ?? "")
+		.split(",")
+		.map((entry) => entry.trim())
+		.filter((entry) => entry.length > 0);
 
 /**
  * Parses raw Worker environment values into a validated runtime config object.
@@ -60,6 +79,83 @@ export const parseWorkerEnv = (
 	if (!SUPABASE_DB_URL) {
 		return { ok: false, error: "Missing SUPABASE_DB_URL" };
 	}
+
+	const SUPABASE_URL = env.SUPABASE_URL?.trim();
+	if (!SUPABASE_URL) {
+		return { ok: false, error: "Missing SUPABASE_URL" };
+	}
+
+	const SUPABASE_ANON_KEY = env.SUPABASE_ANON_KEY?.trim();
+	if (!SUPABASE_ANON_KEY) {
+		return { ok: false, error: "Missing SUPABASE_ANON_KEY" };
+	}
+
+	const rawAppEnv =
+		env.APP_ENV?.trim().toLowerCase() ??
+		env.ENVIRONMENT?.trim().toLowerCase() ??
+		DEFAULT_APP_ENV;
+	if (
+		rawAppEnv !== "local" &&
+		rawAppEnv !== "staging" &&
+		rawAppEnv !== "production"
+	) {
+		return {
+			ok: false,
+			error: "APP_ENV must be one of: local, staging, production",
+		};
+	}
+	const APP_ENV = rawAppEnv as "local" | "staging" | "production";
+
+	const AUTH_BYPASS_ENABLED = TRUE_VALUES.has(
+		env.AUTH_BYPASS_ENABLED?.trim().toLowerCase() ?? "",
+	);
+	if (APP_ENV === "production" && AUTH_BYPASS_ENABLED) {
+		return {
+			ok: false,
+			error: "AUTH_BYPASS_ENABLED is not allowed in production",
+		};
+	}
+
+	const AUTH_TURNSTILE_BYPASS = TRUE_VALUES.has(
+		env.AUTH_TURNSTILE_BYPASS?.trim().toLowerCase() ?? "",
+	);
+	if (APP_ENV === "production" && AUTH_TURNSTILE_BYPASS) {
+		return {
+			ok: false,
+			error: "AUTH_TURNSTILE_BYPASS is not allowed in production",
+		};
+	}
+
+	const AUTH_TURNSTILE_SECRET = env.AUTH_TURNSTILE_SECRET?.trim() || undefined;
+	if (!AUTH_TURNSTILE_BYPASS && !AUTH_TURNSTILE_SECRET) {
+		return {
+			ok: false,
+			error: "Missing AUTH_TURNSTILE_SECRET when turnstile bypass is disabled",
+		};
+	}
+
+	const AUTH_IP_HASH_SALT = env.AUTH_IP_HASH_SALT?.trim();
+	if (!AUTH_IP_HASH_SALT) {
+		return { ok: false, error: "Missing AUTH_IP_HASH_SALT" };
+	}
+
+	const AUTH_ALLOWED_ORIGINS = parseAllowedOrigins(env.AUTH_ALLOWED_ORIGINS);
+	if (AUTH_ALLOWED_ORIGINS.length === 0 && APP_ENV !== "local") {
+		return {
+			ok: false,
+			error: "Missing AUTH_ALLOWED_ORIGINS for non-local environments",
+		};
+	}
+	const effectiveAllowedOrigins =
+		AUTH_ALLOWED_ORIGINS.length > 0
+			? AUTH_ALLOWED_ORIGINS
+			: [...DEFAULT_LOCAL_ALLOWED_ORIGINS];
+
+	const AUTH_JWT_ISSUER =
+		env.AUTH_JWT_ISSUER?.trim() ||
+		`${SUPABASE_URL.replace(/\/$/, "")}/auth/v1`;
+	const AUTH_JWT_AUDIENCE =
+		env.AUTH_JWT_AUDIENCE?.trim() || DEFAULT_AUTH_AUDIENCE;
 
 	const timeoutRaw = env.SQL_QUERY_TIMEOUT_MS?.trim();
 	const SQL_QUERY_TIMEOUT_MS = timeoutRaw
@@ -142,6 +238,16 @@ export const parseWorkerEnv = (
 			SUPABASE_DB_SSL_NO_VERIFY: TRUE_VALUES.has(
 				env.SUPABASE_DB_SSL_NO_VERIFY?.trim().toLowerCase() ?? "",
 			),
+			APP_ENV,
+			SUPABASE_URL,
+			SUPABASE_ANON_KEY,
+			AUTH_ALLOWED_ORIGINS: effectiveAllowedOrigins,
+			AUTH_JWT_ISSUER,
+			AUTH_JWT_AUDIENCE,
+			AUTH_BYPASS_ENABLED,
+			AUTH_TURNSTILE_BYPASS,
+			AUTH_TURNSTILE_SECRET,
+			AUTH_IP_HASH_SALT,
 			LLM_MODEL: env.LLM_MODEL?.trim() || DEFAULT_MODEL,
 			LLM_REASONING_LEVEL: reasoningLevelRaw as "low" | "medium" | "high",
 			SQL_QUERY_TIMEOUT_MS,

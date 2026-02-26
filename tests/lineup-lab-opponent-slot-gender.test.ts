@@ -102,7 +102,7 @@ describe("opponentSlotGender", () => {
 	});
 
 	describe("isOpponentAssignmentGenderValid", () => {
-		const genderByPlayerId = new Map([
+		const genderByPlayerId = new Map<string, "male" | "female">([
 			["m1", "male"],
 			["m2", "male"],
 			["f1", "female"],
@@ -174,7 +174,7 @@ describe("opponentSlotGender", () => {
 		});
 
 		it("returns false when player gender unknown", () => {
-			const withUnknown = new Map([
+			const withUnknown = new Map<string, "male" | "female">([
 				["m1", "male"],
 				["f1", "female"],
 			]);

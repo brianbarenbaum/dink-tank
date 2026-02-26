@@ -17,6 +17,9 @@ const recommendBlindFixture = loadFixture<Record<string, unknown>>(
 	"recommend-blind.json",
 );
 
+const visibleByTestId = (page: Page, testId: string) =>
+	page.locator(`[data-testid="${testId}"]:visible`).first();
+
 const setupLineupRoutes = async (page: Page) => {
 	await page.route("**/api/lineup-lab/context/divisions", async (route) => {
 		await route.fulfill({
@@ -48,13 +51,34 @@ const setupLineupRoutes = async (page: Page) => {
 	});
 };
 
-test("lineup lab desktop visual parity", async ({ page }) => {
-	await setupLineupRoutes(page);
-	await page.setViewportSize({ width: 1440, height: 900 });
+const openLineupTabAndSeed = async (page: Page) => {
 	await page.goto("/");
 	await page.getByTestId("top-tab-lineup-lab").click();
 	await expect(page.getByTestId("lineup-lab-root")).toBeVisible();
-	await page.getByTestId("lineup-calculate-button").click();
+
+	if (await page.getByTestId("mobile-sidebar-toggle").isVisible()) {
+		await page.getByTestId("mobile-sidebar-toggle").click();
+		await expect(page.getByTestId("mobile-sidebar")).toBeVisible();
+	}
+
+	const divisionSelect = visibleByTestId(page, "lineup-division-select");
+	await expect(divisionSelect.locator("option")).toHaveCount(2);
+	await divisionSelect.selectOption({ index: 1 });
+
+	const teamSelect = visibleByTestId(page, "lineup-team-select");
+	await expect(teamSelect.locator("option")).toHaveCount(2);
+	await teamSelect.selectOption({ index: 1 });
+
+	const matchupSelect = visibleByTestId(page, "lineup-matchup-select");
+	await expect(matchupSelect.locator("option")).toHaveCount(2);
+	await matchupSelect.selectOption({ index: 1 });
+};
+
+test("lineup lab desktop visual parity", async ({ page }) => {
+	await setupLineupRoutes(page);
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await openLineupTabAndSeed(page);
+	await visibleByTestId(page, "lineup-calculate-button").click();
 	await expect(page.getByTestId("schedule-expected-wins").first()).toContainText("14.5");
 
 	fs.mkdirSync(validationScreenshotsDir, { recursive: true });
@@ -71,9 +95,7 @@ test("lineup lab desktop visual parity", async ({ page }) => {
 test("lineup lab mobile visual parity", async ({ page }) => {
 	await setupLineupRoutes(page);
 	await page.setViewportSize({ width: 375, height: 812 });
-	await page.goto("/");
-	await page.getByTestId("top-tab-lineup-lab").click();
-	await expect(page.getByTestId("lineup-lab-root")).toBeVisible();
+	await openLineupTabAndSeed(page);
 
 	fs.mkdirSync(validationScreenshotsDir, { recursive: true });
 	await page.screenshot({

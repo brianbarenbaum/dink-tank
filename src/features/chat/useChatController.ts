@@ -1,3 +1,4 @@
+import { getActivePinia } from "pinia";
 import { ref, type Ref } from "vue";
 
 import {
@@ -7,6 +8,7 @@ import {
 	type ChatSendOptions,
 } from "./chatClient";
 import type { ChatMessage } from "./types";
+import { useAuthStore } from "../../stores/auth";
 
 export interface ChatController {
 	messages: Ref<ChatMessage[]>;
@@ -102,7 +104,22 @@ export function createChatController(
 export function useChatController(): ChatController {
 	const backendMode: ChatBackendMode =
 		import.meta.env.VITE_CHAT_BACKEND_MODE === "mock" ? "mock" : "real";
-	const client = createChatClient(fetch, () => null, { mode: backendMode });
+	const activePinia = getActivePinia();
+	if (!activePinia) {
+		const client = createChatClient(fetch, () => null, { mode: backendMode });
+		return createChatController(client.send, client.getConfig);
+	}
+	const authStore = useAuthStore(activePinia);
+	const client = createChatClient(
+		fetch,
+		() => authStore.accessToken,
+		{ mode: backendMode },
+		{
+			ensureAccessToken: authStore.getTokenForRequest,
+			refreshAfterUnauthorized: authStore.refreshAfterUnauthorized,
+			onAuthFailure: authStore.clearSession,
+		},
+	);
 
 	return createChatController(client.send, client.getConfig);
 }

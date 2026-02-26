@@ -15,6 +15,15 @@ describe("worker chat handler", () => {
 		OPENAI_API_KEY: "test-key",
 		SUPABASE_DB_URL: "postgres://postgres:postgres@localhost:5432/postgres",
 		SUPABASE_DB_SSL_NO_VERIFY: true,
+		APP_ENV: "local",
+		SUPABASE_URL: "https://example.supabase.co",
+		SUPABASE_ANON_KEY: "anon-key",
+		AUTH_ALLOWED_ORIGINS: ["http://localhost:5173"],
+		AUTH_JWT_ISSUER: "https://example.supabase.co/auth/v1",
+		AUTH_JWT_AUDIENCE: "authenticated",
+		AUTH_BYPASS_ENABLED: false,
+		AUTH_TURNSTILE_BYPASS: true,
+		AUTH_IP_HASH_SALT: "test-salt",
 		LLM_MODEL: "gpt-4.1-mini",
 		LLM_REASONING_LEVEL: "medium" as const,
 		SQL_QUERY_TIMEOUT_MS: 10_000,
@@ -116,6 +125,23 @@ describe("worker chat handler", () => {
 		expect(response.status).toBe(500);
 	});
 
+	it("returns 401 for protected routes without auth token", async () => {
+		const request = new Request("http://localhost/api/chat/config", {
+			method: "GET",
+		});
+
+		const response = await handleFetch(request, {
+			OPENAI_API_KEY: "test-key",
+			SUPABASE_DB_URL: "postgres://postgres:postgres@localhost:5432/postgres",
+			SUPABASE_URL: "https://example.supabase.co",
+			SUPABASE_ANON_KEY: "anon-key",
+			AUTH_IP_HASH_SALT: "test-salt",
+			AUTH_TURNSTILE_BYPASS: "true",
+		});
+
+		expect(response.status).toBe(401);
+	});
+
 	it("returns model config from index", async () => {
 		const request = new Request("http://localhost/api/chat/config", {
 			method: "GET",
@@ -124,6 +150,11 @@ describe("worker chat handler", () => {
 		const response = await handleFetch(request, {
 			OPENAI_API_KEY: "test-key",
 			SUPABASE_DB_URL: "postgres://postgres:postgres@localhost:5432/postgres",
+			SUPABASE_URL: "https://example.supabase.co",
+			SUPABASE_ANON_KEY: "anon-key",
+			AUTH_IP_HASH_SALT: "test-salt",
+			AUTH_TURNSTILE_BYPASS: "true",
+			AUTH_BYPASS_ENABLED: "true",
 			LLM_MODEL: "gpt-5.1",
 			LLM_REASONING_LEVEL: "high",
 		});

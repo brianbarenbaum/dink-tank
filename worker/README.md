@@ -5,9 +5,19 @@
 1. Set required env vars in shell or `.dev.vars`:
    - `OPENAI_API_KEY`
    - `SUPABASE_DB_URL` (required only when `HYPERDRIVE` binding is not configured)
+   - `SUPABASE_URL`
+   - `SUPABASE_ANON_KEY`
+   - `AUTH_IP_HASH_SALT`
+   - `AUTH_ALLOWED_ORIGINS` (comma-separated; defaults to `http://localhost:5173` in local)
+   - `AUTH_TURNSTILE_SECRET` (required unless `AUTH_TURNSTILE_BYPASS=true`)
+   - `AUTH_JWT_AUDIENCE` (default `authenticated`)
+   - `AUTH_JWT_ISSUER` (default `${SUPABASE_URL}/auth/v1`)
    - Optional reasoning default when extended thinking is enabled: `LLM_REASONING_LEVEL=low|medium|high` (default `medium`)
    - Optional local TLS workaround: `SUPABASE_DB_SSL_NO_VERIFY=true`
    - Optional for local debugging: `EXPOSE_ERROR_DETAILS=true`
+   - Optional local-only bypass flags:
+     - `AUTH_BYPASS_ENABLED=true` (disables `/api/*` auth enforcement in non-production only)
+     - `AUTH_TURNSTILE_BYPASS=true` (skips turnstile verification in non-production only)
 2. Start worker:
 
 ```bash
@@ -59,19 +69,17 @@ Notes:
 - Use local runtime + `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` for routine development.
 - If you explicitly need remote preview behavior for debugging, `wrangler dev --remote` remains available.
 
-## Deferred Authentication
+## Authentication Runtime
 
-- Frontend auth is intentionally not implemented in this phase.
-- Worker JWT verification is intentionally not implemented in this phase.
-- Do not expose this worker publicly in production until auth and rate limiting are added.
-
-## Production Hardening Checklist (Next Phase)
-
-- Add frontend Supabase session handling and authenticated request forwarding.
-- Verify JWT in worker and map request identity to user/role context.
-- Enforce read-only DB role and schema allowlist checks.
-- Add request rate limits and abuse protection.
-- Add structured telemetry for blocked queries and failed tool attempts.
+- Worker enforces authentication on protected `/api/*` routes.
+- Public auth bootstrap routes:
+  - `POST /api/auth/otp/request`
+  - `POST /api/auth/otp/verify`
+  - `GET /api/auth/session`
+  - `POST /api/auth/signout`
+  - `POST /api/auth/refresh`
+- JWTs are validated against Supabase JWKS with issuer/audience checks.
+- OTP request endpoint enforces Cloudflare Turnstile by default (fail-closed).
 
 ## Golden Eval Runner (Langfuse Dataset)
 
