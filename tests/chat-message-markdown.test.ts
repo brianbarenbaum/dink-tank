@@ -14,24 +14,40 @@ describe("formatChatMessageContent", () => {
 
 		const rendered = formatChatMessageContent(content);
 
-		expect(rendered).toContain("<ul>");
-		expect(rendered).toContain(
-			"<li><strong>Opponent:</strong> Garden State</li>",
-		);
-		expect(rendered).toContain(
-			"<li><strong>Result:</strong> <strong>Loss</strong></li>",
-		);
+		const listBlock = rendered.find((block) => block.kind === "list");
+		expect(listBlock).toBeTruthy();
+		expect(listBlock?.lines[0]?.[0]).toEqual({
+			kind: "strong",
+			text: "Opponent:",
+		});
+		expect(listBlock?.lines[0]?.[1]).toEqual({
+			kind: "text",
+			text: " Garden State",
+		});
+		expect(listBlock?.lines[2]?.[0]).toEqual({
+			kind: "strong",
+			text: "Result:",
+		});
+		expect(listBlock?.lines[2]?.[1]).toEqual({
+			kind: "text",
+			text: " ",
+		});
+		expect(listBlock?.lines[2]?.[2]).toEqual({
+			kind: "strong",
+			text: "Loss",
+		});
 	});
 
-	it("escapes unsafe HTML before rendering markdown", () => {
+	it("keeps unsafe HTML as plain text runs", () => {
 		const content = '**Safe** <img src=x onerror="alert(1)" />';
 
 		const rendered = formatChatMessageContent(content);
 
-		expect(rendered).toContain("<strong>Safe</strong>");
-		expect(rendered).toContain(
-			"&lt;img src=x onerror=&quot;alert(1)&quot; /&gt;",
-		);
-		expect(rendered).not.toContain("<img");
+		expect(rendered[0]?.kind).toBe("paragraph");
+		expect(rendered[0]?.lines[0]?.[0]).toEqual({ kind: "strong", text: "Safe" });
+		expect(rendered[0]?.lines[0]?.[1]).toEqual({
+			kind: "text",
+			text: ' <img src=x onerror="alert(1)" />',
+		});
 	});
 });

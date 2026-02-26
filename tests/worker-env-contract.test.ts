@@ -2,12 +2,18 @@ import { describe, expect, it } from "vitest";
 
 import { parseWorkerEnv } from "../worker/src/runtime/env";
 
+const baseEnv = {
+	OPENAI_API_KEY: "test-key",
+	SUPABASE_DB_URL: "postgres://postgres:postgres@localhost:5432/postgres",
+	SUPABASE_URL: "https://example.supabase.co",
+	SUPABASE_ANON_KEY: "anon-key",
+	AUTH_IP_HASH_SALT: "test-salt",
+	AUTH_TURNSTILE_BYPASS: "true",
+};
+
 describe("worker env contract", () => {
 	it("accepts required env with defaults", () => {
-		const parsed = parseWorkerEnv({
-			OPENAI_API_KEY: "test-key",
-			SUPABASE_DB_URL: "postgres://postgres:postgres@localhost:5432/postgres",
-		});
+		const parsed = parseWorkerEnv(baseEnv);
 
 		expect(parsed.ok).toBe(true);
 		if (parsed.ok) {
@@ -34,8 +40,7 @@ describe("worker env contract", () => {
 
 	it("ignores unknown legacy graph env vars", () => {
 		const parsed = parseWorkerEnv({
-			OPENAI_API_KEY: "test-key",
-			SUPABASE_DB_URL: "postgres://postgres:postgres@localhost:5432/postgres",
+			...baseEnv,
 			AGENT_ORCHESTRATOR: "invalid",
 			GRAPH_SELECTOR_MODE: "invalid",
 		});
@@ -45,8 +50,7 @@ describe("worker env contract", () => {
 
 	it("enables langfuse when all langfuse credentials are present", () => {
 		const parsed = parseWorkerEnv({
-			OPENAI_API_KEY: "test-key",
-			SUPABASE_DB_URL: "postgres://postgres:postgres@localhost:5432/postgres",
+			...baseEnv,
 			LANGFUSE_PUBLIC_KEY: "pk-lf-test",
 			LANGFUSE_SECRET_KEY: "sk-lf-test",
 			LANGFUSE_BASE_URL: "https://cloud.langfuse.com",
@@ -64,8 +68,7 @@ describe("worker env contract", () => {
 
 	it("accepts configured reasoning level", () => {
 		const parsed = parseWorkerEnv({
-			OPENAI_API_KEY: "test-key",
-			SUPABASE_DB_URL: "postgres://postgres:postgres@localhost:5432/postgres",
+			...baseEnv,
 			LLM_REASONING_LEVEL: "high",
 		});
 
@@ -77,8 +80,7 @@ describe("worker env contract", () => {
 
 	it("enables SQL explain plan capture when configured", () => {
 		const parsed = parseWorkerEnv({
-			OPENAI_API_KEY: "test-key",
-			SUPABASE_DB_URL: "postgres://postgres:postgres@localhost:5432/postgres",
+			...baseEnv,
 			SQL_CAPTURE_EXPLAIN_PLAN: "true",
 		});
 
@@ -90,8 +92,7 @@ describe("worker env contract", () => {
 
 	it("rejects invalid reasoning level", () => {
 		const parsed = parseWorkerEnv({
-			OPENAI_API_KEY: "test-key",
-			SUPABASE_DB_URL: "postgres://postgres:postgres@localhost:5432/postgres",
+			...baseEnv,
 			LLM_REASONING_LEVEL: "turbo",
 		});
 
@@ -100,8 +101,7 @@ describe("worker env contract", () => {
 
 	it("accepts configured lineup scoring env vars", () => {
 		const parsed = parseWorkerEnv({
-			OPENAI_API_KEY: "test-key",
-			SUPABASE_DB_URL: "postgres://postgres:postgres@localhost:5432/postgres",
+			...baseEnv,
 			LINEUP_ENABLE_DUPR_BLEND: "false",
 			LINEUP_DUPR_MAJOR_WEIGHT: "0.7",
 			LINEUP_ENABLE_TEAM_STRENGTH_ADJUSTMENT: "false",
@@ -123,8 +123,7 @@ describe("worker env contract", () => {
 
 	it("rejects invalid lineup dupr major weight", () => {
 		const parsed = parseWorkerEnv({
-			OPENAI_API_KEY: "test-key",
-			SUPABASE_DB_URL: "postgres://postgres:postgres@localhost:5432/postgres",
+			...baseEnv,
 			LINEUP_DUPR_MAJOR_WEIGHT: "1.2",
 		});
 		expect(parsed.ok).toBe(false);
@@ -132,8 +131,7 @@ describe("worker env contract", () => {
 
 	it("rejects non-positive lineup dupr slope", () => {
 		const parsed = parseWorkerEnv({
-			OPENAI_API_KEY: "test-key",
-			SUPABASE_DB_URL: "postgres://postgres:postgres@localhost:5432/postgres",
+			...baseEnv,
 			LINEUP_DUPR_SLOPE: "0",
 		});
 		expect(parsed.ok).toBe(false);
@@ -141,17 +139,35 @@ describe("worker env contract", () => {
 
 	it("rejects invalid team strength factor/cap", () => {
 		const negativeFactor = parseWorkerEnv({
-			OPENAI_API_KEY: "test-key",
-			SUPABASE_DB_URL: "postgres://postgres:postgres@localhost:5432/postgres",
+			...baseEnv,
 			LINEUP_TEAM_STRENGTH_FACTOR: "-0.1",
 		});
 		expect(negativeFactor.ok).toBe(false);
 
 		const nonPositiveCap = parseWorkerEnv({
-			OPENAI_API_KEY: "test-key",
-			SUPABASE_DB_URL: "postgres://postgres:postgres@localhost:5432/postgres",
+			...baseEnv,
 			LINEUP_TEAM_STRENGTH_CAP: "0",
 		});
 		expect(nonPositiveCap.ok).toBe(false);
+	});
+
+	it("rejects production auth bypass", () => {
+		const parsed = parseWorkerEnv({
+			...baseEnv,
+			APP_ENV: "production",
+			AUTH_BYPASS_ENABLED: "true",
+			AUTH_TURNSTILE_SECRET: "turnstile-secret",
+			AUTH_TURNSTILE_BYPASS: "false",
+			AUTH_ALLOWED_ORIGINS: "https://example.com",
+		});
+		expect(parsed.ok).toBe(false);
+	});
+
+	it("requires turnstile secret when bypass is disabled", () => {
+		const parsed = parseWorkerEnv({
+			...baseEnv,
+			AUTH_TURNSTILE_BYPASS: "false",
+		});
+		expect(parsed.ok).toBe(false);
 	});
 });

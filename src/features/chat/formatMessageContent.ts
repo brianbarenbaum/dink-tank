@@ -1,73 +1,87 @@
-const escapeHtml = (value: string): string =>
-	value
-		.replaceAll("&", "&amp;")
-		.replaceAll("<", "&lt;")
-		.replaceAll(">", "&gt;")
-		.replaceAll('"', "&quot;")
-		.replaceAll("'", "&#39;");
+export interface ChatTextRun {
+	kind: "text" | "strong" | "em" | "code";
+	text: string;
+}
 
-const formatInlineMarkdown = (value: string): string =>
-	value
-		.replace(/`([^`]+)`/g, "<code>$1</code>")
-		.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-		.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+export interface ChatContentBlock {
+	kind: "paragraph" | "list";
+	lines: ChatTextRun[][];
+}
 
-const renderParagraph = (lines: string[]): string => {
-	if (lines.length === 0) {
-		return "";
-	}
+const INLINE_TOKEN_PATTERN = /(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g;
 
-	return `<p>${lines.map(formatInlineMarkdown).join("<br />")}</p>`;
+const parseInlineRuns = (line: string): ChatTextRun[] => {
+	const tokens = line.split(INLINE_TOKEN_PATTERN).filter((token) => token.length > 0);
+	return tokens.map((token) => {
+		if (token.startsWith("`") && token.endsWith("`") && token.length > 2) {
+			return { kind: "code" as const, text: token.slice(1, -1) };
+		}
+		if (
+			token.startsWith("**") &&
+			token.endsWith("**") &&
+			token.length > 4
+		) {
+			return { kind: "strong" as const, text: token.slice(2, -2) };
+		}
+		if (token.startsWith("*") && token.endsWith("*") && token.length > 2) {
+			return { kind: "em" as const, text: token.slice(1, -1) };
+		}
+		return { kind: "text" as const, text: token };
+	});
 };
 
-const renderList = (items: string[]): string =>
-	`<ul>${items
-		.map((item) => `<li>${formatInlineMarkdown(item)}</li>`)
-		.join("")}</ul>`;
+const pushParagraph = (blocks: ChatContentBlock[], paragraphLines: string[]) => {
+	if (paragraphLines.length === 0) {
+		return;
+	}
+	blocks.push({
+		kind: "paragraph",
+		lines: paragraphLines.map(parseInlineRuns),
+	});
+	paragraphLines.length = 0;
+};
 
-export const formatChatMessageContent = (content: string): string => {
-	const lines = escapeHtml(content).split(/\r?\n/);
-	const blocks: string[] = [];
-	let paragraphLines: string[] = [];
-	let listItems: string[] = [];
+const pushList = (blocks: ChatContentBlock[], listItems: string[]) => {
+	if (listItems.length === 0) {
+		return;
+	}
+	blocks.push({
+		kind: "list",
+		lines: listItems.map(parseInlineRuns),
+	});
+	listItems.length = 0;
+};
 
-	const flushParagraph = () => {
-		const paragraph = renderParagraph(paragraphLines);
-		if (paragraph.length > 0) {
-			blocks.push(paragraph);
-		}
-		paragraphLines = [];
-	};
-
-	const flushList = () => {
-		if (listItems.length > 0) {
-			blocks.push(renderList(listItems));
-		}
-		listItems = [];
-	};
+export const formatChatMessageContent = (content: string): ChatContentBlock[] => {
+	const lines = content.split(/\r?\n/);
+	const blocks: ChatContentBlock[] = [];
+	const paragraphLines: string[] = [];
+	const listItems: string[] = [];
 
 	for (const rawLine of lines) {
 		const line = rawLine.trimEnd();
 		const listMatch = line.match(/^\s*-\s+(.*)$/);
-
 		if (listMatch) {
-			flushParagraph();
+			pushParagraph(blocks, paragraphLines);
 			listItems.push(listMatch[1]);
 			continue;
 		}
 
 		if (line.trim().length === 0) {
-			flushParagraph();
-			flushList();
+			pushParagraph(blocks, paragraphLines);
+			pushList(blocks, listItems);
 			continue;
 		}
 
-		flushList();
+		pushList(blocks, listItems);
 		paragraphLines.push(line);
 	}
 
-	flushParagraph();
-	flushList();
+	pushParagraph(blocks, paragraphLines);
+	pushList(blocks, listItems);
 
-	return blocks.join("");
+	if (blocks.length === 0) {
+		return [{ kind: "paragraph", lines: [[{ kind: "text", text: "" }]] }];
+	}
+	return blocks;
 };

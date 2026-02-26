@@ -1,18 +1,28 @@
 import { expect, test } from "@playwright/test";
 
 const runLocalBackend = process.env.RUN_LOCAL_BACKEND_E2E === "1";
+const hasAuthForLocalBackend =
+	process.env.WORKER_AUTH_BYPASS === "1" ||
+	typeof process.env.WORKER_TEST_ACCESS_TOKEN === "string";
 
 test.describe("local backend worker", () => {
 	test.skip(
-		!runLocalBackend,
-		"Set RUN_LOCAL_BACKEND_E2E=1 with worker env configured.",
+		!runLocalBackend || !hasAuthForLocalBackend,
+		"Set RUN_LOCAL_BACKEND_E2E=1 and either WORKER_AUTH_BYPASS=1 or WORKER_TEST_ACCESS_TOKEN.",
 	);
 
 	test("worker /api/chat returns reply payload", async ({ request }) => {
 		const workerBaseUrl =
 			process.env.WORKER_BASE_URL ?? "http://127.0.0.1:8787";
 		const response = await request.post(`${workerBaseUrl}/api/chat`, {
-			headers: { "content-type": "application/json" },
+			headers: {
+				"content-type": "application/json",
+				...(process.env.WORKER_TEST_ACCESS_TOKEN
+					? {
+							authorization: `Bearer ${process.env.WORKER_TEST_ACCESS_TOKEN}`,
+						}
+					: {}),
+			},
 			data: {
 				messages: [
 					{ role: "user", content: "Who has the highest win percentage?" },

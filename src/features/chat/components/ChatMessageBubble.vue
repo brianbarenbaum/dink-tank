@@ -25,9 +25,51 @@ const renderedContent = computed(() =>
     <header class="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--chat-muted)]">
       {{ label }}
     </header>
-    <div
-      class="chat-markdown text-sm leading-relaxed text-[var(--chat-text)]"
-      v-html="renderedContent"
-    />
+    <div class="chat-markdown text-sm leading-relaxed text-[var(--chat-text)]">
+      <template
+        v-for="(block, blockIndex) in renderedContent"
+        :key="`block-${blockIndex}`"
+      >
+        <p
+          v-if="block.kind === 'paragraph'"
+          class="chat-markdown__paragraph"
+        >
+          <template
+            v-for="(line, lineIndex) in block.lines"
+            :key="`line-${lineIndex}`"
+          >
+            <template
+              v-for="(run, runIndex) in line"
+              :key="`run-${lineIndex}-${runIndex}`"
+            >
+              <strong v-if="run.kind === 'strong'">{{ run.text }}</strong>
+              <em v-else-if="run.kind === 'em'">{{ run.text }}</em>
+              <code v-else-if="run.kind === 'code'">{{ run.text }}</code>
+              <span v-else>{{ run.text }}</span>
+            </template>
+            <br v-if="lineIndex < block.lines.length - 1">
+          </template>
+        </p>
+        <ul
+          v-else
+          class="chat-markdown__list"
+        >
+          <li
+            v-for="(line, lineIndex) in block.lines"
+            :key="`item-${lineIndex}`"
+          >
+            <template
+              v-for="(run, runIndex) in line"
+              :key="`item-run-${lineIndex}-${runIndex}`"
+            >
+              <strong v-if="run.kind === 'strong'">{{ run.text }}</strong>
+              <em v-else-if="run.kind === 'em'">{{ run.text }}</em>
+              <code v-else-if="run.kind === 'code'">{{ run.text }}</code>
+              <span v-else>{{ run.text }}</span>
+            </template>
+          </li>
+        </ul>
+      </template>
+    </div>
   </article>
 </template>
