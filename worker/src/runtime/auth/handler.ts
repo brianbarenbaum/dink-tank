@@ -17,7 +17,13 @@ import {
 	signOutSupabaseSession,
 	verifyOtpCode,
 } from "./supabaseAuthClient";
-import { getBearerToken, json } from "./http";
+import {
+	appendAuthCookies,
+	clearAuthCookies,
+	getAccessTokenFromRequest,
+	getRefreshTokenFromRequest,
+	json,
+} from "./http";
 import { getRequestIpAddress, hashWithSalt, isValidEmail, normalizeEmail } from "./crypto";
 import { verifyAccessToken } from "./jwt";
 import { verifyTurnstileToken } from "./turnstile";
@@ -93,6 +99,9 @@ const sanitizeVerifyBody = (body: OtpVerifyBody | null): OtpVerifyBody | null =>
 	};
 };
 
+const toErrorMessage = (error: unknown): string =>
+	error instanceof Error ? error.message : String(error);
+
 const shouldResetFailedAttempts = (
 	state: VerifyStateSnapshot | null,
 	nowMs: number,
@@ -165,14 +174,32 @@ export const handleOtpRequest = async (
 		return json({ error: "auth_failed", message: GENERIC_AUTH_FAILURE_MESSAGE }, 400);
 	}
 
-	let counts;
+	let counts:
+		| {
+				emailCount: number;
+				ipCount: number;
+				oldestEmailAt: Date | null;
+				oldestIpAt: Date | null;
+		  }
+		| null = null;
 	try {
 		counts = await fetchRecentOtpRequestCounts(env, emailHash, ipHash);
 	} catch (error) {
 		logError("auth_otp_request_rate_limit_check_failed", context, {
-			error: error instanceof Error ? error.message : String(error),
+			error: toErrorMessage(error),
 		});
-		return json({ error: "auth_failed", message: GENERIC_AUTH_FAILURE_MESSAGE }, 500);
+		if (env.APP_ENV !== "local") {
+			return json({ error: "auth_failed", message: GENERIC_AUTH_FAILURE_MESSAGE }, 500);
+		}
+		logWarn("auth_otp_request_rate_limit_check_failed_local_bypass", context, {
+			error: toErrorMessage(error),
+		});
+		counts = {
+			emailCount: 0,
+			ipCount: 0,
+			oldestEmailAt: null,
+			oldestIpAt: null,
+		};
 	}
 
 	const emailLimited = counts.emailCount >= OTP_REQUEST_EMAIL_LIMIT;
@@ -237,9 +264,14 @@ export const handleOtpRequest = async (
 				details: { reason: "supabase_otp_request_failed" },
 			}),
 		]);
-		return json(
-			{ ok: true, message: GENERIC_AUTH_REQUEST_MESSAGE, resendAfterSeconds: OTP_RESEND_SECONDS },
-			200,
+		return jsonWithRetryAfter(
+			{
+				error: "auth_failed",
+				message: GENERIC_AUTH_FAILURE_MESSAGE,
+				retryAfterSeconds: OTP_RESEND_SECONDS,
+			},
+			429,
+			OTP_RESEND_SECONDS,
 		);
 	}
 
@@ -272,7 +304,7 @@ export const handleOtpVerify = async (
 ): Promise<Response> => {
 	const context = createRequestContext(request);
 	const body = sanitizeVerifyBody(await parseJsonBody<OtpVerifyBody>(request));
-	if (!body || !isValidEmail(body.email) || !/^\d{6}$/.test(body.code)) {
+	if (!body || !isValidEmail(body.email) || !/^\d{6,8}$/.test(body.code)) {
 		logWarn("auth_otp_verify_invalid", context);
 		return json({ error: "auth_failed", message: GENERIC_AUTH_FAILURE_MESSAGE }, 400);
 	}
@@ -293,9 +325,37 @@ export const handleOtpVerify = async (
 		});
 	}
 
-	let verifyState = await getVerifyState(env, emailHash);
+	let verifyState: VerifyStateSnapshot | null = null;
+	try {
+		verifyState = await getVerifyState(env, emailHash);
+	} catch (error) {
+		logError("auth_otp_verify_state_read_failed", context, {
+			error: toErrorMessage(error),
+		});
+		if (env.APP_ENV !== "local") {
+			return json({ error: "auth_failed", message: GENERIC_AUTH_FAILURE_MESSAGE }, 500);
+		}
+		logWarn("auth_otp_verify_state_read_failed_local_bypass", context, {
+			error: toErrorMessage(error),
+		});
+	}
 	if (shouldResetFailedAttempts(verifyState, nowMs)) {
-		await clearVerifyState(env, emailHash);
+		try {
+			await clearVerifyState(env, emailHash);
+		} catch (error) {
+			logError("auth_otp_verify_state_clear_failed", context, {
+				error: toErrorMessage(error),
+			});
+			if (env.APP_ENV !== "local") {
+				return json(
+					{ error: "auth_failed", message: GENERIC_AUTH_FAILURE_MESSAGE },
+					500,
+				);
+			}
+			logWarn("auth_otp_verify_state_clear_failed_local_bypass", context, {
+				error: toErrorMessage(error),
+			});
+		}
 		verifyState = null;
 	}
 
@@ -333,7 +393,7 @@ export const handleOtpVerify = async (
 
 	const result = await verifyOtpCode(env, normalizedEmail, body.code);
 	if (result.ok) {
-		await Promise.all([
+		await Promise.allSettled([
 			clearVerifyState(env, emailHash),
 			insertOtpVerifyEvent(env, {
 				requestId: context.requestId,
@@ -350,7 +410,23 @@ export const handleOtpVerify = async (
 				emailHash,
 			}),
 		]);
-		return json({ session: result.session }, 200);
+		return appendAuthCookies(
+			json(
+				{
+					session: {
+						user: result.session.user,
+						expiresAt: result.session.expiresAt,
+					},
+				},
+				200,
+			),
+			env,
+			{
+				accessToken: result.session.accessToken,
+				refreshToken: result.session.refreshToken,
+				accessTokenExpiresAt: result.session.expiresAt,
+			},
+		);
 	}
 
 	const resetWindowExceeded =
@@ -365,34 +441,49 @@ export const handleOtpVerify = async (
 		nextAttempts >= OTP_VERIFY_LOCK_ATTEMPTS
 			? new Date(nowMs + OTP_VERIFY_LOCK_SECONDS * 1000)
 			: null;
-	await Promise.all([
-		upsertVerifyState(env, {
-			emailHash,
-			failedAttempts: nextAttempts,
-			cooldownUntil,
-			lockedUntil,
-			lastFailedAt: nowDate,
-		}),
-		insertOtpVerifyEvent(env, {
-			requestId: context.requestId,
-			emailNormalized: normalizedEmail,
-			emailHash,
-			ipHash,
-			success: false,
-			reason: lockedUntil ? "locked" : "invalid_code",
-		}),
-		insertAuthAuditEvent(env, {
-			requestId: context.requestId,
-			eventType: "otp_verify",
-			status: "failure",
-			emailNormalized: normalizedEmail,
-			emailHash,
-			details: {
+	try {
+		await Promise.all([
+			upsertVerifyState(env, {
+				emailHash,
+				failedAttempts: nextAttempts,
+				cooldownUntil,
+				lockedUntil,
+				lastFailedAt: nowDate,
+			}),
+			insertOtpVerifyEvent(env, {
+				requestId: context.requestId,
+				emailNormalized: normalizedEmail,
+				emailHash,
+				ipHash,
+				success: false,
 				reason: lockedUntil ? "locked" : "invalid_code",
-				attempt: nextAttempts,
-			},
-		}),
-	]);
+			}),
+			insertAuthAuditEvent(env, {
+				requestId: context.requestId,
+				eventType: "otp_verify",
+				status: "failure",
+				emailNormalized: normalizedEmail,
+				emailHash,
+				details: {
+					reason: lockedUntil ? "locked" : "invalid_code",
+					attempt: nextAttempts,
+				},
+			}),
+		]);
+	} catch (error) {
+		logError("auth_otp_verify_state_write_failed", context, {
+			error: toErrorMessage(error),
+		});
+		if (env.APP_ENV !== "local") {
+			return json(
+				{ error: "auth_failed", message: GENERIC_AUTH_FAILURE_MESSAGE },
+				500,
+			);
+		}
+		logWarn("auth_otp_verify_state_write_failed_local_bypass", context, {
+			error: toErrorMessage(error),
+		});
+	}
 
 	if (lockedUntil) {
 		return jsonWithRetryAfter(
@@ -437,7 +528,7 @@ export const handleAuthSession = async (
 		);
 	}
 
-	const token = getBearerToken(request);
+	const token = getAccessTokenFromRequest(request);
 	if (!token) {
 		return json({ authenticated: false }, 200);
 	}
@@ -469,7 +560,9 @@ export const handleAuthRefresh = async (
 	const context = createRequestContext(request);
 	const body = await parseJsonBody<RefreshBody>(request);
 	const refreshToken =
-		typeof body?.refreshToken === "string" ? body.refreshToken.trim() : "";
+		typeof body?.refreshToken === "string" && body.refreshToken.trim().length > 0
+			? body.refreshToken.trim()
+			: getRefreshTokenFromRequest(request) ?? "";
 	if (!refreshToken) {
 		return json({ error: "auth_failed", message: GENERIC_AUTH_FAILURE_MESSAGE }, 400);
 	}
@@ -484,7 +577,23 @@ export const handleAuthRefresh = async (
 		return json({ error: "auth_failed", message: GENERIC_AUTH_FAILURE_MESSAGE }, 401);
 	}
 
-	return json({ session: refreshed.session }, 200);
+	return appendAuthCookies(
+		json(
+			{
+				session: {
+					user: refreshed.session.user,
+					expiresAt: refreshed.session.expiresAt,
+				},
+			},
+			200,
+		),
+		env,
+		{
+			accessToken: refreshed.session.accessToken,
+			refreshToken: refreshed.session.refreshToken,
+			accessTokenExpiresAt: refreshed.session.expiresAt,
+		},
+	);
 };
 
 export const handleAuthSignOut = async (
@@ -493,7 +602,8 @@ export const handleAuthSignOut = async (
 ): Promise<Response> => {
 	const context = createRequestContext(request);
 	const body = await parseJsonBody<SignOutBody>(request);
-	const token = getBearerToken(request);
+	const token = getAccessTokenFromRequest(request);
+	const refreshToken = getRefreshTokenFromRequest(request);
 
 	if (token) {
 		const signOutOk = await signOutSupabaseSession(env, token);
@@ -502,17 +612,20 @@ export const handleAuthSignOut = async (
 			eventType: "signout",
 			status: signOutOk ? "success" : "failure",
 		});
-		return json({ success: true }, 200);
+		return clearAuthCookies(json({ success: true }, 200), env);
 	}
 
-	if (typeof body?.refreshToken !== "string" || body.refreshToken.trim().length === 0) {
+	if (
+		(typeof body?.refreshToken !== "string" || body.refreshToken.trim().length === 0) &&
+		!refreshToken
+	) {
 		await insertAuthAuditEvent(env, {
 			requestId: context.requestId,
 			eventType: "signout",
 			status: "failure",
 			details: { reason: "missing_tokens" },
 		});
-		return json({ success: true }, 200);
+		return clearAuthCookies(json({ success: true }, 200), env);
 	}
 
 	if (env.AUTH_BYPASS_ENABLED) {
@@ -521,7 +634,7 @@ export const handleAuthSignOut = async (
 			eventType: "signout",
 			status: "success",
 		});
-		return json({ success: true }, 200);
+		return clearAuthCookies(json({ success: true }, 200), env);
 	}
 
 	// Supabase local sign-out requires an access token; clear locally even when remote revoke is unavailable.
@@ -532,7 +645,7 @@ export const handleAuthSignOut = async (
 		status: "success",
 		details: { remoteRevocation: false },
 	});
-	return json({ success: true }, 200);
+	return clearAuthCookies(json({ success: true }, 200), env);
 };
 
 export const requireAuthenticatedRequest = async (
@@ -543,7 +656,7 @@ export const requireAuthenticatedRequest = async (
 		return { ok: true };
 	}
 
-	const token = getBearerToken(request);
+	const token = getAccessTokenFromRequest(request);
 	if (!token) {
 		return {
 			ok: false,

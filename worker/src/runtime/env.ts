@@ -46,7 +46,6 @@ const DEFAULT_MODEL = "gpt-4.1-mini";
 const DEFAULT_REASONING_LEVEL = "medium";
 const DEFAULT_SQL_TIMEOUT_MS = 25_000;
 const DEFAULT_LANGFUSE_TRACING_ENVIRONMENT = "default";
-const DEFAULT_APP_ENV = "local";
 const DEFAULT_AUTH_AUDIENCE = "authenticated";
 const DEFAULT_LOCAL_ALLOWED_ORIGINS = ["http://localhost:5173"];
 const DEFAULT_LINEUP_ENABLE_DUPR_BLEND = true;
@@ -92,8 +91,10 @@ export const parseWorkerEnv = (
 
 	const rawAppEnv =
 		env.APP_ENV?.trim().toLowerCase() ??
-		env.ENVIRONMENT?.trim().toLowerCase() ??
-		DEFAULT_APP_ENV;
+		env.ENVIRONMENT?.trim().toLowerCase();
+	if (!rawAppEnv) {
+		return { ok: false, error: "Missing APP_ENV" };
+	}
 	if (
 		rawAppEnv !== "local" &&
 		rawAppEnv !== "staging" &&
@@ -109,20 +110,20 @@ export const parseWorkerEnv = (
 	const AUTH_BYPASS_ENABLED = TRUE_VALUES.has(
 		env.AUTH_BYPASS_ENABLED?.trim().toLowerCase() ?? "",
 	);
-	if (APP_ENV === "production" && AUTH_BYPASS_ENABLED) {
+	if (APP_ENV !== "local" && AUTH_BYPASS_ENABLED) {
 		return {
 			ok: false,
-			error: "AUTH_BYPASS_ENABLED is not allowed in production",
+			error: "AUTH_BYPASS_ENABLED is only allowed in local",
 		};
 	}
 
 	const AUTH_TURNSTILE_BYPASS = TRUE_VALUES.has(
 		env.AUTH_TURNSTILE_BYPASS?.trim().toLowerCase() ?? "",
 	);
-	if (APP_ENV === "production" && AUTH_TURNSTILE_BYPASS) {
+	if (APP_ENV !== "local" && AUTH_TURNSTILE_BYPASS) {
 		return {
 			ok: false,
-			error: "AUTH_TURNSTILE_BYPASS is not allowed in production",
+			error: "AUTH_TURNSTILE_BYPASS is only allowed in local",
 		};
 	}
 
@@ -166,6 +167,16 @@ export const parseWorkerEnv = (
 		return {
 			ok: false,
 			error: "SQL_QUERY_TIMEOUT_MS must be a positive integer",
+		};
+	}
+
+	const SUPABASE_DB_SSL_NO_VERIFY = TRUE_VALUES.has(
+		env.SUPABASE_DB_SSL_NO_VERIFY?.trim().toLowerCase() ?? "",
+	);
+	if (APP_ENV !== "local" && SUPABASE_DB_SSL_NO_VERIFY) {
+		return {
+			ok: false,
+			error: "SUPABASE_DB_SSL_NO_VERIFY is only allowed in local",
 		};
 	}
 
@@ -235,9 +246,7 @@ export const parseWorkerEnv = (
 		value: {
 			OPENAI_API_KEY,
 			SUPABASE_DB_URL,
-			SUPABASE_DB_SSL_NO_VERIFY: TRUE_VALUES.has(
-				env.SUPABASE_DB_SSL_NO_VERIFY?.trim().toLowerCase() ?? "",
-			),
+			SUPABASE_DB_SSL_NO_VERIFY,
 			APP_ENV,
 			SUPABASE_URL,
 			SUPABASE_ANON_KEY,

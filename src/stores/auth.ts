@@ -17,8 +17,6 @@ const parseSession = (raw: string | null): AuthSession | null => {
 	try {
 		const parsed = JSON.parse(raw) as AuthSession;
 		if (
-			typeof parsed.accessToken !== "string" ||
-			typeof parsed.refreshToken !== "string" ||
 			typeof parsed.expiresAt !== "number" ||
 			typeof parsed.user?.id !== "string"
 		) {
@@ -54,7 +52,7 @@ export const useAuthStore = defineStore("auth", () => {
 		import.meta.env.DEV && import.meta.env.VITE_AUTH_BYPASS === "true";
 
 	const isAuthenticated = computed(() => status.value === "authenticated");
-	const accessToken = computed(() => session.value?.accessToken ?? null);
+	const accessToken = computed<string | null>(() => null);
 
 	const persistSession = (value: AuthSession | null) => {
 		session.value = value;
@@ -108,18 +106,12 @@ export const useAuthStore = defineStore("auth", () => {
 		if (isAuthBypassEnabled) {
 			return session.value;
 		}
-		if (!session.value?.refreshToken) {
-			clearSession();
-			return null;
-		}
 		if (refreshPromise) {
 			return refreshPromise;
 		}
 		refreshPromise = (async () => {
 			try {
-				const nextSession = await authClient.refresh({
-					refreshToken: session.value?.refreshToken ?? "",
-				});
+				const nextSession = await authClient.refresh();
 				persistSession(nextSession);
 				status.value = "authenticated";
 				return nextSession;
@@ -146,8 +138,6 @@ export const useAuthStore = defineStore("auth", () => {
 				if (isAuthBypassEnabled) {
 					status.value = "authenticated";
 					session.value = {
-						accessToken: "",
-						refreshToken: "",
 						expiresAt: Math.floor(Date.now() / 1000) + 60 * 60,
 						user: {
 							id: "local-auth-bypass-user",
@@ -164,19 +154,12 @@ export const useAuthStore = defineStore("auth", () => {
 					typeof window === "undefined"
 						? null
 						: parseSession(window.localStorage.getItem(SESSION_STORAGE_KEY));
-				if (!stored) {
-					status.value = "unauthenticated";
-					return;
-				}
-
-				persistSession(stored);
 				try {
-					const result = await authClient.getSession(stored.accessToken);
+					const result = await authClient.getSession();
 					if (result.authenticated) {
 						status.value = "authenticated";
 						if (result.session?.expiresAt) {
 							persistSession({
-								...stored,
 								expiresAt: result.session.expiresAt,
 								user: result.session.user,
 							});
@@ -187,6 +170,9 @@ export const useAuthStore = defineStore("auth", () => {
 					// fall through to refresh
 				}
 
+				if (stored) {
+					persistSession(stored);
+				}
 				const refreshed = await refreshSession();
 				status.value = refreshed ? "authenticated" : "unauthenticated";
 			} finally {
@@ -226,10 +212,7 @@ export const useAuthStore = defineStore("auth", () => {
 
 	const signOut = async (): Promise<void> => {
 		try {
-			await authClient.signOut({
-				accessToken: session.value?.accessToken ?? null,
-				refreshToken: session.value?.refreshToken ?? null,
-			});
+			await authClient.signOut();
 		} finally {
 			clearSession();
 		}
@@ -244,15 +227,15 @@ export const useAuthStore = defineStore("auth", () => {
 		}
 		const now = Math.floor(Date.now() / 1000);
 		if (session.value.expiresAt - now <= REFRESH_LEEWAY_SECONDS) {
-			const refreshed = await refreshSession();
-			return refreshed?.accessToken ?? null;
+			await refreshSession();
+			return null;
 		}
-		return session.value.accessToken;
+		return null;
 	};
 
 	const refreshAfterUnauthorized = async (): Promise<boolean> => {
 		const refreshed = await refreshSession();
-		return Boolean(refreshed?.accessToken);
+		return Boolean(refreshed);
 	};
 
 	return {

@@ -60,13 +60,15 @@ const startCountdown = () => {
 };
 
 const verifyCode = async () => {
-	if (!code.value.trim() || isVerifying.value) {
+	const normalizedCode = code.value.replace(/\D/g, "").trim();
+	code.value = normalizedCode;
+	if (!normalizedCode || isVerifying.value) {
 		return;
 	}
 	errorMessage.value = null;
 	isVerifying.value = true;
 	try {
-		await authStore.verifyOtp(email.value, code.value.trim());
+		await authStore.verifyOtp(email.value, normalizedCode);
 		const redirect =
 			typeof route.query.redirect === "string" ? route.query.redirect : null;
 		await router.replace(safeRedirect(redirect));
@@ -171,7 +173,7 @@ onBeforeUnmount(() => {
     <section class="mx-auto max-w-md rounded-xl border border-[var(--chat-divider)] bg-[color:var(--chat-panel)] p-6 md:p-8">
       <h1 class="text-lg font-semibold uppercase tracking-[0.18em]">Verify Code</h1>
       <p class="mt-2 text-sm text-[var(--chat-muted)]">
-        Enter the 6-digit code sent to {{ email }}.
+        Enter the one-time code sent to {{ email }}.
       </p>
 
       <form
@@ -186,7 +188,7 @@ onBeforeUnmount(() => {
             class="h-11 w-full rounded-md border border-[var(--chat-divider)] bg-transparent px-3 text-sm tracking-[0.25em]"
             data-testid="auth-otp-code-input"
             inputmode="numeric"
-            maxlength="6"
+            maxlength="8"
             required
             type="text"
           >

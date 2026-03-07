@@ -7,8 +7,6 @@ import { useAuthStore } from "../src/stores/auth";
 const SESSION_STORAGE_KEY = "dink_tank.auth.session.v1";
 
 const createSessionFixture = () => ({
-	accessToken: "access-token",
-	refreshToken: "refresh-token",
 	expiresAt: Math.floor(Date.now() / 1000) + 60 * 30,
 	user: {
 		id: "user-123",

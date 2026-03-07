@@ -8,6 +8,7 @@ const baseEnv = {
 	SUPABASE_URL: "https://example.supabase.co",
 	SUPABASE_ANON_KEY: "anon-key",
 	AUTH_IP_HASH_SALT: "test-salt",
+	APP_ENV: "local",
 	AUTH_TURNSTILE_BYPASS: "true",
 };
 
@@ -35,6 +36,19 @@ describe("worker env contract", () => {
 
 	it("rejects missing required env vars", () => {
 		const parsed = parseWorkerEnv({});
+		expect(parsed.ok).toBe(false);
+	});
+
+	it("requires explicit app environment", () => {
+		const parsed = parseWorkerEnv({
+			OPENAI_API_KEY: "test-key",
+			SUPABASE_DB_URL: "postgres://postgres:postgres@localhost:5432/postgres",
+			SUPABASE_URL: "https://example.supabase.co",
+			SUPABASE_ANON_KEY: "anon-key",
+			AUTH_IP_HASH_SALT: "test-salt",
+			AUTH_TURNSTILE_BYPASS: "true",
+		});
+
 		expect(parsed.ok).toBe(false);
 	});
 
@@ -159,6 +173,37 @@ describe("worker env contract", () => {
 			AUTH_TURNSTILE_SECRET: "turnstile-secret",
 			AUTH_TURNSTILE_BYPASS: "false",
 			AUTH_ALLOWED_ORIGINS: "https://example.com",
+		});
+		expect(parsed.ok).toBe(false);
+	});
+
+	it("rejects staging auth bypass", () => {
+		const parsed = parseWorkerEnv({
+			...baseEnv,
+			APP_ENV: "staging",
+			AUTH_BYPASS_ENABLED: "true",
+		});
+		expect(parsed.ok).toBe(false);
+	});
+
+	it("rejects staging turnstile bypass", () => {
+		const parsed = parseWorkerEnv({
+			...baseEnv,
+			APP_ENV: "staging",
+			AUTH_TURNSTILE_BYPASS: "true",
+			AUTH_TURNSTILE_SECRET: "turnstile-secret",
+		});
+		expect(parsed.ok).toBe(false);
+	});
+
+	it("rejects disabling DB TLS verification outside local", () => {
+		const parsed = parseWorkerEnv({
+			...baseEnv,
+			APP_ENV: "production",
+			AUTH_TURNSTILE_BYPASS: "false",
+			AUTH_TURNSTILE_SECRET: "turnstile-secret",
+			AUTH_ALLOWED_ORIGINS: "https://example.com",
+			SUPABASE_DB_SSL_NO_VERIFY: "true",
 		});
 		expect(parsed.ok).toBe(false);
 	});

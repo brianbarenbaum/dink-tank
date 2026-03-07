@@ -136,6 +136,7 @@ describe("worker chat handler", () => {
 			SUPABASE_URL: "https://example.supabase.co",
 			SUPABASE_ANON_KEY: "anon-key",
 			AUTH_IP_HASH_SALT: "test-salt",
+			APP_ENV: "local",
 			AUTH_TURNSTILE_BYPASS: "true",
 		});
 
@@ -153,6 +154,7 @@ describe("worker chat handler", () => {
 			SUPABASE_URL: "https://example.supabase.co",
 			SUPABASE_ANON_KEY: "anon-key",
 			AUTH_IP_HASH_SALT: "test-salt",
+			APP_ENV: "local",
 			AUTH_TURNSTILE_BYPASS: "true",
 			AUTH_BYPASS_ENABLED: "true",
 			LLM_MODEL: "gpt-5.1",
@@ -163,5 +165,26 @@ describe("worker chat handler", () => {
 		expect(response.status).toBe(200);
 		expect(body.model).toBe("gpt-5.1");
 		expect(body.defaultReasoningLevel).toBe("high");
+	});
+
+	it("adds HSTS to API responses", async () => {
+		const request = new Request("http://localhost/api/chat/config", {
+			method: "GET",
+		});
+
+		const response = await handleFetch(request, {
+			OPENAI_API_KEY: "test-key",
+			SUPABASE_DB_URL: "postgres://postgres:postgres@localhost:5432/postgres",
+			SUPABASE_URL: "https://example.supabase.co",
+			SUPABASE_ANON_KEY: "anon-key",
+			AUTH_IP_HASH_SALT: "test-salt",
+			APP_ENV: "local",
+			AUTH_TURNSTILE_BYPASS: "true",
+			AUTH_BYPASS_ENABLED: "true",
+		});
+
+		expect(response.headers.get("strict-transport-security")).toContain(
+			"max-age=",
+		);
 	});
 });

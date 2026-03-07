@@ -4,8 +4,6 @@ export interface AuthUserSummary {
 }
 
 export interface AuthSession {
-	accessToken: string;
-	refreshToken: string;
 	expiresAt: number;
 	user: AuthUserSummary;
 }

@@ -74,6 +74,7 @@ import {
 	handleAuthRefresh,
 	handleOtpRequest,
 	handleOtpVerify,
+	requireAuthenticatedRequest,
 } from "../worker/src/runtime/auth/handler";
 
 const env: WorkerEnv = {
@@ -180,6 +181,8 @@ describe("worker auth handler", () => {
 
 		expect(response.status).toBe(200);
 		expect(body.session).toBeTruthy();
+		expect(response.headers.get("set-cookie")).toContain("dink_tank_access_token=");
+		expect(response.headers.get("set-cookie")).toContain("HttpOnly");
 		expect(clearVerifyState).toHaveBeenCalled();
 	});
 
@@ -192,6 +195,28 @@ describe("worker auth handler", () => {
 
 		expect(response.status).toBe(200);
 		expect(body.authenticated).toBe(false);
+	});
+
+	it("returns authenticated auth-session response with valid access-token cookie", async () => {
+		verifyAccessToken.mockResolvedValue({
+			ok: true,
+			value: {
+				userId: "user-123",
+				email: "user@example.com",
+				expiresAt: Math.floor(Date.now() / 1000) + 3600,
+				issuedAt: Math.floor(Date.now() / 1000),
+			},
+		});
+		const request = new Request("http://localhost/api/auth/session", {
+			method: "GET",
+			headers: { cookie: "dink_tank_access_token=cookie-token" },
+		});
+		const response = await handleAuthSession(request, env);
+		const body = await parseJson(response);
+
+		expect(response.status).toBe(200);
+		expect(body.authenticated).toBe(true);
+		expect(verifyAccessToken).toHaveBeenCalledWith(env, "cookie-token");
 	});
 
 	it("returns authenticated auth-session response with valid bearer token", async () => {
@@ -219,11 +244,42 @@ describe("worker auth handler", () => {
 		refreshSupabaseSession.mockResolvedValue({ ok: false });
 		const request = new Request("http://localhost/api/auth/refresh", {
 			method: "POST",
-			headers: { "content-type": "application/json" },
-			body: JSON.stringify({ refreshToken: "bad" }),
+			headers: {
+				"content-type": "application/json",
+				cookie: "dink_tank_refresh_token=bad",
+			},
 		});
 		const response = await handleAuthRefresh(request, env);
 		expect(response.status).toBe(401);
+	});
+
+	it("refreshes session from refresh-token cookie and rotates cookies", async () => {
+		refreshSupabaseSession.mockResolvedValue({
+			ok: true,
+			session: {
+				accessToken: "next-access",
+				refreshToken: "next-refresh",
+				expiresAt: Math.floor(Date.now() / 1000) + 3600,
+				user: {
+					id: "user-123",
+					email: "user@example.com",
+				},
+			},
+		});
+		const request = new Request("http://localhost/api/auth/refresh", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				cookie: "dink_tank_refresh_token=refresh-cookie",
+			},
+		});
+		const response = await handleAuthRefresh(request, env);
+		const body = await parseJson(response);
+
+		expect(response.status).toBe(200);
+		expect(body.session).toBeTruthy();
+		expect(refreshSupabaseSession).toHaveBeenCalledWith(env, "refresh-cookie");
+		expect(response.headers.get("set-cookie")).toContain("dink_tank_refresh_token=next-refresh");
 	});
 
 	it("returns success from signout even without access token", async () => {
@@ -234,5 +290,41 @@ describe("worker auth handler", () => {
 		});
 		const response = await handleAuthSignOut(request, env);
 		expect(response.status).toBe(200);
+	});
+
+	it("clears auth cookies on signout", async () => {
+		const request = new Request("http://localhost/api/auth/signout", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				cookie:
+					"dink_tank_access_token=access; dink_tank_refresh_token=refresh",
+			},
+		});
+		const response = await handleAuthSignOut(request, env);
+
+		expect(response.status).toBe(200);
+		expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
+	});
+
+	it("accepts protected API requests with access-token cookie", async () => {
+		verifyAccessToken.mockResolvedValue({
+			ok: true,
+			value: {
+				userId: "user-123",
+				email: "user@example.com",
+				expiresAt: Math.floor(Date.now() / 1000) + 3600,
+				issuedAt: Math.floor(Date.now() / 1000),
+			},
+		});
+		const request = new Request("http://localhost/api/chat", {
+			method: "POST",
+			headers: { cookie: "dink_tank_access_token=cookie-token" },
+		});
+
+		const result = await requireAuthenticatedRequest(request, env);
+
+		expect(result.ok).toBe(true);
+		expect(verifyAccessToken).toHaveBeenCalledWith(env, "cookie-token");
 	});
 });

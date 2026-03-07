@@ -10,21 +10,12 @@ interface VerifyOtpInput {
 	code: string;
 }
 
-interface RefreshInput {
-	refreshToken: string;
-}
-
-interface SignOutInput {
-	accessToken: string | null;
-	refreshToken: string | null;
-}
-
 interface AuthClient {
 	requestOtp(input: RequestOtpInput): Promise<{ resendAfterSeconds: number }>;
 	verifyOtp(input: VerifyOtpInput): Promise<AuthSession>;
-	getSession(accessToken: string | null): Promise<SessionCheckResult>;
-	refresh(input: RefreshInput): Promise<AuthSession>;
-	signOut(input: SignOutInput): Promise<void>;
+	getSession(): Promise<SessionCheckResult>;
+	refresh(): Promise<AuthSession>;
+	signOut(): Promise<void>;
 }
 
 const parseJson = async <T>(response: Response): Promise<T> =>
@@ -35,14 +26,10 @@ const normalizeSession = (session: unknown): AuthSession => {
 		throw new Error("Invalid session payload");
 	}
 	const value = session as {
-		accessToken?: unknown;
-		refreshToken?: unknown;
 		expiresAt?: unknown;
 		user?: { id?: unknown; email?: unknown };
 	};
 	if (
-		typeof value.accessToken !== "string" ||
-		typeof value.refreshToken !== "string" ||
 		typeof value.expiresAt !== "number" ||
 		typeof value.user?.id !== "string"
 	) {
@@ -50,8 +37,6 @@ const normalizeSession = (session: unknown): AuthSession => {
 	}
 
 	return {
-		accessToken: value.accessToken,
-		refreshToken: value.refreshToken,
 		expiresAt: value.expiresAt,
 		user: {
 			id: value.user.id,
@@ -110,12 +95,11 @@ export const createAuthClient = (fetchImpl: typeof fetch): AuthClient => ({
 
 		return normalizeSession(payload.session);
 	},
-	async getSession(accessToken) {
+	async getSession() {
 		const response = await fetchImpl("/api/auth/session", {
 			method: "GET",
 			headers: {
 				"content-type": "application/json",
-				...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}),
 			},
 		});
 		if (!response.ok) {
@@ -123,13 +107,12 @@ export const createAuthClient = (fetchImpl: typeof fetch): AuthClient => ({
 		}
 		return parseJson<SessionCheckResult>(response);
 	},
-	async refresh(input) {
+	async refresh() {
 		const response = await fetchImpl("/api/auth/refresh", {
 			method: "POST",
 			headers: {
 				"content-type": "application/json",
 			},
-			body: JSON.stringify(input),
 		});
 		const payload = await parseJson<{ session?: unknown }>(response);
 		if (!response.ok || !payload.session) {
@@ -137,16 +120,12 @@ export const createAuthClient = (fetchImpl: typeof fetch): AuthClient => ({
 		}
 		return normalizeSession(payload.session);
 	},
-	async signOut(input) {
+	async signOut() {
 		await fetchImpl("/api/auth/signout", {
 			method: "POST",
 			headers: {
 				"content-type": "application/json",
-				...(input.accessToken
-					? { authorization: `Bearer ${input.accessToken}` }
-					: {}),
 			},
-			body: JSON.stringify({ refreshToken: input.refreshToken }),
 		});
 	},
 });
