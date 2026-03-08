@@ -1,7 +1,10 @@
 import { Pool } from "pg";
 
 import type { WorkerEnv } from "../env";
+import { getApprovedSqlRelations } from "./approvedRelations";
+import { extractReferencedRelations } from "./extractReferencedRelations";
 import { sanitizeSqlQuery } from "./sqlSafety";
+import { SqlSafetyError } from "./sqlErrors";
 
 let cachedPool: Pool | null = null;
 let cachedPoolUrl: string | null = null;
@@ -11,31 +14,50 @@ const DEFAULT_IDLE_TIMEOUT_MS = 5_000;
 const DEFAULT_MAX_USES = 20;
 const MAX_SQL_RETRY_BUDGET_MS = 15_000;
 
+export interface SqlExecutionOptions {
+	enforceApprovedRelations?: boolean;
+}
+
 const nowMs = (): number => Date.now();
 
 const normalizeQueryForLog = (query: string): string =>
 	query.replace(/\s+/g, " ").trim().slice(0, 600);
 
+const canLogSensitiveSqlDetails = (env: WorkerEnv): boolean =>
+	env.APP_ENV === "local";
+
+const buildSqlLogPayload = (
+	env: WorkerEnv,
+	query: string,
+	data: Record<string, unknown>,
+): Record<string, unknown> =>
+	canLogSensitiveSqlDetails(env)
+		? { ...data, query: normalizeQueryForLog(query) }
+		: data;
+
 const logSqlQueryExecuted = (data: {
+	env: WorkerEnv;
 	query: string;
 	durationMs: number;
 	rowCount: number;
 	timeoutMs: number;
 }): void => {
 	console.log(
-		JSON.stringify({
-			level: "info",
-			component: "sql_executor",
-			message: "sql_query_executed",
-			query: normalizeQueryForLog(data.query),
-			durationMs: data.durationMs,
-			rowCount: data.rowCount,
-			timeoutMs: data.timeoutMs,
-		}),
+		JSON.stringify(
+			buildSqlLogPayload(data.env, data.query, {
+				level: "info",
+				component: "sql_executor",
+				message: "sql_query_executed",
+				durationMs: data.durationMs,
+				rowCount: data.rowCount,
+				timeoutMs: data.timeoutMs,
+			}),
+		),
 	);
 };
 
 const logSqlQueryFailed = (data: {
+	env: WorkerEnv;
 	query: string;
 	durationMs: number;
 	timeoutMs: number;
@@ -46,15 +68,16 @@ const logSqlQueryFailed = (data: {
 			? { name: data.error.name, message: data.error.message }
 			: { name: "UnknownError", message: String(data.error) };
 	console.error(
-		JSON.stringify({
-			level: "error",
-			component: "sql_executor",
-			message: "sql_query_failed",
-			query: normalizeQueryForLog(data.query),
-			durationMs: data.durationMs,
-			timeoutMs: data.timeoutMs,
-			error: errorPayload,
-		}),
+		JSON.stringify(
+			buildSqlLogPayload(data.env, data.query, {
+				level: "error",
+				component: "sql_executor",
+				message: "sql_query_failed",
+				durationMs: data.durationMs,
+				timeoutMs: data.timeoutMs,
+				error: errorPayload,
+			}),
+		),
 	);
 };
 
@@ -79,54 +102,64 @@ const logSqlPoolState = (pool: Pool, reason: string): void => {
 	);
 };
 
-const logSqlQueryRetry = (data: { query: string; reason: string }): void => {
+const logSqlQueryRetry = (data: {
+	env: WorkerEnv;
+	query: string;
+	reason: string;
+}): void => {
 	console.warn(
-		JSON.stringify({
-			level: "warn",
-			component: "sql_executor",
-			message: "sql_query_retrying",
-			query: normalizeQueryForLog(data.query),
-			reason: data.reason,
-		}),
+		JSON.stringify(
+			buildSqlLogPayload(data.env, data.query, {
+				level: "warn",
+				component: "sql_executor",
+				message: "sql_query_retrying",
+				reason: data.reason,
+			}),
+		),
 	);
 };
 
 const logSqlQueryRetrySkipped = (data: {
+	env: WorkerEnv;
 	query: string;
 	reason: string;
 	elapsedMs: number;
 }): void => {
 	console.warn(
-		JSON.stringify({
-			level: "warn",
-			component: "sql_executor",
-			message: "sql_query_retry_skipped",
-			query: normalizeQueryForLog(data.query),
-			reason: data.reason,
-			elapsedMs: data.elapsedMs,
-			retryBudgetMs: MAX_SQL_RETRY_BUDGET_MS,
-		}),
+		JSON.stringify(
+			buildSqlLogPayload(data.env, data.query, {
+				level: "warn",
+				component: "sql_executor",
+				message: "sql_query_retry_skipped",
+				reason: data.reason,
+				elapsedMs: data.elapsedMs,
+				retryBudgetMs: MAX_SQL_RETRY_BUDGET_MS,
+			}),
+		),
 	);
 };
 
 const logSqlQueryPlanCaptured = (data: {
+	env: WorkerEnv;
 	query: string;
 	phase: "success" | "failure";
 	plan: unknown;
 }): void => {
 	console.log(
-		JSON.stringify({
-			level: "info",
-			component: "sql_executor",
-			message: "sql_query_plan_captured",
-			phase: data.phase,
-			query: normalizeQueryForLog(data.query),
-			plan: data.plan,
-		}),
+		JSON.stringify(
+			buildSqlLogPayload(data.env, data.query, {
+				level: "info",
+				component: "sql_executor",
+				message: "sql_query_plan_captured",
+				phase: data.phase,
+				plan: data.plan,
+			}),
+		),
 	);
 };
 
 const logSqlQueryPlanFailed = (data: {
+	env: WorkerEnv;
 	query: string;
 	phase: "success" | "failure";
 	error: unknown;
@@ -136,14 +169,15 @@ const logSqlQueryPlanFailed = (data: {
 			? { name: data.error.name, message: data.error.message }
 			: { name: "UnknownError", message: String(data.error) };
 	console.warn(
-		JSON.stringify({
-			level: "warn",
-			component: "sql_executor",
-			message: "sql_query_plan_capture_failed",
-			phase: data.phase,
-			query: normalizeQueryForLog(data.query),
-			error: errorPayload,
-		}),
+		JSON.stringify(
+			buildSqlLogPayload(data.env, data.query, {
+				level: "warn",
+				component: "sql_executor",
+				message: "sql_query_plan_capture_failed",
+				phase: data.phase,
+				error: errorPayload,
+			}),
+		),
 	);
 };
 
@@ -156,7 +190,10 @@ const maybeCaptureExplainPlan = async (input: {
 	query: string;
 	phase: "success" | "failure";
 }): Promise<void> => {
-	if (!input.env.SQL_CAPTURE_EXPLAIN_PLAN) {
+	if (
+		!input.env.SQL_CAPTURE_EXPLAIN_PLAN ||
+		!canLogSensitiveSqlDetails(input.env)
+	) {
 		return;
 	}
 	try {
@@ -164,15 +201,19 @@ const maybeCaptureExplainPlan = async (input: {
 		const result = await input.pool.query(explainSql);
 		const plan =
 			Array.isArray(result.rows) && result.rows.length > 0
-				? (result.rows[0]["QUERY PLAN"] ?? result.rows[0].query_plan ?? result.rows[0])
+				? (result.rows[0]["QUERY PLAN"] ??
+					result.rows[0].query_plan ??
+					result.rows[0])
 				: [];
 		logSqlQueryPlanCaptured({
+			env: input.env,
 			query: input.query,
 			phase: input.phase,
 			plan,
 		});
 	} catch (error) {
 		logSqlQueryPlanFailed({
+			env: input.env,
 			query: input.query,
 			phase: input.phase,
 			error,
@@ -264,14 +305,37 @@ const getPool = (env: WorkerEnv): Pool => {
 	return cachedPool;
 };
 
+const assertApprovedRelations = (query: string): void => {
+	const approvedRelations = getApprovedSqlRelations();
+	let referencedRelations: ReadonlySet<string>;
+	try {
+		referencedRelations = extractReferencedRelations(query);
+	} catch {
+		throw new SqlSafetyError(
+			"RELATION_NOT_ALLOWED",
+			"Unable to verify that the query stays within the approved catalog.",
+		);
+	}
+
+	for (const relation of referencedRelations) {
+		if (!approvedRelations.has(relation.toLowerCase())) {
+			throw new SqlSafetyError(
+				"RELATION_NOT_ALLOWED",
+				"Query references relations outside the approved catalog.",
+			);
+		}
+	}
+};
+
 /**
  * Sanitizes and executes a read-only SQL query, returning rows as JSON text.
  */
 export const executeReadOnlySql = async (
 	env: WorkerEnv,
 	query: string,
+	options?: SqlExecutionOptions,
 ): Promise<string> => {
-	const rows = await executeReadOnlySqlRows(env, query);
+	const rows = await executeReadOnlySqlRows(env, query, options);
 	if (rows.length === 0) {
 		return "[]";
 	}
@@ -285,8 +349,12 @@ export const executeReadOnlySql = async (
 export const executeReadOnlySqlRows = async (
 	env: WorkerEnv,
 	query: string,
+	options?: SqlExecutionOptions,
 ): Promise<Array<Record<string, unknown>>> => {
 	const sanitized = sanitizeSqlQuery(query);
+	if (options?.enforceApprovedRelations) {
+		assertApprovedRelations(sanitized);
+	}
 	const requestStartedAt = nowMs();
 	const runQuery = async (): Promise<Array<Record<string, unknown>>> => {
 		const pool = getPool(env);
@@ -294,6 +362,7 @@ export const executeReadOnlySqlRows = async (
 		try {
 			const result = await pool.query(sanitized);
 			logSqlQueryExecuted({
+				env,
 				query: sanitized,
 				durationMs: nowMs() - startedAt,
 				rowCount: Array.isArray(result.rows) ? result.rows.length : 0,
@@ -302,6 +371,7 @@ export const executeReadOnlySqlRows = async (
 			return result.rows as Array<Record<string, unknown>>;
 		} catch (error) {
 			logSqlQueryFailed({
+				env,
 				query: sanitized,
 				durationMs: nowMs() - startedAt,
 				timeoutMs: env.SQL_QUERY_TIMEOUT_MS,
@@ -320,26 +390,27 @@ export const executeReadOnlySqlRows = async (
 
 	try {
 		return await runQuery();
-		} catch (error) {
-			if (!isRetryableConnectionError(error)) {
-				throw error;
-			}
-			const retryReason =
-				error instanceof Error ? error.message : String(error);
-			const elapsedMs = nowMs() - requestStartedAt;
-			if (elapsedMs >= MAX_SQL_RETRY_BUDGET_MS) {
-				logSqlQueryRetrySkipped({
-					query: sanitized,
-					reason: retryReason,
-					elapsedMs,
-				});
-				throw error;
-			}
-			logSqlQueryRetry({
+	} catch (error) {
+		if (!isRetryableConnectionError(error)) {
+			throw error;
+		}
+		const retryReason = error instanceof Error ? error.message : String(error);
+		const elapsedMs = nowMs() - requestStartedAt;
+		if (elapsedMs >= MAX_SQL_RETRY_BUDGET_MS) {
+			logSqlQueryRetrySkipped({
+				env,
 				query: sanitized,
 				reason: retryReason,
+				elapsedMs,
 			});
-			await resetCachedPool();
-			return runQuery();
+			throw error;
 		}
-	};
+		logSqlQueryRetry({
+			env,
+			query: sanitized,
+			reason: retryReason,
+		});
+		await resetCachedPool();
+		return runQuery();
+	}
+};

@@ -52,7 +52,10 @@ const extractResponsesOutputText = (payload: unknown): string => {
 };
 
 const loadDevVars = (): void => {
-	const candidates = [resolve(process.cwd(), "worker/.dev.vars"), resolve(process.cwd(), ".env")];
+	const candidates = [
+		resolve(process.cwd(), "worker/.dev.vars"),
+		resolve(process.cwd(), ".env"),
+	];
 	for (const filePath of candidates) {
 		if (!existsSync(filePath)) {
 			continue;
@@ -91,7 +94,10 @@ const requiredEnv = (name: string): string => {
 	return value;
 };
 
-const parseOptionalInt = (value: string | undefined, fallback: number): number => {
+const parseOptionalInt = (
+	value: string | undefined,
+	fallback: number,
+): number => {
 	if (!value?.trim()) {
 		return fallback;
 	}
@@ -176,7 +182,7 @@ const llmJudgeCorrectness = async (
 				{
 					role: "system",
 					content:
-						"You are an impartial evaluator. Score semantic correctness from 0.0 to 1.0 comparing assistant output to expected output. Return strict JSON: {\"score\": number, \"comment\": string}.",
+						'You are an impartial evaluator. Score semantic correctness from 0.0 to 1.0 comparing assistant output to expected output. Return strict JSON: {"score": number, "comment": string}.',
 				},
 				{
 					role: "user",
@@ -280,7 +286,8 @@ const run = async (): Promise<void> => {
 	});
 
 	const datasetName = process.env.EVAL_DATASET_NAME?.trim() || "golden_30";
-	const experimentName = process.env.EVAL_EXPERIMENT_NAME?.trim() || "golden_30_eval";
+	const experimentName =
+		process.env.EVAL_EXPERIMENT_NAME?.trim() || "golden_30_eval";
 	const runName =
 		process.env.EVAL_RUN_NAME?.trim() ||
 		`golden-30-${new Date().toISOString().replace(/[:.]/g, "-")}`;
@@ -301,7 +308,10 @@ const run = async (): Promise<void> => {
 	const datasetLimit = datasetLimitRaw
 		? Number.parseInt(datasetLimitRaw, 10)
 		: null;
-	if (datasetLimit !== null && (!Number.isFinite(datasetLimit) || datasetLimit < 1)) {
+	if (
+		datasetLimit !== null &&
+		(!Number.isFinite(datasetLimit) || datasetLimit < 1)
+	) {
 		throw new Error("EVAL_DATASET_LIMIT must be a positive integer.");
 	}
 	const maxConcurrency = parseOptionalInt(

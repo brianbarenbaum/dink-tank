@@ -24,7 +24,12 @@ import {
 	getRefreshTokenFromRequest,
 	json,
 } from "./http";
-import { getRequestIpAddress, hashWithSalt, isValidEmail, normalizeEmail } from "./crypto";
+import {
+	getRequestIpAddress,
+	hashWithSalt,
+	isValidEmail,
+	normalizeEmail,
+} from "./crypto";
 import { verifyAccessToken } from "./jwt";
 import { verifyTurnstileToken } from "./turnstile";
 import type {
@@ -46,7 +51,8 @@ const RETENTION_CLEANUP_PROBABILITY = 0.05;
 const VERIFY_FAILURE_RESET_WINDOW_SECONDS = 10 * 60;
 
 const GENERIC_AUTH_FAILURE_MESSAGE = "Unable to complete authentication.";
-const GENERIC_AUTH_REQUEST_MESSAGE = "If the address is eligible, a code will be sent.";
+const GENERIC_AUTH_REQUEST_MESSAGE =
+	"If the address is eligible, a code will be sent.";
 
 const jsonWithRetryAfter = (
 	body: unknown,
@@ -76,21 +82,30 @@ const parseJsonBody = async <T>(request: Request): Promise<T | null> => {
 const toRetrySeconds = (until: Date, nowMs: number): number =>
 	Math.max(1, Math.ceil((until.getTime() - nowMs) / 1000));
 
-const sanitizeRequestBody = (body: OtpRequestBody | null): OtpRequestBody | null => {
+const sanitizeRequestBody = (
+	body: OtpRequestBody | null,
+): OtpRequestBody | null => {
 	if (!body || typeof body.email !== "string") {
 		return null;
 	}
 	return {
 		email: body.email,
 		turnstileToken:
-			typeof body.turnstileToken === "string" && body.turnstileToken.trim().length > 0
+			typeof body.turnstileToken === "string" &&
+			body.turnstileToken.trim().length > 0
 				? body.turnstileToken.trim()
 				: null,
 	};
 };
 
-const sanitizeVerifyBody = (body: OtpVerifyBody | null): OtpVerifyBody | null => {
-	if (!body || typeof body.email !== "string" || typeof body.code !== "string") {
+const sanitizeVerifyBody = (
+	body: OtpVerifyBody | null,
+): OtpVerifyBody | null => {
+	if (
+		!body ||
+		typeof body.email !== "string" ||
+		typeof body.code !== "string"
+	) {
 		return null;
 	}
 	return {
@@ -114,7 +129,8 @@ const shouldResetFailedAttempts = (
 	}
 	if (
 		state.lastFailedAt &&
-		nowMs - state.lastFailedAt.getTime() > VERIFY_FAILURE_RESET_WINDOW_SECONDS * 1000
+		nowMs - state.lastFailedAt.getTime() >
+			VERIFY_FAILURE_RESET_WINDOW_SECONDS * 1000
 	) {
 		return true;
 	}
@@ -126,10 +142,15 @@ export const handleOtpRequest = async (
 	env: WorkerEnv,
 ): Promise<Response> => {
 	const context = createRequestContext(request);
-	const body = sanitizeRequestBody(await parseJsonBody<OtpRequestBody>(request));
+	const body = sanitizeRequestBody(
+		await parseJsonBody<OtpRequestBody>(request),
+	);
 	if (!body || !isValidEmail(body.email)) {
 		logWarn("auth_otp_request_invalid", context);
-		return json({ error: "auth_failed", message: GENERIC_AUTH_FAILURE_MESSAGE }, 400);
+		return json(
+			{ error: "auth_failed", message: GENERIC_AUTH_FAILURE_MESSAGE },
+			400,
+		);
 	}
 
 	const normalizedEmail = normalizeEmail(body.email);
@@ -171,17 +192,18 @@ export const handleOtpRequest = async (
 				details: { reason: "turnstile_failed" },
 			}),
 		]);
-		return json({ error: "auth_failed", message: GENERIC_AUTH_FAILURE_MESSAGE }, 400);
+		return json(
+			{ error: "auth_failed", message: GENERIC_AUTH_FAILURE_MESSAGE },
+			400,
+		);
 	}
 
-	let counts:
-		| {
-				emailCount: number;
-				ipCount: number;
-				oldestEmailAt: Date | null;
-				oldestIpAt: Date | null;
-		  }
-		| null = null;
+	let counts: {
+		emailCount: number;
+		ipCount: number;
+		oldestEmailAt: Date | null;
+		oldestIpAt: Date | null;
+	} | null = null;
 	try {
 		counts = await fetchRecentOtpRequestCounts(env, emailHash, ipHash);
 	} catch (error) {
@@ -189,7 +211,10 @@ export const handleOtpRequest = async (
 			error: toErrorMessage(error),
 		});
 		if (env.APP_ENV !== "local") {
-			return json({ error: "auth_failed", message: GENERIC_AUTH_FAILURE_MESSAGE }, 500);
+			return json(
+				{ error: "auth_failed", message: GENERIC_AUTH_FAILURE_MESSAGE },
+				500,
+			);
 		}
 		logWarn("auth_otp_request_rate_limit_check_failed_local_bypass", context, {
 			error: toErrorMessage(error),
@@ -209,11 +234,12 @@ export const handleOtpRequest = async (
 		const oldest = emailLimited ? counts.oldestEmailAt : counts.oldestIpAt;
 		const retryAfterSeconds = oldest
 			? Math.max(
-				1,
-				Math.ceil(
-					(OTP_REQUEST_WINDOW_SECONDS * 1000 - (nowMs - oldest.getTime())) / 1000,
-				),
-			)
+					1,
+					Math.ceil(
+						(OTP_REQUEST_WINDOW_SECONDS * 1000 - (nowMs - oldest.getTime())) /
+							1000,
+					),
+				)
 			: OTP_REQUEST_WINDOW_SECONDS;
 		await Promise.all([
 			insertOtpRequestEvent(env, {
@@ -293,7 +319,11 @@ export const handleOtpRequest = async (
 	]);
 
 	return json(
-		{ ok: true, message: GENERIC_AUTH_REQUEST_MESSAGE, resendAfterSeconds: OTP_RESEND_SECONDS },
+		{
+			ok: true,
+			message: GENERIC_AUTH_REQUEST_MESSAGE,
+			resendAfterSeconds: OTP_RESEND_SECONDS,
+		},
 		200,
 	);
 };
@@ -306,7 +336,10 @@ export const handleOtpVerify = async (
 	const body = sanitizeVerifyBody(await parseJsonBody<OtpVerifyBody>(request));
 	if (!body || !isValidEmail(body.email) || !/^\d{6,8}$/.test(body.code)) {
 		logWarn("auth_otp_verify_invalid", context);
-		return json({ error: "auth_failed", message: GENERIC_AUTH_FAILURE_MESSAGE }, 400);
+		return json(
+			{ error: "auth_failed", message: GENERIC_AUTH_FAILURE_MESSAGE },
+			400,
+		);
 	}
 
 	const normalizedEmail = normalizeEmail(body.email);
@@ -333,7 +366,10 @@ export const handleOtpVerify = async (
 			error: toErrorMessage(error),
 		});
 		if (env.APP_ENV !== "local") {
-			return json({ error: "auth_failed", message: GENERIC_AUTH_FAILURE_MESSAGE }, 500);
+			return json(
+				{ error: "auth_failed", message: GENERIC_AUTH_FAILURE_MESSAGE },
+				500,
+			);
 		}
 		logWarn("auth_otp_verify_state_read_failed_local_bypass", context, {
 			error: toErrorMessage(error),
@@ -359,10 +395,7 @@ export const handleOtpVerify = async (
 		verifyState = null;
 	}
 
-	if (
-		verifyState?.lockedUntil &&
-		verifyState.lockedUntil.getTime() > nowMs
-	) {
+	if (verifyState?.lockedUntil && verifyState.lockedUntil.getTime() > nowMs) {
 		const retryAfterSeconds = toRetrySeconds(verifyState.lockedUntil, nowMs);
 		return jsonWithRetryAfter(
 			{
@@ -433,7 +466,9 @@ export const handleOtpVerify = async (
 		!verifyState?.lastFailedAt ||
 		nowMs - verifyState.lastFailedAt.getTime() >
 			VERIFY_FAILURE_RESET_WINDOW_SECONDS * 1000;
-	const priorAttempts = resetWindowExceeded ? 0 : (verifyState?.failedAttempts ?? 0);
+	const priorAttempts = resetWindowExceeded
+		? 0
+		: (verifyState?.failedAttempts ?? 0);
 	const nextAttempts = priorAttempts + 1;
 	const nowDate = new Date(nowMs);
 	const cooldownUntil = new Date(nowMs + OTP_VERIFY_COOLDOWN_SECONDS * 1000);
@@ -560,11 +595,15 @@ export const handleAuthRefresh = async (
 	const context = createRequestContext(request);
 	const body = await parseJsonBody<RefreshBody>(request);
 	const refreshToken =
-		typeof body?.refreshToken === "string" && body.refreshToken.trim().length > 0
+		typeof body?.refreshToken === "string" &&
+		body.refreshToken.trim().length > 0
 			? body.refreshToken.trim()
-			: getRefreshTokenFromRequest(request) ?? "";
+			: (getRefreshTokenFromRequest(request) ?? "");
 	if (!refreshToken) {
-		return json({ error: "auth_failed", message: GENERIC_AUTH_FAILURE_MESSAGE }, 400);
+		return json(
+			{ error: "auth_failed", message: GENERIC_AUTH_FAILURE_MESSAGE },
+			400,
+		);
 	}
 
 	const refreshed = await refreshSupabaseSession(env, refreshToken);
@@ -574,7 +613,10 @@ export const handleAuthRefresh = async (
 			eventType: "refresh_failure",
 			status: "failure",
 		});
-		return json({ error: "auth_failed", message: GENERIC_AUTH_FAILURE_MESSAGE }, 401);
+		return json(
+			{ error: "auth_failed", message: GENERIC_AUTH_FAILURE_MESSAGE },
+			401,
+		);
 	}
 
 	return appendAuthCookies(
@@ -616,7 +658,8 @@ export const handleAuthSignOut = async (
 	}
 
 	if (
-		(typeof body?.refreshToken !== "string" || body.refreshToken.trim().length === 0) &&
+		(typeof body?.refreshToken !== "string" ||
+			body.refreshToken.trim().length === 0) &&
 		!refreshToken
 	) {
 		await insertAuthAuditEvent(env, {
@@ -660,7 +703,10 @@ export const requireAuthenticatedRequest = async (
 	if (!token) {
 		return {
 			ok: false,
-			response: json({ error: "unauthorized", message: GENERIC_AUTH_FAILURE_MESSAGE }, 401),
+			response: json(
+				{ error: "unauthorized", message: GENERIC_AUTH_FAILURE_MESSAGE },
+				401,
+			),
 		};
 	}
 
@@ -668,7 +714,10 @@ export const requireAuthenticatedRequest = async (
 	if (!verified.ok) {
 		return {
 			ok: false,
-			response: json({ error: "unauthorized", message: GENERIC_AUTH_FAILURE_MESSAGE }, 401),
+			response: json(
+				{ error: "unauthorized", message: GENERIC_AUTH_FAILURE_MESSAGE },
+				401,
+			),
 		};
 	}
 

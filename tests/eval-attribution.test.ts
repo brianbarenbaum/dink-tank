@@ -6,13 +6,17 @@ import {
 } from "../worker/eval/lib/attribution";
 import type { NormalizedEvalItem } from "../worker/eval/lib/evalResults";
 
-const makeItem = (overrides: Partial<NormalizedEvalItem>): NormalizedEvalItem => ({
+const makeItem = (
+	overrides: Partial<NormalizedEvalItem>,
+): NormalizedEvalItem => ({
 	index: 0,
 	input: "How many games has Flemington Blue won?",
 	expectedOutput: "225",
-	output: "Do you want team match results or player match stats for wins/losses?",
+	output:
+		"Do you want team match results or player match stats for wins/losses?",
 	correctnessScore: 0,
-	judgeComment: "The assistant did not answer the question and asked a clarifying question.",
+	judgeComment:
+		"The assistant did not answer the question and asked a clarifying question.",
 	judgeScoreName: "correctness",
 	judgeScores: [],
 	traceId: null,
@@ -39,10 +43,11 @@ describe("failure attribution", () => {
 	it("summarizes layer counts", () => {
 		const summary = summarizeAttribution([
 			attributeFailure(makeItem({})),
-			attributeFailure(makeItem({ judgeComment: "SQL error: relation missing" })),
+			attributeFailure(
+				makeItem({ judgeComment: "SQL error: relation missing" }),
+			),
 		]);
 		expect(summary.primaryLayerCounts.prompt).toBe(1);
 		expect(summary.primaryLayerCounts.schema).toBe(1);
 	});
 });
-

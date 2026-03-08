@@ -145,7 +145,8 @@ const onTurnstileError = () => {
 };
 
 onMounted(() => {
-	const queryEmail = typeof route.query.email === "string" ? route.query.email : null;
+	const queryEmail =
+		typeof route.query.email === "string" ? route.query.email : null;
 	email.value = queryEmail ?? authStore.pendingEmail ?? "";
 	if (!email.value) {
 		void router.replace({

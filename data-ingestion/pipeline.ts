@@ -92,6 +92,25 @@ interface SupabaseInsertOptions {
 
 type PostgrestSchema = "public" | "analytics";
 
+interface SupabaseRpcClient {
+	rpc(
+		functionName: string,
+		args?: Record<string, unknown>,
+		schema?: PostgrestSchema,
+	): Promise<unknown>;
+}
+
+interface LineupAnalyticsRefreshInput {
+	supabase: SupabaseRpcClient | null;
+	shouldRefreshLineupAnalytics: boolean;
+	warnings: number;
+}
+
+interface LineupAnalyticsRefreshResult {
+	lineupAnalyticsRefreshed: boolean;
+	warnings: number;
+}
+
 const DEFAULT_API_BASE =
 	"https://cplsecureapiproxy.azurewebsites.net/api/CPLSecureApiProxy/v0/api";
 
@@ -568,6 +587,46 @@ export const computeBackoffDelayMs = ({
 	return Math.round(exponential + jitter);
 };
 
+const isIgnorableAnalyticsRefreshError = (error: unknown): boolean => {
+	const message = error instanceof Error ? error.message : String(error);
+	return (
+		message.includes("refresh_lineup_analytics_views") &&
+		message.includes("Invalid schema: analytics")
+	);
+};
+
+export const handleLineupAnalyticsRefresh = async ({
+	supabase,
+	shouldRefreshLineupAnalytics,
+	warnings,
+}: LineupAnalyticsRefreshInput): Promise<LineupAnalyticsRefreshResult> => {
+	if (!supabase || !shouldRefreshLineupAnalytics) {
+		return {
+			lineupAnalyticsRefreshed: false,
+			warnings,
+		};
+	}
+
+	try {
+		await supabase.rpc("refresh_lineup_analytics_views", {}, "analytics");
+		return {
+			lineupAnalyticsRefreshed: true,
+			warnings,
+		};
+	} catch (error) {
+		if (!isIgnorableAnalyticsRefreshError(error)) {
+			throw error;
+		}
+
+		const message = error instanceof Error ? error.message : String(error);
+		console.warn(`[crossclub-ingest] analytics refresh skipped: ${message}`);
+		return {
+			lineupAnalyticsRefreshed: false,
+			warnings: warnings + 1,
+		};
+	}
+};
+
 class SupabaseRestClient {
 	private readonly baseUrl: string;
 	private readonly apiKey: string;
@@ -621,7 +680,12 @@ class SupabaseRestClient {
 						"Accept-Profile": schema,
 						"Content-Profile": schema,
 					};
-		return this.request(`/rest/v1/rpc/${functionName}`, "POST", args, schemaHeaders);
+		return this.request(
+			`/rest/v1/rpc/${functionName}`,
+			"POST",
+			args,
+			schemaHeaders,
+		);
 	}
 
 	private async request(
@@ -857,7 +921,8 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 	let retries = 0;
 	let warnings = 0;
 	const rowsByTable: Record<string, number> = {};
-	const shouldRefreshLineupAnalytics = phaseRequiresLineupAnalyticsRefresh(phase);
+	const shouldRefreshLineupAnalytics =
+		phaseRequiresLineupAnalyticsRefresh(phase);
 
 	const supabase =
 		dryRun || !config.supabaseUrl || !config.supabaseServiceRoleKey
@@ -1510,13 +1575,12 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 			}
 		}
 
-		if (supabase && shouldRefreshLineupAnalytics) {
-			await supabase.rpc(
-				"refresh_lineup_analytics_views",
-				{},
-				"analytics",
-			);
-		}
+		const analyticsRefresh = await handleLineupAnalyticsRefresh({
+			supabase,
+			shouldRefreshLineupAnalytics,
+			warnings,
+		});
+		warnings = analyticsRefresh.warnings;
 
 		if (supabase) {
 			await supabase.upsert(
@@ -1534,7 +1598,8 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 							dry_run: false,
 							retries,
 							warnings,
-							lineup_analytics_refreshed: shouldRefreshLineupAnalytics,
+							lineup_analytics_refreshed:
+								analyticsRefresh.lineupAnalyticsRefreshed,
 							rows_by_table: rowsByTable,
 						},
 					},

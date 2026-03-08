@@ -80,7 +80,10 @@ const extractTextLikeValue = (value: unknown): string => {
 		return "";
 	}
 	if (Array.isArray(value)) {
-		return value.map((entry) => extractTextLikeValue(entry)).join("\n").trim();
+		return value
+			.map((entry) => extractTextLikeValue(entry))
+			.join("\n")
+			.trim();
 	}
 	if (typeof value === "object") {
 		const record = value as Record<string, unknown>;
@@ -148,7 +151,9 @@ const getCorrectnessEvaluation = (
 		}
 		return score;
 	};
-	return [...candidates].sort((a, b) => scoreEvaluation(b) - scoreEvaluation(a))[0];
+	return [...candidates].sort(
+		(a, b) => scoreEvaluation(b) - scoreEvaluation(a),
+	)[0];
 };
 
 export const normalizeItemResults = (
@@ -236,9 +241,7 @@ export const normalizeItemResults = (
 		};
 	});
 
-export const summarizeLoop = (
-	items: NormalizedEvalItem[],
-): LoopSummary => {
+export const summarizeLoop = (items: NormalizedEvalItem[]): LoopSummary => {
 	if (items.length === 0) {
 		return {
 			averageScore: 0,
@@ -255,7 +258,9 @@ export const summarizeLoop = (
 		scores.reduce((sum, score) => sum + score, 0) / Math.max(1, scores.length);
 	const minScore = Math.min(...scores);
 	const maxScore = Math.max(...scores);
-	const lowScoreCount = items.filter((item) => item.correctnessScore < 0.7).length;
+	const lowScoreCount = items.filter(
+		(item) => item.correctnessScore < 0.7,
+	).length;
 	const worstItems = [...items]
 		.sort((a, b) => a.correctnessScore - b.correctnessScore)
 		.slice(0, 5);

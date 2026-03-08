@@ -3,6 +3,7 @@ export const SQL_SAFETY_ERROR_CODES = [
 	"MULTI_STATEMENT",
 	"NON_READ_ONLY",
 	"DDL_OR_WRITE_BLOCKED",
+	"RELATION_NOT_ALLOWED",
 ] as const;
 
 export type SqlSafetyErrorCode = (typeof SQL_SAFETY_ERROR_CODES)[number];

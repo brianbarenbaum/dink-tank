@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WorkerEnv } from "../worker/src/runtime/env";
+import type { SqlSafetyError } from "../worker/src/runtime/sql/sqlErrors";
 
 const { poolQueryMock, poolConfigCalls, MockPool } = vi.hoisted(() => {
 	const queryMock = vi.fn();
@@ -22,9 +23,7 @@ vi.mock("pg", () => ({
 	Pool: MockPool,
 }));
 
-import {
-	executeReadOnlySqlRows,
-} from "../worker/src/runtime/sql/sqlExecutor";
+import { executeReadOnlySqlRows } from "../worker/src/runtime/sql/sqlExecutor";
 
 const env: WorkerEnv = {
 	OPENAI_API_KEY: "test-key",
@@ -69,7 +68,9 @@ describe("sql executor logging", () => {
 			expect.stringContaining('"message":"sql_query_executed"'),
 		);
 		expect(infoSpy).toHaveBeenCalledWith(
-			expect.stringContaining('"query":"SELECT team_name, wins FROM public.vw_team_standings LIMIT 1"'),
+			expect.stringContaining(
+				'"query":"SELECT team_name, wins FROM public.vw_team_standings LIMIT 1"',
+			),
 		);
 		expect(infoSpy).toHaveBeenCalledWith(
 			expect.stringContaining('"rowCount":1'),
@@ -92,12 +93,37 @@ describe("sql executor logging", () => {
 			expect.stringContaining('"message":"sql_query_failed"'),
 		);
 		expect(errorSpy).toHaveBeenCalledWith(
-			expect.stringContaining('"query":"SELECT team_name FROM public.vw_team_standings LIMIT 1"'),
+			expect.stringContaining(
+				'"query":"SELECT team_name FROM public.vw_team_standings LIMIT 1"',
+			),
 		);
 		expect(errorSpy).toHaveBeenCalledWith(
-			expect.stringContaining('"error":{"name":"Error","message":"Query read timeout"}'),
+			expect.stringContaining(
+				'"error":{"name":"Error","message":"Query read timeout"}',
+			),
 		);
 		errorSpy.mockRestore();
+	});
+
+	it("omits raw query text from production logs", async () => {
+		poolQueryMock.mockResolvedValue({
+			rows: [{ team_name: "Home Court", wins: 10 }],
+		});
+		const infoSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+		await executeReadOnlySqlRows(
+			{ ...env, APP_ENV: "production" },
+			"SELECT team_name, wins FROM public.vw_team_standings LIMIT 1",
+		);
+
+		const payload = JSON.parse(String(infoSpy.mock.calls[0]?.[0])) as Record<
+			string,
+			unknown
+		>;
+		expect(payload.message).toBe("sql_query_executed");
+		expect(payload.query).toBeUndefined();
+		expect(payload.rowCount).toBe(1);
+		infoSpy.mockRestore();
 	});
 
 	it("configures a wider pool and split timeouts", async () => {
@@ -123,7 +149,9 @@ describe("sql executor logging", () => {
 
 	it("retries once with a fresh pool when connect timeout occurs", async () => {
 		poolQueryMock
-			.mockRejectedValueOnce(new Error("timeout exceeded when trying to connect"))
+			.mockRejectedValueOnce(
+				new Error("timeout exceeded when trying to connect"),
+			)
 			.mockResolvedValueOnce({
 				rows: [{ team_name: "Lehigh Valley Spartans" }],
 			});
@@ -187,12 +215,64 @@ describe("sql executor logging", () => {
 		).rejects.toThrow("permission denied");
 
 		expect(poolQueryMock).toHaveBeenCalledTimes(2);
-		expect(poolQueryMock.mock.calls[1]?.[0]).toContain(
-			"EXPLAIN (FORMAT JSON)",
-		);
+		expect(poolQueryMock.mock.calls[1]?.[0]).toContain("EXPLAIN (FORMAT JSON)");
 		expect(infoSpy).toHaveBeenCalledWith(
 			expect.stringContaining('"message":"sql_query_plan_captured"'),
 		);
 		infoSpy.mockRestore();
+	});
+
+	it("skips explain plan capture outside local environments", async () => {
+		poolQueryMock.mockRejectedValueOnce(new Error("permission denied"));
+		const envWithPlanCapture = {
+			...env,
+			APP_ENV: "production" as const,
+			SUPABASE_DB_URL:
+				"postgres://postgres:postgres@localhost:5432/postgres?test=plan-capture-prod",
+			SQL_CAPTURE_EXPLAIN_PLAN: true,
+		};
+		const infoSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+		await expect(
+			executeReadOnlySqlRows(
+				envWithPlanCapture,
+				"SELECT team_name FROM public.vw_team_standings LIMIT 1",
+			),
+		).rejects.toThrow("permission denied");
+
+		expect(poolQueryMock).toHaveBeenCalledTimes(1);
+		expect(
+			infoSpy.mock.calls.some((call) =>
+				String(call[0]).includes('"message":"sql_query_plan_captured"'),
+			),
+		).toBe(false);
+		infoSpy.mockRestore();
+	});
+
+	it("blocks non-allowlisted relations when relation allowlisting is enabled", async () => {
+		await expect(
+			executeReadOnlySqlRows(env, "SELECT email FROM auth.users LIMIT 1", {
+				enforceApprovedRelations: true,
+			}),
+		).rejects.toMatchObject({
+			name: "SqlSafetyError",
+			code: "RELATION_NOT_ALLOWED",
+		} satisfies Partial<SqlSafetyError>);
+
+		expect(poolQueryMock).not.toHaveBeenCalled();
+	});
+
+	it("does not block non-allowlisted relations when relation allowlisting is disabled", async () => {
+		poolQueryMock.mockResolvedValue({
+			rows: [{ email: "captain@example.com" }],
+		});
+
+		const rows = await executeReadOnlySqlRows(
+			env,
+			"SELECT email FROM auth.users LIMIT 1",
+		);
+
+		expect(rows).toEqual([{ email: "captain@example.com" }]);
+		expect(poolQueryMock).toHaveBeenCalledTimes(1);
 	});
 });

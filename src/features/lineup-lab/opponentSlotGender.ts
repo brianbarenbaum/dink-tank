@@ -3,7 +3,9 @@ import type { OpponentRosterPlayer } from "./types";
 
 export type NormalizedGender = "male" | "female";
 
-export function normalizeGender(value: string | null | undefined): NormalizedGender | null {
+export function normalizeGender(
+	value: string | null | undefined,
+): NormalizedGender | null {
 	if (value == null || typeof value !== "string") {
 		return null;
 	}
@@ -64,8 +66,10 @@ export function getPlayersForSlot(
 		return {
 			playersForA,
 			playersForB,
-			emptyMessageForA: males.length === 0 ? "No male opponents on roster." : null,
-			emptyMessageForB: females.length === 0 ? "No female opponents on roster." : null,
+			emptyMessageForA:
+				males.length === 0 ? "No male opponents on roster." : null,
+			emptyMessageForB:
+				females.length === 0 ? "No female opponents on roster." : null,
 		};
 	}
 	if (matchType === "female") {
@@ -74,8 +78,10 @@ export function getPlayersForSlot(
 		return {
 			playersForA: list,
 			playersForB: listB,
-			emptyMessageForA: females.length === 0 ? "No female opponents on roster." : null,
-			emptyMessageForB: females.length === 0 ? "No female opponents on roster." : null,
+			emptyMessageForA:
+				females.length === 0 ? "No female opponents on roster." : null,
+			emptyMessageForB:
+				females.length === 0 ? "No female opponents on roster." : null,
 		};
 	}
 	// male
@@ -84,8 +90,10 @@ export function getPlayersForSlot(
 	return {
 		playersForA: list,
 		playersForB: listB,
-		emptyMessageForA: males.length === 0 ? "No male opponents on roster." : null,
-		emptyMessageForB: males.length === 0 ? "No male opponents on roster." : null,
+		emptyMessageForA:
+			males.length === 0 ? "No male opponents on roster." : null,
+		emptyMessageForB:
+			males.length === 0 ? "No male opponents on roster." : null,
 	};
 }
 
@@ -105,7 +113,10 @@ export function isOpponentAssignmentGenderValid(
 	if (genderA == null || genderB == null) return false;
 
 	if (matchType === "mixed") {
-		return (genderA === "male" && genderB === "female") || (genderA === "female" && genderB === "male");
+		return (
+			(genderA === "male" && genderB === "female") ||
+			(genderA === "female" && genderB === "male")
+		);
 	}
 	if (matchType === "female") {
 		return genderA === "female" && genderB === "female";

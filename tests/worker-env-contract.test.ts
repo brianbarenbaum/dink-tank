@@ -23,6 +23,7 @@ describe("worker env contract", () => {
 			expect(parsed.value.SQL_QUERY_TIMEOUT_MS).toBe(25_000);
 			expect(parsed.value.SQL_CAPTURE_EXPLAIN_PLAN).toBe(false);
 			expect(parsed.value.SUPABASE_DB_SSL_NO_VERIFY).toBe(false);
+			expect(parsed.value.CHAT_SUPABASE_DB_URL).toBeUndefined();
 			expect(parsed.value.LANGFUSE_ENABLED).toBe(false);
 			expect(parsed.value.LANGFUSE_TRACING_ENVIRONMENT).toBe("default");
 			expect(parsed.value.LINEUP_ENABLE_DUPR_BLEND).toBe(true);
@@ -31,6 +32,22 @@ describe("worker env contract", () => {
 			expect(parsed.value.LINEUP_DUPR_SLOPE).toBe(1.6);
 			expect(parsed.value.LINEUP_TEAM_STRENGTH_FACTOR).toBe(0.45);
 			expect(parsed.value.LINEUP_TEAM_STRENGTH_CAP).toBe(0.35);
+		}
+	});
+
+	it("accepts an optional dedicated chat database url", () => {
+		const parsed = parseWorkerEnv({
+			...baseEnv,
+			CHAT_SUPABASE_DB_URL:
+				"postgres://chat_reader:secret@localhost:5432/postgres",
+		});
+
+		expect(parsed.ok).toBe(true);
+		if (parsed.ok) {
+			expect(parsed.value.CHAT_SUPABASE_DB_URL).toBe(
+				"postgres://chat_reader:secret@localhost:5432/postgres",
+			);
+			expect(parsed.value.SUPABASE_DB_URL).toBe(baseEnv.SUPABASE_DB_URL);
 		}
 	});
 
@@ -102,6 +119,32 @@ describe("worker env contract", () => {
 		if (parsed.ok) {
 			expect(parsed.value.SQL_CAPTURE_EXPLAIN_PLAN).toBe(true);
 		}
+	});
+
+	it("rejects SQL explain plan capture outside local", () => {
+		const parsed = parseWorkerEnv({
+			...baseEnv,
+			APP_ENV: "production",
+			AUTH_TURNSTILE_BYPASS: "false",
+			AUTH_TURNSTILE_SECRET: "turnstile-secret",
+			AUTH_ALLOWED_ORIGINS: "https://example.com",
+			SQL_CAPTURE_EXPLAIN_PLAN: "true",
+		});
+
+		expect(parsed.ok).toBe(false);
+	});
+
+	it("rejects exposing error details outside local", () => {
+		const parsed = parseWorkerEnv({
+			...baseEnv,
+			APP_ENV: "production",
+			AUTH_TURNSTILE_BYPASS: "false",
+			AUTH_TURNSTILE_SECRET: "turnstile-secret",
+			AUTH_ALLOWED_ORIGINS: "https://example.com",
+			EXPOSE_ERROR_DETAILS: "true",
+		});
+
+		expect(parsed.ok).toBe(false);
 	});
 
 	it("rejects invalid reasoning level", () => {

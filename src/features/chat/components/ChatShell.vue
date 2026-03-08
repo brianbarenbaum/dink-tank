@@ -46,7 +46,9 @@ const mobileSidebarOpen = ref(false);
 const desktopSidebarOpen = ref(true);
 
 const desktopGridClass = computed(() =>
-	desktopSidebarOpen.value ? "lg:grid-cols-[18rem_1fr]" : "lg:grid-cols-[3rem_1fr]",
+	desktopSidebarOpen.value
+		? "lg:grid-cols-[18rem_1fr]"
+		: "lg:grid-cols-[3rem_1fr]",
 );
 </script>
 

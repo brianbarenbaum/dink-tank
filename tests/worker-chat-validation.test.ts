@@ -28,5 +28,4 @@ describe("worker chat validation", () => {
 
 		expect(result.ok).toBe(false);
 	});
-
 });

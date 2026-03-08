@@ -18,7 +18,8 @@ const onAvailabilityChange = (event: Event) => {
 };
 
 const toDisplayName = (player: LineupRosterPlayer): string =>
-	[player.firstName, player.lastName].filter(Boolean).join(" ") || player.playerId;
+	[player.firstName, player.lastName].filter(Boolean).join(" ") ||
+	player.playerId;
 </script>
 
 <template>

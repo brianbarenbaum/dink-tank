@@ -96,7 +96,9 @@ export const useAuthStore = defineStore("auth", () => {
 				status.value = incoming ? "authenticated" : "unauthenticated";
 			}
 			if (event.key === PENDING_EMAIL_KEY) {
-				pendingEmail.value = event.newValue ? normalizeEmail(event.newValue) : null;
+				pendingEmail.value = event.newValue
+					? normalizeEmail(event.newValue)
+					: null;
 			}
 		});
 		storageListenerBound = true;

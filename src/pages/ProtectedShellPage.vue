@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { ChevronLeft, ChevronRight, MessageSquareText, UserRound } from "lucide-vue-next";
+import {
+	ChevronLeft,
+	ChevronRight,
+	MessageSquareText,
+	UserRound,
+} from "lucide-vue-next";
 
 import ChatShell from "../features/chat/components/ChatShell.vue";
 import ChatSidebarContent from "../features/chat/components/ChatSidebarContent.vue";
@@ -22,11 +27,14 @@ const desktopSidebarOpen = ref(true);
 const mobileSidebarOpen = ref(false);
 
 const desktopGridClass = computed(() =>
-	desktopSidebarOpen.value ? "lg:grid-cols-[18rem_1fr]" : "lg:grid-cols-[3rem_1fr]",
+	desktopSidebarOpen.value
+		? "lg:grid-cols-[18rem_1fr]"
+		: "lg:grid-cols-[3rem_1fr]",
 );
 
 const chatController = useChatController();
-const { messages, isSending, submit, modelLabel, extendedThinking } = chatController;
+const { messages, isSending, submit, modelLabel, extendedThinking } =
+	chatController;
 
 const lineupLabController = useLineupLabController();
 const {

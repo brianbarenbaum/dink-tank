@@ -110,8 +110,13 @@ describe("lineup lab validation", () => {
 
 	it("rejects known-opponent when mixed slot has same-gender opponents", () => {
 		const rounds = buildKnownRounds();
-		rounds[0]!.games[0]!.opponentPlayerAId = MALE_A;
-		rounds[0]!.games[0]!.opponentPlayerBId = MALE_D;
+		const firstGame = rounds[0]?.games[0];
+		expect(firstGame).toBeDefined();
+		if (!firstGame) {
+			throw new Error("expected first game to exist");
+		}
+		firstGame.opponentPlayerAId = MALE_A;
+		firstGame.opponentPlayerBId = MALE_D;
 		const parsed = parseLineupLabRecommendRequest({
 			divisionId: "e8d04726-4c07-447c-a609-9914d1378e8d",
 			seasonYear: 2025,

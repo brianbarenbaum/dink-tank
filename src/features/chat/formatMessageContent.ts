@@ -11,16 +11,14 @@ export interface ChatContentBlock {
 const INLINE_TOKEN_PATTERN = /(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g;
 
 const parseInlineRuns = (line: string): ChatTextRun[] => {
-	const tokens = line.split(INLINE_TOKEN_PATTERN).filter((token) => token.length > 0);
+	const tokens = line
+		.split(INLINE_TOKEN_PATTERN)
+		.filter((token) => token.length > 0);
 	return tokens.map((token) => {
 		if (token.startsWith("`") && token.endsWith("`") && token.length > 2) {
 			return { kind: "code" as const, text: token.slice(1, -1) };
 		}
-		if (
-			token.startsWith("**") &&
-			token.endsWith("**") &&
-			token.length > 4
-		) {
+		if (token.startsWith("**") && token.endsWith("**") && token.length > 4) {
 			return { kind: "strong" as const, text: token.slice(2, -2) };
 		}
 		if (token.startsWith("*") && token.endsWith("*") && token.length > 2) {
@@ -30,7 +28,10 @@ const parseInlineRuns = (line: string): ChatTextRun[] => {
 	});
 };
 
-const pushParagraph = (blocks: ChatContentBlock[], paragraphLines: string[]) => {
+const pushParagraph = (
+	blocks: ChatContentBlock[],
+	paragraphLines: string[],
+) => {
 	if (paragraphLines.length === 0) {
 		return;
 	}
@@ -52,7 +53,9 @@ const pushList = (blocks: ChatContentBlock[], listItems: string[]) => {
 	listItems.length = 0;
 };
 
-export const formatChatMessageContent = (content: string): ChatContentBlock[] => {
+export const formatChatMessageContent = (
+	content: string,
+): ChatContentBlock[] => {
 	const lines = content.split(/\r?\n/);
 	const blocks: ChatContentBlock[] = [];
 	const paragraphLines: string[] = [];

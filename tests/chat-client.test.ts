@@ -96,5 +96,4 @@ describe("chatClient", () => {
 		);
 		expect(config.model).toBe("gpt-5.1");
 	});
-
 });

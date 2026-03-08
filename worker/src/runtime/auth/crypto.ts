@@ -5,7 +5,8 @@ const toHex = (bytes: Uint8Array): string =>
 		.map((byte) => byte.toString(16).padStart(2, "0"))
 		.join("");
 
-export const normalizeEmail = (value: string): string => value.trim().toLowerCase();
+export const normalizeEmail = (value: string): string =>
+	value.trim().toLowerCase();
 
 export const isValidEmail = (value: string): boolean =>
 	EMAIL_PATTERN.test(normalizeEmail(value));

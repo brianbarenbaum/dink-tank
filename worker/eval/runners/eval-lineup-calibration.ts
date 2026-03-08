@@ -26,7 +26,9 @@ const clamp = (value: number): number => {
 	return Math.max(0.01, Math.min(0.99, value));
 };
 
-const computeMetrics = (rows: Array<{ probability: number; actualWin: 0 | 1 }>): CalibrationMetrics => {
+const computeMetrics = (
+	rows: Array<{ probability: number; actualWin: 0 | 1 }>,
+): CalibrationMetrics => {
 	if (rows.length === 0) {
 		return { count: 0, brier: 0, logLoss: 0 };
 	}
@@ -103,7 +105,9 @@ const summarize = (rows: HoldoutRecord[]) => {
 			reliability:
 				typeof row.sampleReliability === "number" ? row.sampleReliability : 0,
 			signalCorrelation:
-				typeof row.signalCorrelation === "number" ? row.signalCorrelation : null,
+				typeof row.signalCorrelation === "number"
+					? row.signalCorrelation
+					: null,
 		}),
 		actualWin: row.actualWin,
 	}));

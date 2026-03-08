@@ -13,7 +13,9 @@ const baseProps = {
 			location: "NJ / PA",
 		},
 	],
-	lineupTeams: [{ teamId: "a7d5c302-9ee0-4bd6-9205-971efe6af562", teamName: "Team A" }],
+	lineupTeams: [
+		{ teamId: "a7d5c302-9ee0-4bd6-9205-971efe6af562", teamName: "Team A" },
+	],
 	lineupMatchups: [
 		{
 			matchupId: "99bb7ced-889b-4e42-91b8-f84878c5c43b",

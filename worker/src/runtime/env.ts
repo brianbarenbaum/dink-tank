@@ -1,6 +1,7 @@
 export interface WorkerEnv {
 	OPENAI_API_KEY: string;
 	SUPABASE_DB_URL: string;
+	CHAT_SUPABASE_DB_URL?: string;
 	SUPABASE_DB_SSL_NO_VERIFY: boolean;
 	APP_ENV: "local" | "staging" | "production";
 	SUPABASE_URL: string;
@@ -56,6 +57,9 @@ const DEFAULT_LINEUP_TEAM_STRENGTH_FACTOR = 0.45;
 const DEFAULT_LINEUP_TEAM_STRENGTH_CAP = 0.35;
 const TRUE_VALUES = new Set(["1", "true", "yes", "on"]);
 
+const parseBooleanFlag = (value: string | undefined): boolean =>
+	TRUE_VALUES.has(value?.trim().toLowerCase() ?? "");
+
 const parseAllowedOrigins = (input: string | undefined): string[] =>
 	(input ?? "")
 		.split(",")
@@ -70,6 +74,7 @@ export const parseWorkerEnv = (
 ): ParseEnvResult => {
 	const OPENAI_API_KEY = env.OPENAI_API_KEY?.trim();
 	const SUPABASE_DB_URL = env.SUPABASE_DB_URL?.trim();
+	const CHAT_SUPABASE_DB_URL = env.CHAT_SUPABASE_DB_URL?.trim() || undefined;
 
 	if (!OPENAI_API_KEY) {
 		return { ok: false, error: "Missing OPENAI_API_KEY" };
@@ -90,8 +95,7 @@ export const parseWorkerEnv = (
 	}
 
 	const rawAppEnv =
-		env.APP_ENV?.trim().toLowerCase() ??
-		env.ENVIRONMENT?.trim().toLowerCase();
+		env.APP_ENV?.trim().toLowerCase() ?? env.ENVIRONMENT?.trim().toLowerCase();
 	if (!rawAppEnv) {
 		return { ok: false, error: "Missing APP_ENV" };
 	}
@@ -107,9 +111,7 @@ export const parseWorkerEnv = (
 	}
 	const APP_ENV = rawAppEnv as "local" | "staging" | "production";
 
-	const AUTH_BYPASS_ENABLED = TRUE_VALUES.has(
-		env.AUTH_BYPASS_ENABLED?.trim().toLowerCase() ?? "",
-	);
+	const AUTH_BYPASS_ENABLED = parseBooleanFlag(env.AUTH_BYPASS_ENABLED);
 	if (APP_ENV !== "local" && AUTH_BYPASS_ENABLED) {
 		return {
 			ok: false,
@@ -117,9 +119,7 @@ export const parseWorkerEnv = (
 		};
 	}
 
-	const AUTH_TURNSTILE_BYPASS = TRUE_VALUES.has(
-		env.AUTH_TURNSTILE_BYPASS?.trim().toLowerCase() ?? "",
-	);
+	const AUTH_TURNSTILE_BYPASS = parseBooleanFlag(env.AUTH_TURNSTILE_BYPASS);
 	if (APP_ENV !== "local" && AUTH_TURNSTILE_BYPASS) {
 		return {
 			ok: false,
@@ -153,8 +153,7 @@ export const parseWorkerEnv = (
 			: [...DEFAULT_LOCAL_ALLOWED_ORIGINS];
 
 	const AUTH_JWT_ISSUER =
-		env.AUTH_JWT_ISSUER?.trim() ||
-		`${SUPABASE_URL.replace(/\/$/, "")}/auth/v1`;
+		env.AUTH_JWT_ISSUER?.trim() || `${SUPABASE_URL.replace(/\/$/, "")}/auth/v1`;
 	const AUTH_JWT_AUDIENCE =
 		env.AUTH_JWT_AUDIENCE?.trim() || DEFAULT_AUTH_AUDIENCE;
 
@@ -170,13 +169,31 @@ export const parseWorkerEnv = (
 		};
 	}
 
-	const SUPABASE_DB_SSL_NO_VERIFY = TRUE_VALUES.has(
-		env.SUPABASE_DB_SSL_NO_VERIFY?.trim().toLowerCase() ?? "",
+	const SUPABASE_DB_SSL_NO_VERIFY = parseBooleanFlag(
+		env.SUPABASE_DB_SSL_NO_VERIFY,
 	);
 	if (APP_ENV !== "local" && SUPABASE_DB_SSL_NO_VERIFY) {
 		return {
 			ok: false,
 			error: "SUPABASE_DB_SSL_NO_VERIFY is only allowed in local",
+		};
+	}
+
+	const SQL_CAPTURE_EXPLAIN_PLAN = parseBooleanFlag(
+		env.SQL_CAPTURE_EXPLAIN_PLAN,
+	);
+	if (APP_ENV !== "local" && SQL_CAPTURE_EXPLAIN_PLAN) {
+		return {
+			ok: false,
+			error: "SQL_CAPTURE_EXPLAIN_PLAN is only allowed in local",
+		};
+	}
+
+	const EXPOSE_ERROR_DETAILS = parseBooleanFlag(env.EXPOSE_ERROR_DETAILS);
+	if (APP_ENV !== "local" && EXPOSE_ERROR_DETAILS) {
+		return {
+			ok: false,
+			error: "EXPOSE_ERROR_DETAILS is only allowed in local",
 		};
 	}
 
@@ -246,6 +263,7 @@ export const parseWorkerEnv = (
 		value: {
 			OPENAI_API_KEY,
 			SUPABASE_DB_URL,
+			CHAT_SUPABASE_DB_URL,
 			SUPABASE_DB_SSL_NO_VERIFY,
 			APP_ENV,
 			SUPABASE_URL,
@@ -260,12 +278,8 @@ export const parseWorkerEnv = (
 			LLM_MODEL: env.LLM_MODEL?.trim() || DEFAULT_MODEL,
 			LLM_REASONING_LEVEL: reasoningLevelRaw as "low" | "medium" | "high",
 			SQL_QUERY_TIMEOUT_MS,
-			SQL_CAPTURE_EXPLAIN_PLAN: TRUE_VALUES.has(
-				env.SQL_CAPTURE_EXPLAIN_PLAN?.trim().toLowerCase() ?? "",
-			),
-			EXPOSE_ERROR_DETAILS: TRUE_VALUES.has(
-				env.EXPOSE_ERROR_DETAILS?.trim().toLowerCase() ?? "",
-			),
+			SQL_CAPTURE_EXPLAIN_PLAN,
+			EXPOSE_ERROR_DETAILS,
 			LANGFUSE_PUBLIC_KEY: env.LANGFUSE_PUBLIC_KEY?.trim() || undefined,
 			LANGFUSE_SECRET_KEY: env.LANGFUSE_SECRET_KEY?.trim() || undefined,
 			LANGFUSE_BASE_URL: env.LANGFUSE_BASE_URL?.trim() || undefined,
@@ -280,14 +294,12 @@ export const parseWorkerEnv = (
 			LINEUP_ENABLE_DUPR_BLEND:
 				env.LINEUP_ENABLE_DUPR_BLEND == null
 					? DEFAULT_LINEUP_ENABLE_DUPR_BLEND
-					: TRUE_VALUES.has(env.LINEUP_ENABLE_DUPR_BLEND.trim().toLowerCase()),
+					: parseBooleanFlag(env.LINEUP_ENABLE_DUPR_BLEND),
 			LINEUP_DUPR_MAJOR_WEIGHT,
 			LINEUP_ENABLE_TEAM_STRENGTH_ADJUSTMENT:
 				env.LINEUP_ENABLE_TEAM_STRENGTH_ADJUSTMENT == null
 					? DEFAULT_LINEUP_ENABLE_TEAM_STRENGTH_ADJUSTMENT
-					: TRUE_VALUES.has(
-							env.LINEUP_ENABLE_TEAM_STRENGTH_ADJUSTMENT.trim().toLowerCase(),
-						),
+					: parseBooleanFlag(env.LINEUP_ENABLE_TEAM_STRENGTH_ADJUSTMENT),
 			LINEUP_DUPR_SLOPE,
 			LINEUP_TEAM_STRENGTH_FACTOR,
 			LINEUP_TEAM_STRENGTH_CAP,

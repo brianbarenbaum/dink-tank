@@ -125,7 +125,10 @@ describe("worker auth handler", () => {
 			}),
 		});
 
-		const response = await handleOtpRequest(request, { ...env, AUTH_TURNSTILE_BYPASS: false });
+		const response = await handleOtpRequest(request, {
+			...env,
+			AUTH_TURNSTILE_BYPASS: false,
+		});
 
 		expect(response.status).toBe(400);
 		expect(verifyTurnstileToken).toHaveBeenCalled();
@@ -148,7 +151,10 @@ describe("worker auth handler", () => {
 				turnstileToken: "token",
 			}),
 		});
-		const response = await handleOtpRequest(request, { ...env, AUTH_TURNSTILE_BYPASS: false });
+		const response = await handleOtpRequest(request, {
+			...env,
+			AUTH_TURNSTILE_BYPASS: false,
+		});
 		const body = await parseJson(response);
 
 		expect(response.status).toBe(429);
@@ -181,7 +187,9 @@ describe("worker auth handler", () => {
 
 		expect(response.status).toBe(200);
 		expect(body.session).toBeTruthy();
-		expect(response.headers.get("set-cookie")).toContain("dink_tank_access_token=");
+		expect(response.headers.get("set-cookie")).toContain(
+			"dink_tank_access_token=",
+		);
 		expect(response.headers.get("set-cookie")).toContain("HttpOnly");
 		expect(clearVerifyState).toHaveBeenCalled();
 	});
@@ -195,6 +203,20 @@ describe("worker auth handler", () => {
 
 		expect(response.status).toBe(200);
 		expect(body.authenticated).toBe(false);
+	});
+
+	it("ignores malformed cookie encoding during auth-session lookup", async () => {
+		const request = new Request("http://localhost/api/auth/session", {
+			method: "GET",
+			headers: { cookie: "dink_tank_access_token=%E0%A4%A" },
+		});
+
+		const response = await handleAuthSession(request, env);
+		const body = await parseJson(response);
+
+		expect(response.status).toBe(200);
+		expect(body.authenticated).toBe(false);
+		expect(verifyAccessToken).not.toHaveBeenCalled();
 	});
 
 	it("returns authenticated auth-session response with valid access-token cookie", async () => {
@@ -279,7 +301,9 @@ describe("worker auth handler", () => {
 		expect(response.status).toBe(200);
 		expect(body.session).toBeTruthy();
 		expect(refreshSupabaseSession).toHaveBeenCalledWith(env, "refresh-cookie");
-		expect(response.headers.get("set-cookie")).toContain("dink_tank_refresh_token=next-refresh");
+		expect(response.headers.get("set-cookie")).toContain(
+			"dink_tank_refresh_token=next-refresh",
+		);
 	});
 
 	it("returns success from signout even without access token", async () => {

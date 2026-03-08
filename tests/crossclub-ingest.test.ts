@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -14,6 +14,7 @@ import {
 	denormalizeDotNetJson,
 	extractDivisionsFromRegions,
 	findMissingDetailDependencies,
+	handleLineupAnalyticsRefresh,
 	uniqueByCompositeKey,
 	planEndpointWork,
 	normalizeLineupsFromDetail,
@@ -156,6 +157,35 @@ describe("crossclub ingest helpers", () => {
 	it("detects missing detail prerequisites", () => {
 		const missing = findMissingDetailDependencies(["players", "matchups"]);
 		expect(missing).toEqual(["teams", "playoff-matchups"]);
+	});
+
+	it("downgrades analytics schema exposure failures to warnings", async () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+		const rpc = vi
+			.fn()
+			.mockRejectedValue(
+				new Error(
+					'Supabase REST POST /rest/v1/rpc/refresh_lineup_analytics_views failed: {"code":"PGRST106","hint":"Only the following schemas are exposed: public, graphql_public","message":"Invalid schema: analytics"}',
+				),
+			);
+
+		await expect(
+			handleLineupAnalyticsRefresh({
+				supabase: { rpc },
+				shouldRefreshLineupAnalytics: true,
+				warnings: 0,
+			}),
+		).resolves.toEqual({
+			lineupAnalyticsRefreshed: false,
+			warnings: 1,
+		});
+		expect(rpc).toHaveBeenCalledWith(
+			"refresh_lineup_analytics_views",
+			{},
+			"analytics",
+		);
+		expect(warn).toHaveBeenCalledTimes(1);
+		warn.mockRestore();
 	});
 
 	it("handles empty successful responses without JSON parse errors", async () => {

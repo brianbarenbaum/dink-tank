@@ -64,4 +64,3 @@ describe("loop stop decision", () => {
 		expect(decision.reason).toBe("stalled_improvement");
 	});
 });
-

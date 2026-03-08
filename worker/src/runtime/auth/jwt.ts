@@ -19,7 +19,7 @@ const getJwks = (issuer: string): ReturnType<typeof createRemoteJWKSet> => {
 		return existing;
 	}
 
-	const endpoint = issuer.replace(/\/$/, "") + "/.well-known/jwks.json";
+	const endpoint = `${issuer.replace(/\/$/, "")}/.well-known/jwks.json`;
 	const jwks = createRemoteJWKSet(new URL(endpoint));
 	jwksByIssuer.set(issuer, jwks);
 	return jwks;

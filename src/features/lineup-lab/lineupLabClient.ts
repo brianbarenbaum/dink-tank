@@ -7,7 +7,9 @@ import type {
 } from "./types";
 
 export interface LineupLabClient {
-	recommend(payload: LineupLabRecommendRequest): Promise<LineupRecommendationPayload>;
+	recommend(
+		payload: LineupLabRecommendRequest,
+	): Promise<LineupRecommendationPayload>;
 	getDivisions(): Promise<{ divisions: LineupLabDivisionOption[] }>;
 	getTeams(divisionId: string): Promise<{ teams: LineupLabTeamOption[] }>;
 	getMatchups(input: {
@@ -81,10 +83,13 @@ export const createLineupLabClient = (
 				...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}),
 			};
 		};
-		const initialResponse = await fetchImpl("/api/lineup-lab/context/divisions", {
-			method: "GET",
-			headers: await buildHeaders(),
-		});
+		const initialResponse = await fetchImpl(
+			"/api/lineup-lab/context/divisions",
+			{
+				method: "GET",
+				headers: await buildHeaders(),
+			},
+		);
 		const response =
 			initialResponse.status === 401 && authOptions?.refreshAfterUnauthorized
 				? (await authOptions.refreshAfterUnauthorized())

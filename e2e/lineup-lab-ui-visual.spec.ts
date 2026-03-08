@@ -6,11 +6,11 @@ const fixturesDir = path.resolve("e2e/fixtures/lineup-lab");
 const validationScreenshotsDir = path.resolve("validation_screenshots");
 
 const loadFixture = <T>(name: string): T =>
-	JSON.parse(
-		fs.readFileSync(path.join(fixturesDir, name), "utf-8"),
-	) as T;
+	JSON.parse(fs.readFileSync(path.join(fixturesDir, name), "utf-8")) as T;
 
-const divisionsFixture = loadFixture<{ divisions: unknown[] }>("divisions.json");
+const divisionsFixture = loadFixture<{ divisions: unknown[] }>(
+	"divisions.json",
+);
 const teamsFixture = loadFixture<{ teams: unknown[] }>("teams.json");
 const matchupsFixture = loadFixture<Record<string, unknown>>("matchups.json");
 const recommendBlindFixture = loadFixture<Record<string, unknown>>(
@@ -54,6 +54,7 @@ const setupLineupRoutes = async (page: Page) => {
 const openLineupTabAndSeed = async (page: Page) => {
 	await page.goto("/");
 	await page.getByTestId("top-tab-lineup-lab").click();
+	await page.waitForURL("**/lineup-lab");
 	await expect(page.getByTestId("lineup-lab-root")).toBeVisible();
 
 	if (await page.getByTestId("mobile-sidebar-toggle").isVisible()) {
@@ -79,7 +80,9 @@ test("lineup lab desktop visual parity", async ({ page }) => {
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await openLineupTabAndSeed(page);
 	await visibleByTestId(page, "lineup-calculate-button").click();
-	await expect(page.getByTestId("schedule-expected-wins").first()).toContainText("14.5");
+	await expect(
+		page.getByTestId("schedule-expected-wins").first(),
+	).toContainText("14.5");
 
 	fs.mkdirSync(validationScreenshotsDir, { recursive: true });
 	await page.screenshot({

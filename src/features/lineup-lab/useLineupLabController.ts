@@ -30,10 +30,13 @@ const slotKey = (roundNumber: number, slotNumber: number): string =>
 	`${roundNumber}:${slotNumber}`;
 
 const isAvailabilityValid = (availablePlayerIds: string[]): boolean =>
-	availablePlayerIds.length >= MIN_PLAYERS && availablePlayerIds.length % 2 === 0;
+	availablePlayerIds.length >= MIN_PLAYERS &&
+	availablePlayerIds.length % 2 === 0;
 
 const hasValidOpponentPair = (
-	assignment: { playerAId: string | null; playerBId: string | null } | undefined,
+	assignment:
+		| { playerAId: string | null; playerBId: string | null }
+		| undefined,
 	opponentPlayerIds: Set<string>,
 ): boolean => {
 	if (!assignment?.playerAId || !assignment.playerBId) {
@@ -88,7 +91,9 @@ export interface LineupLabController {
 	calculate: () => Promise<void>;
 }
 
-export function createLineupLabController(client: LineupLabClient): LineupLabController {
+export function createLineupLabController(
+	client: LineupLabClient,
+): LineupLabController {
 	const lineupDivisions = ref<LineupLabDivisionOption[]>([]);
 	const lineupTeams = ref<LineupLabTeamOption[]>([]);
 	const lineupMatchups = ref<LineupLabMatchupOption[]>([]);
@@ -138,9 +143,8 @@ export function createLineupLabController(client: LineupLabClient): LineupLabCon
 		}
 
 		for (const slot of SCHEDULE_SLOTS) {
-			const assignment = opponentAssignments.value[
-				slotKey(slot.roundNumber, slot.slotNumber)
-			];
+			const assignment =
+				opponentAssignments.value[slotKey(slot.roundNumber, slot.slotNumber)];
 			if (!hasValidOpponentPair(assignment, opponentPlayerIds)) {
 				return "Complete all opponent assignments before calculating.";
 			}
@@ -166,7 +170,8 @@ export function createLineupLabController(client: LineupLabClient): LineupLabCon
 			Boolean(selectedTeamId.value) &&
 			Boolean(selectedMatchupId.value) &&
 			isAvailabilityValid(selectedAvailablePlayerIds.value) &&
-			(mode.value !== "known_opponent" || knownOpponentCompletionError.value === null),
+			(mode.value !== "known_opponent" ||
+				knownOpponentCompletionError.value === null),
 	);
 
 	const resetRecommendation = () => {
@@ -307,9 +312,10 @@ export function createLineupLabController(client: LineupLabClient): LineupLabCon
 				];
 			}
 		} else {
-			selectedAvailablePlayerIds.value = selectedAvailablePlayerIds.value.filter(
-				(candidateId) => candidateId !== playerId,
-			);
+			selectedAvailablePlayerIds.value =
+				selectedAvailablePlayerIds.value.filter(
+					(candidateId) => candidateId !== playerId,
+				);
 		}
 		availabilityOverrides.set(playerId, isAvailable);
 		resetRecommendation();
@@ -353,11 +359,12 @@ export function createLineupLabController(client: LineupLabClient): LineupLabCon
 				roundNumber,
 				games: slotTypes.map((matchType, slotIndex) => {
 					const slotNumber = slotIndex + 1;
-					const assignment =
-						opponentAssignments.value[slotKey(roundNumber, slotNumber)] ?? {
-							playerAId: "",
-							playerBId: "",
-						};
+					const assignment = opponentAssignments.value[
+						slotKey(roundNumber, slotNumber)
+					] ?? {
+						playerAId: "",
+						playerBId: "",
+					};
 					return {
 						roundNumber,
 						slotNumber,
@@ -418,12 +425,12 @@ export function createLineupLabController(client: LineupLabClient): LineupLabCon
 				scenarioLimit: 12,
 				...(mode.value === "known_opponent"
 					? {
-						opponentRounds: buildOpponentRounds(),
-						opponentRoster: opponentRosterPlayers.value.map((p) => ({
-							playerId: p.playerId,
-							gender: p.gender,
-						})),
-					}
+							opponentRounds: buildOpponentRounds(),
+							opponentRoster: opponentRosterPlayers.value.map((p) => ({
+								playerId: p.playerId,
+								gender: p.gender,
+							})),
+						}
 					: {}),
 			};
 			recommendationResult.value = await client.recommend(payload);
@@ -488,14 +495,10 @@ export const useLineupLabController = (): LineupLabController => {
 		return createLineupLabController(fallbackClient);
 	}
 	const authStore = useAuthStore(activePinia);
-	const client = createLineupLabClient(
-		fetch,
-		() => authStore.accessToken,
-		{
-			ensureAccessToken: authStore.getTokenForRequest,
-			refreshAfterUnauthorized: authStore.refreshAfterUnauthorized,
-			onAuthFailure: authStore.clearSession,
-		},
-	);
+	const client = createLineupLabClient(fetch, () => authStore.accessToken, {
+		ensureAccessToken: authStore.getTokenForRequest,
+		refreshAfterUnauthorized: authStore.refreshAfterUnauthorized,
+		onAuthFailure: authStore.clearSession,
+	});
 	return createLineupLabController(client);
 };

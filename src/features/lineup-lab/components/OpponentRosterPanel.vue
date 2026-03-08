@@ -10,7 +10,8 @@ interface OpponentRosterPanelProps {
 const props = defineProps<OpponentRosterPanelProps>();
 
 const toDisplayName = (player: OpponentRosterPlayer): string =>
-	[player.firstName, player.lastName].filter(Boolean).join(" ") || player.playerId;
+	[player.firstName, player.lastName].filter(Boolean).join(" ") ||
+	player.playerId;
 </script>
 
 <template>

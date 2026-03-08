@@ -145,11 +145,7 @@ export const insertAuthAuditEvent = async (
 	env: WorkerEnv,
 	input: {
 		requestId: string;
-		eventType:
-			| "otp_request"
-			| "otp_verify"
-			| "signout"
-			| "refresh_failure";
+		eventType: "otp_request" | "otp_verify" | "signout" | "refresh_failure";
 		status: "success" | "failure";
 		emailNormalized?: string;
 		emailHash?: string;
@@ -241,7 +237,9 @@ export const clearVerifyState = async (
 	);
 };
 
-export const cleanupExpiredAuthRecords = async (env: WorkerEnv): Promise<void> => {
+export const cleanupExpiredAuthRecords = async (
+	env: WorkerEnv,
+): Promise<void> => {
 	const pool = getPool(env);
 	await pool.query(
 		`delete from auth_private.auth_otp_request_events

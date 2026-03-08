@@ -32,22 +32,39 @@ const emit = defineEmits<{
 }>();
 
 const placeholderA =
-	props.matchType === "mixed" ? "Opponent player A (male)" : "Opponent player A";
+	props.matchType === "mixed"
+		? "Opponent player A (male)"
+		: "Opponent player A";
 const placeholderB =
-	props.matchType === "mixed" ? "Opponent player B (female)" : "Opponent player B";
+	props.matchType === "mixed"
+		? "Opponent player B (female)"
+		: "Opponent player B";
 
 const onPlayerAChange = (event: Event) => {
 	const nextValue = (event.target as HTMLSelectElement).value || null;
-	emit("update", props.roundNumber, props.slotNumber, nextValue, props.playerBId);
+	emit(
+		"update",
+		props.roundNumber,
+		props.slotNumber,
+		nextValue,
+		props.playerBId,
+	);
 };
 
 const onPlayerBChange = (event: Event) => {
 	const nextValue = (event.target as HTMLSelectElement).value || null;
-	emit("update", props.roundNumber, props.slotNumber, props.playerAId, nextValue);
+	emit(
+		"update",
+		props.roundNumber,
+		props.slotNumber,
+		props.playerAId,
+		nextValue,
+	);
 };
 
 const toDisplayName = (player: OpponentRosterPlayer): string =>
-	[player.firstName, player.lastName].filter(Boolean).join(" ") || player.playerId;
+	[player.firstName, player.lastName].filter(Boolean).join(" ") ||
+	player.playerId;
 </script>
 
 <template>

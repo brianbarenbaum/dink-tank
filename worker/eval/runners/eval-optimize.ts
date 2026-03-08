@@ -6,10 +6,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import { applyPlannedFixes } from "../lib/applyFixes.ts";
-import {
-	attributeFailure,
-	summarizeAttribution,
-} from "../lib/attribution.ts";
+import { attributeFailure, summarizeAttribution } from "../lib/attribution.ts";
 import {
 	applyDatasetLimit,
 	parseEvalOptimizeConfig,
@@ -88,7 +85,10 @@ const extractResponsesOutputText = (payload: unknown): string => {
 };
 
 const loadDevVars = (): void => {
-	const candidates = [resolve(process.cwd(), "worker/.dev.vars"), resolve(process.cwd(), ".env")];
+	const candidates = [
+		resolve(process.cwd(), "worker/.dev.vars"),
+		resolve(process.cwd(), ".env"),
+	];
 	for (const filePath of candidates) {
 		if (!existsSync(filePath)) {
 			continue;
@@ -127,7 +127,10 @@ const requiredEnv = (name: string): string => {
 	return value;
 };
 
-const parseOptionalInt = (value: string | undefined, fallback: number): number => {
+const parseOptionalInt = (
+	value: string | undefined,
+	fallback: number,
+): number => {
 	if (!value?.trim()) {
 		return fallback;
 	}
@@ -205,7 +208,7 @@ const llmJudgeCorrectness = async (
 				{
 					role: "system",
 					content:
-						"You are an impartial evaluator. Score semantic correctness from 0.0 to 1.0 comparing assistant output to expected output. Return strict JSON: {\"score\": number, \"comment\": string}.",
+						'You are an impartial evaluator. Score semantic correctness from 0.0 to 1.0 comparing assistant output to expected output. Return strict JSON: {"score": number, "comment": string}.',
 				},
 				{
 					role: "user",
@@ -288,7 +291,11 @@ const fetchRunScoresByTrace = async (
 ): Promise<Map<string, ExternalScore[]>> => {
 	const scoresByTraceId = new Map<string, ExternalScore[]>();
 	const api = (langfuse as unknown as { api?: unknown }).api as
-		| { scoreV2?: { get?: (request: Record<string, unknown>) => Promise<unknown> } }
+		| {
+				scoreV2?: {
+					get?: (request: Record<string, unknown>) => Promise<unknown>;
+				};
+		  }
 		| undefined;
 	if (!api?.scoreV2?.get) {
 		return scoresByTraceId;
@@ -478,7 +485,11 @@ const run = async (): Promise<void> => {
 	let previousFailureByInput: Map<string, FailureSnapshot> = new Map();
 
 	try {
-		for (let loopIndex = 1; loopIndex <= optimizeConfig.maxLoops; loopIndex += 1) {
+		for (
+			let loopIndex = 1;
+			loopIndex <= optimizeConfig.maxLoops;
+			loopIndex += 1
+		) {
 			const loopRunName = `${runPrefix}-loop-${loopIndex}`;
 			console.log(`\n=== Loop ${loopIndex}/${optimizeConfig.maxLoops} ===`);
 
@@ -505,7 +516,11 @@ const run = async (): Promise<void> => {
 					if (!question) {
 						return "ERROR: empty input";
 					}
-					const response = await callChatApi(apiUrl, question, requestTimeoutMs);
+					const response = await callChatApi(
+						apiUrl,
+						question,
+						requestTimeoutMs,
+					);
 					return response.reply;
 				},
 				evaluators: [correctnessEvaluator],

@@ -89,12 +89,7 @@ describe("opponentSlotGender", () => {
 		});
 
 		it("includes currently selected player in list when they would be filtered out", () => {
-			const result = getPlayersForSlot(
-				"mixed",
-				allPlayers,
-				"female-id",
-				null,
-			);
+			const result = getPlayersForSlot("mixed", allPlayers, "female-id", null);
 			expect(result.playersForA).toContainEqual(
 				expect.objectContaining({ playerId: "female-id" }),
 			);

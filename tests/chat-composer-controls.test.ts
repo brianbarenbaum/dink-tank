@@ -44,6 +44,8 @@ describe("chat composer controls", () => {
 			},
 		});
 
-		expect(wrapper.find("[data-testid='model-menu-caret']").exists()).toBe(true);
+		expect(wrapper.find("[data-testid='model-menu-caret']").exists()).toBe(
+			true,
+		);
 	});
 });

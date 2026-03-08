@@ -40,13 +40,17 @@ const parseCookieHeader = (request: Request): Map<string, string> => {
 		if (!value) {
 			continue;
 		}
-		cookies.set(name, decodeURIComponent(value));
+		try {
+			cookies.set(name, decodeURIComponent(value));
+		} catch {}
 	}
 	return cookies;
 };
 
 export const getAccessTokenFromRequest = (request: Request): string | null =>
-	getBearerToken(request) ?? parseCookieHeader(request).get(ACCESS_TOKEN_COOKIE) ?? null;
+	getBearerToken(request) ??
+	parseCookieHeader(request).get(ACCESS_TOKEN_COOKIE) ??
+	null;
 
 export const getRefreshTokenFromRequest = (request: Request): string | null =>
 	parseCookieHeader(request).get(REFRESH_TOKEN_COOKIE) ?? null;
@@ -75,7 +79,8 @@ const buildCookie = (params: {
 	return segments.join("; ");
 };
 
-const shouldUseSecureCookies = (env: WorkerEnv): boolean => env.APP_ENV !== "local";
+const shouldUseSecureCookies = (env: WorkerEnv): boolean =>
+	env.APP_ENV !== "local";
 
 export const appendAuthCookies = (
 	response: Response,

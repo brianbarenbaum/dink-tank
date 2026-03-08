@@ -62,9 +62,7 @@ const parseKnownOpponentRounds = (
 	candidate: unknown,
 ): { ok: true; value: KnownOpponentRoundInput[] } | ValidationFailure => {
 	if (!Array.isArray(candidate)) {
-		return fail(
-			"opponentRounds must be an array when mode is known_opponent.",
-		);
+		return fail("opponentRounds must be an array when mode is known_opponent.");
 	}
 	if (candidate.length !== ROUND_SLOT_TEMPLATE.length) {
 		return fail("opponentRounds must include exactly 8 rounds.");
@@ -84,10 +82,14 @@ const parseKnownOpponentRounds = (
 			round.roundNumber < 1 ||
 			round.roundNumber > ROUND_SLOT_TEMPLATE.length
 		) {
-			return fail("Each opponent round must include a valid roundNumber (1-8).");
+			return fail(
+				"Each opponent round must include a valid roundNumber (1-8).",
+			);
 		}
 		if (seenRoundNumbers.has(round.roundNumber)) {
-			return fail("opponentRounds must not include duplicate roundNumber values.");
+			return fail(
+				"opponentRounds must not include duplicate roundNumber values.",
+			);
 		}
 		seenRoundNumbers.add(round.roundNumber);
 
@@ -98,7 +100,8 @@ const parseKnownOpponentRounds = (
 			return fail("Each opponent round must include exactly 4 games.");
 		}
 
-		const expectedRoundTemplate = ROUND_SLOT_TEMPLATE[round.roundNumber - 1] ?? [];
+		const expectedRoundTemplate =
+			ROUND_SLOT_TEMPLATE[round.roundNumber - 1] ?? [];
 		const seenSlotNumbers = new Set<number>();
 		const normalizedGames: KnownOpponentRoundInput["games"] = [];
 		for (const rawGame of round.games) {
@@ -112,10 +115,14 @@ const parseKnownOpponentRounds = (
 				game.slotNumber < 1 ||
 				game.slotNumber > 4
 			) {
-				return fail("Each opponent game must include slotNumber between 1 and 4.");
+				return fail(
+					"Each opponent game must include slotNumber between 1 and 4.",
+				);
 			}
 			if (seenSlotNumbers.has(game.slotNumber)) {
-				return fail("Opponent game slotNumber values must be unique per round.");
+				return fail(
+					"Opponent game slotNumber values must be unique per round.",
+				);
 			}
 			seenSlotNumbers.add(game.slotNumber);
 
@@ -133,7 +140,9 @@ const parseKnownOpponentRounds = (
 				game.matchType !== "female" &&
 				game.matchType !== "male"
 			) {
-				return fail("Each opponent game matchType must be mixed, female, or male.");
+				return fail(
+					"Each opponent game matchType must be mixed, female, or male.",
+				);
 			}
 
 			const expectedMatchType = expectedRoundTemplate[game.slotNumber - 1];
@@ -161,7 +170,9 @@ const parseKnownOpponentRounds = (
 
 		normalizedRounds.push({
 			roundNumber: round.roundNumber,
-			games: normalizedGames.sort((left, right) => left.slotNumber - right.slotNumber),
+			games: normalizedGames.sort(
+				(left, right) => left.slotNumber - right.slotNumber,
+			),
 		});
 	}
 
@@ -173,19 +184,21 @@ const parseOpponentRoster = (
 	candidate: unknown,
 ): { ok: true; value: OpponentRosterEntry[] } | ValidationFailure => {
 	if (!Array.isArray(candidate)) {
-		return fail(
-			"opponentRoster must be an array when mode is known_opponent.",
-		);
+		return fail("opponentRoster must be an array when mode is known_opponent.");
 	}
 	const roster: OpponentRosterEntry[] = [];
 	for (let i = 0; i < candidate.length; i++) {
 		const raw = candidate[i];
 		if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-			return fail("Each opponentRoster entry must be an object with playerId and gender.");
+			return fail(
+				"Each opponentRoster entry must be an object with playerId and gender.",
+			);
 		}
 		const entry = raw as Record<string, unknown>;
 		if (!isUuid(entry.playerId)) {
-			return fail("Each opponentRoster entry must have a valid playerId (UUID).");
+			return fail(
+				"Each opponentRoster entry must have a valid playerId (UUID).",
+			);
 		}
 		const gender =
 			entry.gender !== undefined && entry.gender !== null
@@ -220,7 +233,9 @@ function validateOpponentRoundsGender(
 					(genderA === "male" && genderB === "female") ||
 					(genderA === "female" && genderB === "male");
 				if (!oneMaleOneFemale) {
-					return fail("Mixed slots must have one male and one female opponent.");
+					return fail(
+						"Mixed slots must have one male and one female opponent.",
+					);
 				}
 			} else if (game.matchType === "female") {
 				if (genderA !== "female" || genderB !== "female") {
@@ -309,9 +324,7 @@ export const parseLineupLabRecommendRequest = (
 		candidate.objective !== "MAX_EXPECTED_WINS" &&
 		candidate.objective !== "MINIMIZE_DOWNSIDE"
 	) {
-		return fail(
-			"objective must be MAX_EXPECTED_WINS or MINIMIZE_DOWNSIDE.",
-		);
+		return fail("objective must be MAX_EXPECTED_WINS or MINIMIZE_DOWNSIDE.");
 	}
 
 	const maxRecommendations =

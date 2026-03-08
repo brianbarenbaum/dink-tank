@@ -7,7 +7,8 @@ const makeItem = (input: string): NormalizedEvalItem => ({
 	index: 0,
 	input,
 	expectedOutput: "expected",
-	output: "Do you want team match results or player match stats for wins/losses?",
+	output:
+		"Do you want team match results or player match stats for wins/losses?",
 	correctnessScore: 0,
 	judgeComment:
 		"The assistant did not answer the question and asked an unrelated clarifying question.",
@@ -29,9 +30,8 @@ describe("fix planner", () => {
 			},
 		);
 
-		expect(fixes.some((fix) => fix.id === "no-repeat-clarification-guard")).toBe(
-			true,
-		);
+		expect(
+			fixes.some((fix) => fix.id === "no-repeat-clarification-guard"),
+		).toBe(true);
 	});
 });
-

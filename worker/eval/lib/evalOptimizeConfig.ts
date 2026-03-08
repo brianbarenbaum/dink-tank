@@ -29,7 +29,10 @@ const clampInt = (value: number, min: number, max: number): number =>
 const clampFloat = (value: number, min: number, max: number): number =>
 	Math.min(max, Math.max(min, value));
 
-const parseBoolean = (value: string | undefined, fallback: boolean): boolean => {
+const parseBoolean = (
+	value: string | undefined,
+	fallback: boolean,
+): boolean => {
 	if (!value?.trim()) {
 		return fallback;
 	}
@@ -75,4 +78,3 @@ export const applyDatasetLimit = <T>(
 	}
 	return items.slice(0, Math.min(datasetLimit, items.length));
 };
-

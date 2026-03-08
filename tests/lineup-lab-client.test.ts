@@ -14,7 +14,10 @@ describe("lineup lab client", () => {
 				scenarioSummary: { scenarioCount: 1 },
 			}),
 		});
-		const client = createLineupLabClient(fetchMock as unknown as typeof fetch, () => null);
+		const client = createLineupLabClient(
+			fetchMock as unknown as typeof fetch,
+			() => null,
+		);
 
 		await client.recommend({
 			divisionId: "e8d04726-4c07-447c-a609-9914d1378e8d",
@@ -54,7 +57,10 @@ describe("lineup lab client", () => {
 				scenarioSummary: { scenarioCount: 1 },
 			}),
 		});
-		const client = createLineupLabClient(fetchMock as unknown as typeof fetch, () => null);
+		const client = createLineupLabClient(
+			fetchMock as unknown as typeof fetch,
+			() => null,
+		);
 
 		await client.recommend({
 			divisionId: "e8d04726-4c07-447c-a609-9914d1378e8d",
@@ -83,10 +89,8 @@ describe("lineup lab client", () => {
 							roundNumber: 1,
 							slotNumber: 1,
 							matchType: "mixed",
-							opponentPlayerAId:
-								"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-							opponentPlayerBId:
-								"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+							opponentPlayerAId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+							opponentPlayerBId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
 						},
 					],
 				},

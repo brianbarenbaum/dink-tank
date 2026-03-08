@@ -12,3 +12,14 @@ port = 8787
 [[hyperdrive]]
 binding = "HYPERDRIVE"
 id = "cbf8f04710db4376aa7fb2774371973a"
+
+[[hyperdrive]]
+binding = "CHAT_HYPERDRIVE"
+id = "c30252101e374b779ca82ce491219a99"
+
+# Optional dedicated chat-only Hyperdrive binding. Point this at the
+# least-privilege chat_reader role when you want chat isolated from the
+# shared database connection used by auth/lineup-lab.
+# [[hyperdrive]]
+# binding = "CHAT_HYPERDRIVE"
+# id = "<your-chat-hyperdrive-id>"

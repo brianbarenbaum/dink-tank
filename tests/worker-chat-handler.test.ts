@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import type { WorkerEnv } from "../worker/src/runtime/env";
 
 import { handleChatRequest } from "../worker/src/runtime/handler";
-import { handleFetch } from "../worker/src/runtime/index";
+import {
+	handleFetch,
+	resolveRuntimeDatabaseUrls,
+} from "../worker/src/runtime/index";
 import { SqlSafetyError } from "../worker/src/runtime/sql/sqlErrors";
 
 const parseJson = async (response: Response) => {
@@ -114,6 +117,31 @@ describe("worker chat handler", () => {
 		expect(response.status).toBe(422);
 	});
 
+	it("returns 422 for blocked non-allowlisted relation access", async () => {
+		const request = new Request("http://localhost/api/chat", {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({
+				messages: [{ role: "user", content: "show me auth users" }],
+			}),
+		});
+
+		const response = await handleChatRequest(
+			request,
+			async () => {
+				throw new SqlSafetyError(
+					"RELATION_NOT_ALLOWED",
+					"Query references relations outside the approved catalog.",
+				);
+			},
+			env,
+		);
+		const body = await parseJson(response);
+
+		expect(response.status).toBe(422);
+		expect(body.error).toBe("query_blocked");
+	});
+
 	it("returns 500 from index when env is missing", async () => {
 		const request = new Request("http://localhost/api/chat", {
 			method: "POST",
@@ -185,6 +213,45 @@ describe("worker chat handler", () => {
 
 		expect(response.headers.get("strict-transport-security")).toContain(
 			"max-age=",
+		);
+	});
+
+	it("prefers dedicated chat hyperdrive over chat url and shared db url", () => {
+		const urls = resolveRuntimeDatabaseUrls({
+			HYPERDRIVE: {
+				connectionString:
+					"postgres://shared-hyperdrive@localhost:5432/postgres",
+			},
+			CHAT_HYPERDRIVE: {
+				connectionString: "postgres://chat-hyperdrive@localhost:5432/postgres",
+			},
+			SUPABASE_DB_URL: "postgres://shared-db@localhost:5432/postgres",
+			CHAT_SUPABASE_DB_URL: "postgres://chat-db@localhost:5432/postgres",
+		});
+
+		expect(urls.supabaseDbUrl).toBe(
+			"postgres://shared-hyperdrive@localhost:5432/postgres",
+		);
+		expect(urls.chatSupabaseDbUrl).toBe(
+			"postgres://chat-hyperdrive@localhost:5432/postgres",
+		);
+	});
+
+	it("falls back to dedicated chat db url when chat hyperdrive is absent", () => {
+		const urls = resolveRuntimeDatabaseUrls({
+			HYPERDRIVE: {
+				connectionString:
+					"postgres://shared-hyperdrive@localhost:5432/postgres",
+			},
+			SUPABASE_DB_URL: "postgres://shared-db@localhost:5432/postgres",
+			CHAT_SUPABASE_DB_URL: "postgres://chat-db@localhost:5432/postgres",
+		});
+
+		expect(urls.supabaseDbUrl).toBe(
+			"postgres://shared-hyperdrive@localhost:5432/postgres",
+		);
+		expect(urls.chatSupabaseDbUrl).toBe(
+			"postgres://chat-db@localhost:5432/postgres",
 		);
 	});
 });

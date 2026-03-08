@@ -44,7 +44,10 @@ describe("formatChatMessageContent", () => {
 		const rendered = formatChatMessageContent(content);
 
 		expect(rendered[0]?.kind).toBe("paragraph");
-		expect(rendered[0]?.lines[0]?.[0]).toEqual({ kind: "strong", text: "Safe" });
+		expect(rendered[0]?.lines[0]?.[0]).toEqual({
+			kind: "strong",
+			text: "Safe",
+		});
 		expect(rendered[0]?.lines[0]?.[1]).toEqual({
 			kind: "text",
 			text: ' <img src=x onerror="alert(1)" />',

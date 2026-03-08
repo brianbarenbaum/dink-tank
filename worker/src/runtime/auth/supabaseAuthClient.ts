@@ -91,14 +91,17 @@ export const sendOtpRequest = async (
 	env: WorkerEnv,
 	normalizedEmail: string,
 ): Promise<{ ok: true } | { ok: false }> => {
-	const response = await fetch(`${env.SUPABASE_URL.replace(/\/$/, "")}/auth/v1/otp`, {
-		method: "POST",
-		headers: authHeaders(env),
-		body: JSON.stringify({
-			email: normalizedEmail,
-			create_user: true,
-		}),
-	});
+	const response = await fetch(
+		`${env.SUPABASE_URL.replace(/\/$/, "")}/auth/v1/otp`,
+		{
+			method: "POST",
+			headers: authHeaders(env),
+			body: JSON.stringify({
+				email: normalizedEmail,
+				create_user: true,
+			}),
+		},
+	);
 
 	if (!response.ok) {
 		await readJson(response);
@@ -126,7 +129,10 @@ export const verifyOtpCode = async (
 		},
 	);
 
-	const payload = (await readJson(response)) as SupabaseSessionShape | SupabaseVerifyResponse | null;
+	const payload = (await readJson(response)) as
+		| SupabaseSessionShape
+		| SupabaseVerifyResponse
+		| null;
 	if (!response.ok || !payload || typeof payload !== "object") {
 		return { ok: false };
 	}
@@ -159,7 +165,10 @@ export const refreshSupabaseSession = async (
 		},
 	);
 
-	const payload = (await readJson(response)) as SupabaseSessionShape | { session?: SupabaseSessionShape } | null;
+	const payload = (await readJson(response)) as
+		| SupabaseSessionShape
+		| { session?: SupabaseSessionShape }
+		| null;
 	if (!response.ok || !payload || typeof payload !== "object") {
 		return { ok: false };
 	}

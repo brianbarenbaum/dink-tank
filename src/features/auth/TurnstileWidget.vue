@@ -38,20 +38,29 @@ const ensureScript = async (): Promise<void> => {
 		);
 		if (existing) {
 			existing.addEventListener("load", () => resolve(), { once: true });
-			existing.addEventListener("error", () => reject(new Error("turnstile_script_failed")), {
-				once: true,
-			});
+			existing.addEventListener(
+				"error",
+				() => reject(new Error("turnstile_script_failed")),
+				{
+					once: true,
+				},
+			);
 			return;
 		}
 
 		const script = document.createElement("script");
-		script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+		script.src =
+			"https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
 		script.async = true;
 		script.defer = true;
 		script.addEventListener("load", () => resolve(), { once: true });
-		script.addEventListener("error", () => reject(new Error("turnstile_script_failed")), {
-			once: true,
-		});
+		script.addEventListener(
+			"error",
+			() => reject(new Error("turnstile_script_failed")),
+			{
+				once: true,
+			},
+		);
 		document.head.appendChild(script);
 	});
 

@@ -40,7 +40,11 @@ export const attributeFailure = (
 	const comment = lower(item.judgeComment);
 	const output = lower(item.output);
 	const question = lower(item.input);
-	const evidence = [truncate(item.input), truncate(item.output), truncate(item.judgeComment)];
+	const evidence = [
+		truncate(item.input),
+		truncate(item.output),
+		truncate(item.judgeComment),
+	];
 
 	const schemaSignals = [
 		/sql error|syntax error|column .* does not exist|relation .* does not exist|invalid input syntax|operator does not exist/,
@@ -163,4 +167,3 @@ export const summarizeAttribution = (
 	}
 	return { primaryLayerCounts, secondaryLayerCounts };
 };
-

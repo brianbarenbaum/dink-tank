@@ -17,14 +17,14 @@ export interface SlotTemplateEntry {
 	matchType: LineupMatchType;
 }
 
-export const SCHEDULE_SLOTS: SlotTemplateEntry[] = SCHEDULE_SLOT_TEMPLATE.flatMap(
-	(slotTypes, roundIndex) =>
+export const SCHEDULE_SLOTS: SlotTemplateEntry[] =
+	SCHEDULE_SLOT_TEMPLATE.flatMap((slotTypes, roundIndex) =>
 		slotTypes.map((matchType, slotIndex) => ({
 			roundNumber: roundIndex + 1,
 			slotNumber: slotIndex + 1,
 			matchType,
 		})),
-);
+	);
 
 export const isExpectedMatchType = (
 	roundNumber: number,

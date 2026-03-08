@@ -9,7 +9,10 @@ export interface ApplyFixesResult {
 	addedRules: number;
 }
 
-const HINTS_FILE = resolve(process.cwd(), "worker/eval/config/optimizationHints.ts");
+const HINTS_FILE = resolve(
+	process.cwd(),
+	"worker/eval/config/optimizationHints.ts",
+);
 const RUNTIME_TUNING_FILE = resolve(
 	process.cwd(),
 	"worker/eval/config/runtimeTuning.ts",
@@ -31,7 +34,10 @@ const unique = (values: string[]): string[] => [...new Set(values)];
 
 const toQuotedLines = (values: string[]): string =>
 	values
-		.map((value) => `\t\t"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}",`)
+		.map(
+			(value) =>
+				`\t\t"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}",`,
+		)
 		.join("\n");
 
 const buildHintsSource = (params: {

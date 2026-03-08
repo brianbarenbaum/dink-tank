@@ -53,10 +53,7 @@ export const handleLineupLabRecommendRequest = async (
 			logWarn("lineup_lab_invalid_request", context, {
 				reason: error.message,
 			});
-			return json(
-				{ error: "invalid_request", message: error.message },
-				400,
-			);
+			return json({ error: "invalid_request", message: error.message }, 400);
 		}
 
 		logError("lineup_lab_recommend_failed", context, {

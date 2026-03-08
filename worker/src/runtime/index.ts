@@ -27,8 +27,12 @@ export interface Env {
 	HYPERDRIVE?: {
 		connectionString?: string;
 	};
+	CHAT_HYPERDRIVE?: {
+		connectionString?: string;
+	};
 	OPENAI_API_KEY?: string;
 	SUPABASE_DB_URL?: string;
+	CHAT_SUPABASE_DB_URL?: string;
 	SUPABASE_DB_SSL_NO_VERIFY?: string;
 	SUPABASE_URL?: string;
 	SUPABASE_ANON_KEY?: string;
@@ -71,7 +75,8 @@ const isChatRoute = (request: Request, pathname: string): boolean =>
 
 const isLineupRoute = (request: Request, pathname: string): boolean =>
 	(pathname === "/api/lineup-lab/recommend" && request.method === "POST") ||
-	(pathname === "/api/lineup-lab/context/divisions" && request.method === "GET") ||
+	(pathname === "/api/lineup-lab/context/divisions" &&
+		request.method === "GET") ||
 	(pathname === "/api/lineup-lab/context/teams" && request.method === "GET") ||
 	(pathname === "/api/lineup-lab/context/matchups" && request.method === "GET");
 
@@ -79,6 +84,17 @@ const isKnownApiRoute = (request: Request, pathname: string): boolean =>
 	isAuthRoute(request, pathname) ||
 	isChatRoute(request, pathname) ||
 	isLineupRoute(request, pathname);
+
+export const resolveRuntimeDatabaseUrls = (
+	env: Env,
+): {
+	supabaseDbUrl: string | undefined;
+	chatSupabaseDbUrl: string | undefined;
+} => ({
+	supabaseDbUrl: env.HYPERDRIVE?.connectionString ?? env.SUPABASE_DB_URL,
+	chatSupabaseDbUrl:
+		env.CHAT_HYPERDRIVE?.connectionString ?? env.CHAT_SUPABASE_DB_URL,
+});
 
 /**
  * Routes incoming Worker requests and dispatches runtime handlers.
@@ -89,10 +105,12 @@ export const handleFetch = async (
 ): Promise<Response> => {
 	const url = new URL(request.url);
 	const isApiPath = url.pathname.startsWith("/api/");
+	const databaseUrls = resolveRuntimeDatabaseUrls(env);
 
 	const envResult = parseWorkerEnv({
 		OPENAI_API_KEY: env.OPENAI_API_KEY,
-		SUPABASE_DB_URL: env.HYPERDRIVE?.connectionString ?? env.SUPABASE_DB_URL,
+		SUPABASE_DB_URL: databaseUrls.supabaseDbUrl,
+		CHAT_SUPABASE_DB_URL: databaseUrls.chatSupabaseDbUrl,
 		SUPABASE_DB_SSL_NO_VERIFY: env.SUPABASE_DB_SSL_NO_VERIFY,
 		SUPABASE_URL: env.SUPABASE_URL,
 		SUPABASE_ANON_KEY: env.SUPABASE_ANON_KEY,
@@ -142,10 +160,11 @@ export const handleFetch = async (
 	}
 
 	if (origin && !allowOrigin) {
-		return withApiResponseHeaders(
-			json({ error: "forbidden_origin" }, 403),
-			{ origin, allowOrigin: false, noStore: true },
-		);
+		return withApiResponseHeaders(json({ error: "forbidden_origin" }, 403), {
+			origin,
+			allowOrigin: false,
+			noStore: true,
+		});
 	}
 
 	if (!isApiPath || !isKnownApiRoute(request, url.pathname)) {
@@ -157,7 +176,10 @@ export const handleFetch = async (
 	}
 
 	if (!isAuthRoute(request, url.pathname)) {
-		const authResult = await requireAuthenticatedRequest(request, envResult.value);
+		const authResult = await requireAuthenticatedRequest(
+			request,
+			envResult.value,
+		);
 		if (!authResult.ok) {
 			return withApiResponseHeaders(authResult.response, {
 				origin,
@@ -175,10 +197,7 @@ export const handleFetch = async (
 		request.method === "POST"
 	) {
 		response = await handleOtpVerify(request, envResult.value);
-	} else if (
-		url.pathname === "/api/auth/session" &&
-		request.method === "GET"
-	) {
+	} else if (url.pathname === "/api/auth/session" && request.method === "GET") {
 		response = await handleAuthSession(request, envResult.value);
 	} else if (
 		url.pathname === "/api/auth/signout" &&
@@ -190,10 +209,7 @@ export const handleFetch = async (
 		request.method === "POST"
 	) {
 		response = await handleAuthRefresh(request, envResult.value);
-	} else if (
-		url.pathname === "/api/chat/config" &&
-		request.method === "GET"
-	) {
+	} else if (url.pathname === "/api/chat/config" && request.method === "GET") {
 		response = json(
 			{
 				model: envResult.value.LLM_MODEL,

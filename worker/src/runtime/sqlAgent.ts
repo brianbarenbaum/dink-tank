@@ -53,6 +53,14 @@ export const shouldAllowSqlToolCall = (
 	return { allowed: true };
 };
 
+export const resolveChatExecutionEnv = (env: WorkerEnv): WorkerEnv =>
+	env.CHAT_SUPABASE_DB_URL
+		? {
+				...env,
+				SUPABASE_DB_URL: env.CHAT_SUPABASE_DB_URL,
+			}
+		: env;
+
 /**
  * Extracts final assistant text from the LangChain agent response shape.
  */
@@ -128,13 +136,14 @@ export const runSqlAgent = async (
 	context: RequestContext,
 	options?: { extendedThinking?: boolean },
 ): Promise<string> => {
+	const chatEnv = resolveChatExecutionEnv(env);
 	const startMs = nowMs();
 	const inputMessage =
 		messages.filter((message) => message.role === "user").at(-1)?.content ?? "";
-	const fastPathReply = await tryResolveFastPathAnswer(env, inputMessage);
+	const fastPathReply = await tryResolveFastPathAnswer(chatEnv, inputMessage);
 	if (fastPathReply) {
 		const telemetryResult = await emitLangfuseTelemetry(
-			env,
+			chatEnv,
 			"legacy_sql_telemetry",
 			{
 				orchestrator: "legacy",
@@ -173,7 +182,7 @@ export const runSqlAgent = async (
 		confidenceMin: CATALOG_CONFIDENCE_MIN,
 		maxColumnsPerView: CATALOG_MAX_COLUMNS_PER_VIEW,
 	});
-	const scopedMetadata = await resolveScopedMetadata(env, inputMessage);
+	const scopedMetadata = await resolveScopedMetadata(chatEnv, inputMessage);
 	const scopedMetadataBlock = formatScopedMetadataBlock(scopedMetadata);
 	const catalogContext =
 		selectedCatalog.catalogContext ?? selectedCatalog.selectedSchema;
@@ -195,7 +204,9 @@ export const runSqlAgent = async (
 				});
 			}
 			sqlToolCallCount += 1;
-			return executeReadOnlySql(env, query);
+			return executeReadOnlySql(chatEnv, query, {
+				enforceApprovedRelations: true,
+			});
 		},
 		{
 			name: "execute_sql",
@@ -205,12 +216,12 @@ export const runSqlAgent = async (
 	);
 
 	const model = new ChatOpenAI({
-		apiKey: env.OPENAI_API_KEY,
-		model: env.LLM_MODEL,
+		apiKey: chatEnv.OPENAI_API_KEY,
+		model: chatEnv.LLM_MODEL,
 		reasoning: {
-			effort: resolveReasoningEffort(options, env.LLM_REASONING_LEVEL),
+			effort: resolveReasoningEffort(options, chatEnv.LLM_REASONING_LEVEL),
 		},
-		timeout: env.SQL_QUERY_TIMEOUT_MS,
+		timeout: chatEnv.SQL_QUERY_TIMEOUT_MS,
 	});
 
 	const agent = createAgent({
@@ -227,7 +238,7 @@ export const runSqlAgent = async (
 	const tokenUsage = extractTokenUsage(response);
 	const reply = extractAgentText(response);
 	const telemetryResult = await emitLangfuseTelemetry(
-		env,
+		chatEnv,
 		"legacy_sql_telemetry",
 		{
 			orchestrator: "legacy",
