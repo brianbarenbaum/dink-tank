@@ -33,6 +33,44 @@ This repository uses an **agentic engineering workflow** designed to optimize fo
 
 ---
 
+## Session Handoff Memory Pack
+
+This repository uses `.codex/memories/` as the canonical session handoff system.
+
+### Startup Read Order
+
+Before broad repo exploration in a fresh session, read these in order:
+
+1. `.codex/memories/project-roadmap.md`
+2. `.codex/memories/repo-map.md`
+3. `.codex/memories/active-branches/<current-branch>.md` if it exists
+
+Read `.codex/memories/decision-log.md` and `.codex/memories/known-issues.md` only when relevant to the current task.
+
+### Update Rules
+
+Agents must update `.codex/memories/active-branches/<current-branch>.md` at meaningful checkpoints:
+
+- when the task direction changes materially
+- when verification runs
+- when blockers or failing tests are discovered
+- before ending the session
+
+Update durable memory files only when the information is durable:
+
+- `.codex/memories/project-roadmap.md`
+  - product direction changes
+- `.codex/memories/repo-map.md`
+  - architecture, runtime entrypoints, or debug flow changes materially
+- `.codex/memories/decision-log.md`
+  - a durable design/process decision is made
+- `.codex/memories/known-issues.md`
+  - an issue becomes repo-level or recurring across sessions/branches
+
+Detailed procedure lives in `.codex/memories/session-workflow.md`.
+
+---
+
 ## Verification Commands
 
 All contributors and agents must preserve these commands:

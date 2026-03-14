@@ -1,40 +1,58 @@
-# Project Roadmap: Cross Club Pickleball Bot
+# Project Roadmap: Dink Tank
 
-## Project Overview
-An intelligent chatbot designed to streamline access to statistics and optimize team performance for Cross Club Pickleball.
+## Product Goal
 
-- **Primary Source:** [https://www.crossclubpickleball.com/](https://www.crossclubpickleball.com/)
-- **Core Goal:** Simplify stat retrieval and generate intelligent, data-driven team lineups.
+Dink Tank is an authenticated Cross Club Pickleball assistant that helps users:
 
-## Design & Personality
-- **UI/UX Style:** Mmodern LLM interface (comparable to Claude and ChatGPT) but with a twist -- It should be lightly inspired by classic terminal design using green-on-black.
-- **Progressive Ehnancement:**  All pages must work on mobile, tablets and desktops
-- **Design Images:** 
-  - Designs for both desktop and mobile can be found at `/designs/chat_desktop.png` and `/designs/chat_mobile.png` respectively.
-  - These designs should serve as strong inspiration.  The actual design should be close to these, but does not have to be exact pixel by pixel.  As we continue to work, we will iterate on these designs until we get exactly what we want.  As a design expert, I would like suggestions on how to improve the designs and useability as we work.
+- retrieve stats quickly
+- browse structured league data without writing SQL
+- generate data-driven lineup recommendations
 
-## Target Features
-1. **Stat Retrieval Engine:** Efficiently pull and present individual and team stats from the Cross Club portal.
-2. **Intelligent Lineup Generator:** An algorithm-based tool to suggest optimal pairings and lineups based on historical performance data.
-3. **Chat-Driven Interface:** Users should be able to ask natural language questions (e.g., "Who has the highest win percentage in mixed doubles lately?").
+The product should reduce the friction of navigating the Cross Club data model while preserving trust, correctness, and strong debugging visibility.
 
-## Front-End Tech Stack (Aligned with Agents)
-- **Front-End Framework:** Vue 3 (Composition API) + Vite
-- **Styling:** Tailwind CSS + shadcn-vue
-- **State:** Pinia
-- **Language:** TypeScript
-- **Testing:** Vitest & Playwright
-- **Served From:** Clodflare Pages
+## Experience Direction
 
-## Back-End Tech Stack (Aligned with Agents)
-  - **Runtime:** Node.js
-  - **LLM Integration:** LangChain SQL Agent
-  - **Served From:** Cloudflare Workers
-    
-## User Authentication
-  - **Front-End:**  Supabase Auth
-  - **Cloudflware Workers:** Worker validates user's session by using access token in request headers from client
+- Core interface: modern chat product with a light terminal-inspired aesthetic
+- Visual language: green-on-black influence without sacrificing readability
+- Platforms: mobile, tablet, and desktop must all remain first-class
+- Design references:
+  - `/designs/chat_desktop.png`
+  - `/designs/chat_mobile.png`
+  - `/designs/lineup_lab.png`
+  - `/designs/lineup_lab_new.png`
 
-## Known Constraints
-- Data retrieval must respect the source site's structure.
-- Lineups must account for varying player availability and skill levels.
+The design target is directional parity, not frozen pixel parity. Iteration is expected.
+
+## Core Capabilities
+
+1. Chat-driven stat retrieval
+   - Natural-language questions over Cross Club data
+   - Worker-backed SQL agent with safety guardrails
+
+2. Structured data browsing
+   - Tree-based navigation of seasons, divisions, teams, and query leaves
+   - Direct-query cards and tables for non-chat exploration
+
+3. Lineup optimization
+   - Blind mode for available-player recommendation
+   - Known-opponent mode for schedule-aware matchup planning
+
+4. Authenticated application shell
+   - Email OTP sign-in
+   - Worker-side session validation
+   - Protected `/api/*` routes
+
+## Platform Assumptions
+
+- Frontend: Vue 3 + Vite + Tailwind + shadcn-vue + Pinia + TypeScript
+- Backend runtime: Cloudflare Workers
+- Data: Supabase Postgres plus ingestion pipeline for Cross Club data
+- LLM integration: LangChain SQL agent
+- Testing: Vitest and Playwright
+
+## Constraints
+
+- Source data structure and access patterns come from Cross Club
+- Lineup recommendations must account for player availability and matchup context
+- Auth, SQL safety, and worker-side validation are product requirements, not optional enhancements
+- The repo should remain operable by future coding sessions without full cold-start re-discovery
