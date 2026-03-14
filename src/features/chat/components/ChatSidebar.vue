@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { ChevronDown, ChevronLeft, Pencil } from "lucide-vue-next";
-import { ref } from "vue";
+import { ChevronLeft, Pencil } from "lucide-vue-next";
 
 interface ChatSidebarProps {
 	mobile?: boolean;
@@ -16,8 +15,6 @@ defineEmits<{
 	close: [];
 	toggleDesktop: [];
 }>();
-
-const dataBrowserExpanded = ref(false);
 </script>
 
 <template>
@@ -79,25 +76,5 @@ const dataBrowserExpanded = ref(false);
       </button>
     </section>
 
-    <nav class="space-y-5" aria-label="Explorer shortcuts">
-      <section class="space-y-2">
-        <h2>
-          <button
-            type="button"
-            data-testid="toggle-data-browser"
-            class="flex w-full cursor-pointer items-center justify-between rounded-md px-1 py-1 text-left text-xs font-semibold uppercase tracking-[0.18em] text-[var(--chat-muted)]"
-            :aria-expanded="dataBrowserExpanded"
-            @click="dataBrowserExpanded = !dataBrowserExpanded"
-          >
-            <span>Data Browser</span>
-            <ChevronDown
-              class="h-3.5 w-3.5 shrink-0 transition-transform duration-150"
-              :class="dataBrowserExpanded ? 'rotate-180' : 'rotate-0'"
-            />
-          </button>
-        </h2>
-        <p v-if="dataBrowserExpanded" class="px-3 py-2 text-xs text-[var(--chat-muted)]">Coming soon</p>
-      </section>
-    </nav>
   </aside>
 </template>

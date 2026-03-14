@@ -1,13 +1,23 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from "vue";
 
+import DirectQueryCard from "./DirectQueryCard.vue";
+import DirectQueryTableCard from "./DirectQueryTableCard.vue";
 import ChatMessageBubble from "./ChatMessageBubble.vue";
 
-import type { ChatMessage } from "../types";
+import type { ChatTranscriptItem, DirectQueryCardItem } from "../types";
 
 interface ChatTranscriptProps {
-	messages: ChatMessage[];
+	messages: ChatTranscriptItem[];
 	isSending?: boolean;
+	onDirectQueryPageChange?: (
+		card: DirectQueryCardItem,
+		page: number,
+	) => Promise<void> | void;
+	onDirectQuerySortChange?: (
+		card: DirectQueryCardItem,
+		sortKey: string,
+	) => Promise<void> | void;
 }
 
 const props = withDefaults(defineProps<ChatTranscriptProps>(), {
@@ -15,6 +25,10 @@ const props = withDefaults(defineProps<ChatTranscriptProps>(), {
 });
 
 const transcriptEl = ref<HTMLElement | null>(null);
+
+const isDirectQueryCardItem = (
+	message: ChatTranscriptItem,
+): message is DirectQueryCardItem => "kind" in message;
 
 watch(
 	() => [props.messages.length, props.isSending],
@@ -37,11 +51,29 @@ watch(
     class="chat-scrollbar relative flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto rounded-lg border p-4 md:p-6"
     aria-label="Chat transcript"
   >
-    <ChatMessageBubble
+    <template
       v-for="message in messages"
       :key="message.id"
-      :message="message"
-    />
+    >
+      <DirectQueryTableCard
+        v-if="isDirectQueryCardItem(message) && message.layout === 'table'"
+        :card="message"
+        @paginate="(page) => void props.onDirectQueryPageChange?.(message, page)"
+        @sort="(sortKey) => void props.onDirectQuerySortChange?.(message, sortKey)"
+      />
+      <DirectQueryCard
+        v-else-if="isDirectQueryCardItem(message)"
+        :card="message"
+      >
+        <p class="text-sm text-[var(--chat-muted)]">
+          Result ready.
+        </p>
+      </DirectQueryCard>
+      <ChatMessageBubble
+        v-else
+        :message="message"
+      />
+    </template>
     <article
       v-if="props.isSending"
       class="chat-message-bubble chat-assistant-bubble flex max-w-2xl items-center gap-3 rounded-lg border p-4"

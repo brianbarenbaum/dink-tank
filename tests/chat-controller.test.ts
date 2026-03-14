@@ -1,6 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createChatController } from "../src/features/chat/useChatController";
+import type {
+	ChatMessage,
+	ChatTranscriptItem,
+} from "../src/features/chat/types";
+
+const isChatMessage = (
+	item: ChatTranscriptItem | undefined,
+): item is ChatMessage => Boolean(item && "role" in item);
 
 describe("chat controller", () => {
 	it("adds user message and assistant reply from api", async () => {
@@ -12,8 +20,13 @@ describe("chat controller", () => {
 
 		await controller.submit("How to counter bangers?");
 
-		expect(controller.messages.value.at(-2)?.role).toBe("user");
-		expect(controller.messages.value.at(-1)?.role).toBe("assistant");
+		const userMessage = controller.messages.value.at(-2);
+		const assistantMessage = controller.messages.value.at(-1);
+
+		expect(isChatMessage(userMessage) ? userMessage.role : null).toBe("user");
+		expect(isChatMessage(assistantMessage) ? assistantMessage.role : null).toBe(
+			"assistant",
+		);
 		expect(controller.modelLabel.value).toBe("gpt-5.1");
 	});
 

@@ -4,13 +4,17 @@ import { useRoute, useRouter } from "vue-router";
 import {
 	ChevronLeft,
 	ChevronRight,
+	Database,
 	MessageSquareText,
 	UserRound,
 } from "lucide-vue-next";
 
 import ChatShell from "../features/chat/components/ChatShell.vue";
 import ChatSidebarContent from "../features/chat/components/ChatSidebarContent.vue";
+import { useDataBrowserController } from "../features/chat/data-browser/useDataBrowserController";
 import { useChatController } from "../features/chat/useChatController";
+import DataBrowserSidebarContent from "../features/data-browser/components/DataBrowserSidebarContent.vue";
+import DataBrowserTabShell from "../features/data-browser/components/DataBrowserTabShell.vue";
 import LineupLabTabShell from "../features/lineup-lab/components/LineupLabTabShell.vue";
 import LineupLabSidebarContent from "../features/lineup-lab/components/LineupLabSidebarContent.vue";
 import { useLineupLabController } from "../features/lineup-lab/useLineupLabController";
@@ -20,9 +24,15 @@ const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
 
-const activeTab = computed<"chat" | "lineup_lab">(() =>
-	route.path.startsWith("/lineup-lab") ? "lineup_lab" : "chat",
-);
+const activeTab = computed<"chat" | "data_browser" | "lineup_lab">(() => {
+	if (route.path.startsWith("/lineup-lab")) {
+		return "lineup_lab";
+	}
+	if (route.path.startsWith("/data-browser")) {
+		return "data_browser";
+	}
+	return "chat";
+});
 const desktopSidebarOpen = ref(true);
 const mobileSidebarOpen = ref(false);
 
@@ -35,6 +45,7 @@ const desktopGridClass = computed(() =>
 const chatController = useChatController();
 const { messages, isSending, submit, modelLabel, extendedThinking } =
 	chatController;
+const dataBrowserController = useDataBrowserController();
 
 const lineupLabController = useLineupLabController();
 const {
@@ -70,10 +81,14 @@ const onExtendedThinkingUpdate = (value: boolean) => {
 	extendedThinking.value = value;
 };
 
-const selectTab = (tab: "chat" | "lineup_lab") => {
+const selectTab = (tab: "chat" | "data_browser" | "lineup_lab") => {
 	mobileSidebarOpen.value = false;
 	if (tab === "chat") {
 		void router.push("/chat");
+		return;
+	}
+	if (tab === "data_browser") {
+		void router.push("/data-browser");
 		return;
 	}
 	void router.push("/lineup-lab");
@@ -133,6 +148,28 @@ watch(
             </span>
           </button>
           <button
+            :aria-selected="activeTab === 'data_browser'"
+            :class="[
+              'top-nav-tab',
+              activeTab === 'data_browser' ? 'top-nav-tab--active' : '',
+            ]"
+            aria-controls="data-browser-tab-panel"
+            aria-label="Data Browser"
+            data-testid="top-tab-data-browser"
+            role="tab"
+            type="button"
+            @click="selectTab('data_browser')"
+          >
+            <span class="top-nav-tab__inner">
+              <Database
+                :size="12"
+                aria-hidden="true"
+                class="top-nav-tab__icon"
+              />
+              <span>Data Browser</span>
+            </span>
+          </button>
+          <button
             :aria-selected="activeTab === 'lineup_lab'"
             :class="[
               'top-nav-tab',
@@ -177,7 +214,7 @@ watch(
       <aside
         v-if="desktopSidebarOpen"
         data-testid="chat-sidebar"
-        class="hidden border-r p-4 lg:flex lg:flex-col lg:gap-6 chat-sidebar-surface chat-divider-border"
+        class="hidden min-h-0 border-r p-4 lg:flex lg:flex-col lg:gap-6 chat-sidebar-surface chat-divider-border"
         aria-label="Session sidebar"
       >
         <div class="flex items-center justify-end">
@@ -192,7 +229,13 @@ watch(
             <ChevronLeft class="h-4 w-4" />
           </button>
         </div>
-        <ChatSidebarContent v-if="activeTab === 'chat'" />
+        <ChatSidebarContent
+          v-if="activeTab === 'chat'"
+        />
+        <DataBrowserSidebarContent
+          v-else-if="activeTab === 'data_browser'"
+          :controller="dataBrowserController"
+        />
         <LineupLabSidebarContent
           v-else
           :lineup-divisions="lineupDivisions"
@@ -244,7 +287,7 @@ watch(
       <aside
         v-if="mobileSidebarOpen"
         data-testid="mobile-sidebar"
-        class="chat-sidebar-surface chat-divider-border fixed inset-y-0 left-0 z-40 flex w-72 flex-col gap-6 border-r p-4 transition-transform duration-150 ease-out lg:hidden"
+        class="chat-sidebar-surface chat-divider-border fixed inset-y-0 left-0 z-40 flex min-h-0 w-72 flex-col gap-6 border-r p-4 transition-transform duration-150 ease-out lg:hidden"
         aria-label="Session sidebar"
       >
         <div class="flex items-center gap-3">
@@ -267,7 +310,13 @@ watch(
             Sign Out
           </button>
         </div>
-        <ChatSidebarContent v-if="activeTab === 'chat'" />
+        <ChatSidebarContent
+          v-if="activeTab === 'chat'"
+        />
+        <DataBrowserSidebarContent
+          v-else-if="activeTab === 'data_browser'"
+          :controller="dataBrowserController"
+        />
         <LineupLabSidebarContent
           v-else
           :lineup-divisions="lineupDivisions"
@@ -293,8 +342,20 @@ watch(
       </aside>
 
       <section
-        :id="activeTab === 'chat' ? 'chat-tab-panel' : 'lineup-lab-tab-panel'"
-        :aria-labelledby="activeTab === 'chat' ? 'top-tab-chat' : 'top-tab-lineup-lab'"
+        :id="
+          activeTab === 'chat'
+            ? 'chat-tab-panel'
+            : activeTab === 'data_browser'
+              ? 'data-browser-tab-panel'
+              : 'lineup-lab-tab-panel'
+        "
+        :aria-labelledby="
+          activeTab === 'chat'
+            ? 'top-tab-chat'
+            : activeTab === 'data_browser'
+              ? 'top-tab-data-browser'
+              : 'top-tab-lineup-lab'
+        "
         data-testid="app-main"
         class="relative flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-3 md:p-4 lg:p-6"
       >
@@ -326,6 +387,10 @@ watch(
           :extended-thinking="extendedThinking"
           @update:extended-thinking="onExtendedThinkingUpdate"
           @submit="submit"
+        />
+        <DataBrowserTabShell
+          v-else-if="activeTab === 'data_browser'"
+          :controller="dataBrowserController"
         />
 
         <LineupLabTabShell

@@ -6,14 +6,22 @@ import ChatComposer from "./ChatComposer.vue";
 import ChatSidebar from "./ChatSidebar.vue";
 import ChatTranscript from "./ChatTranscript.vue";
 
-import type { ChatMessage } from "../types";
+import type { ChatTranscriptItem, DirectQueryCardItem } from "../types";
 
 interface ChatShellProps {
 	embedded?: boolean;
-	messages?: ChatMessage[];
+	messages?: ChatTranscriptItem[];
 	isSending?: boolean;
 	modelLabel?: string;
 	extendedThinking?: boolean;
+	onDirectQueryPageChange?: (
+		card: DirectQueryCardItem,
+		page: number,
+	) => Promise<void> | void;
+	onDirectQuerySortChange?: (
+		card: DirectQueryCardItem,
+		sortKey: string,
+	) => Promise<void> | void;
 }
 
 const props = withDefaults(defineProps<ChatShellProps>(), {
@@ -61,6 +69,8 @@ const desktopGridClass = computed(() =>
       <ChatTranscript
         :messages="props.messages"
         :is-sending="props.isSending"
+        :on-direct-query-page-change="props.onDirectQueryPageChange"
+        :on-direct-query-sort-change="props.onDirectQuerySortChange"
       />
       <ChatComposer
         :is-sending="props.isSending"
@@ -148,6 +158,8 @@ const desktopGridClass = computed(() =>
       <ChatTranscript
         :messages="props.messages"
         :is-sending="props.isSending"
+        :on-direct-query-page-change="props.onDirectQueryPageChange"
+        :on-direct-query-sort-change="props.onDirectQuerySortChange"
       />
       <ChatComposer
         :is-sending="props.isSending"

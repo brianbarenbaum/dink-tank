@@ -22,6 +22,12 @@ import {
 import { handleLineupLabRecommendRequest } from "./lineupLab/handler";
 import { runLineupLabRecommend } from "./lineupLab/service";
 import { runSqlAgent } from "./sqlAgent";
+import {
+	handleDataBrowserDivisionsRequest,
+	handleDataBrowserSeasonsRequest,
+	handleDataBrowserTeamsRequest,
+} from "./dataBrowser/contextHandler";
+import { handleDataBrowserQueryRequest } from "./dataBrowser/handler";
 
 export interface Env {
 	HYPERDRIVE?: {
@@ -80,10 +86,20 @@ const isLineupRoute = (request: Request, pathname: string): boolean =>
 	(pathname === "/api/lineup-lab/context/teams" && request.method === "GET") ||
 	(pathname === "/api/lineup-lab/context/matchups" && request.method === "GET");
 
+const isDataBrowserRoute = (request: Request, pathname: string): boolean =>
+	(pathname === "/api/data-browser/context/seasons" &&
+		request.method === "GET") ||
+	(pathname === "/api/data-browser/context/divisions" &&
+		request.method === "GET") ||
+	(pathname === "/api/data-browser/context/teams" &&
+		request.method === "GET") ||
+	(pathname === "/api/data-browser/query" && request.method === "POST");
+
 const isKnownApiRoute = (request: Request, pathname: string): boolean =>
 	isAuthRoute(request, pathname) ||
 	isChatRoute(request, pathname) ||
-	isLineupRoute(request, pathname);
+	isLineupRoute(request, pathname) ||
+	isDataBrowserRoute(request, pathname);
 
 export const resolveRuntimeDatabaseUrls = (
 	env: Env,
@@ -243,6 +259,29 @@ export const handleFetch = async (
 		request.method === "GET"
 	) {
 		response = await handleLineupLabMatchupsRequest(request, envResult.value);
+	} else if (
+		url.pathname === "/api/data-browser/context/seasons" &&
+		request.method === "GET"
+	) {
+		response = await handleDataBrowserSeasonsRequest(request, envResult.value);
+	} else if (
+		url.pathname === "/api/data-browser/context/divisions" &&
+		request.method === "GET"
+	) {
+		response = await handleDataBrowserDivisionsRequest(
+			request,
+			envResult.value,
+		);
+	} else if (
+		url.pathname === "/api/data-browser/context/teams" &&
+		request.method === "GET"
+	) {
+		response = await handleDataBrowserTeamsRequest(request, envResult.value);
+	} else if (
+		url.pathname === "/api/data-browser/query" &&
+		request.method === "POST"
+	) {
+		response = await handleDataBrowserQueryRequest(request, envResult.value);
 	} else {
 		response = json({ error: "not_found" }, 404);
 	}

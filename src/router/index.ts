@@ -29,6 +29,11 @@ export const createAppRouter = (pinia: Pinia) => {
 				meta: { requiresAuth: true },
 			},
 			{
+				path: "/data-browser",
+				component: ProtectedShellPage,
+				meta: { requiresAuth: true },
+			},
+			{
 				path: "/lineup-lab",
 				component: ProtectedShellPage,
 				meta: { requiresAuth: true },

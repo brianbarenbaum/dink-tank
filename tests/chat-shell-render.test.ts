@@ -14,7 +14,7 @@ describe("ChatShell", () => {
 			"cursor-pointer",
 		);
 		expect(wrapper.find("[data-testid='toggle-data-browser']").exists()).toBe(
-			true,
+			false,
 		);
 	});
 

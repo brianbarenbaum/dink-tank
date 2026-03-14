@@ -7,16 +7,25 @@ import {
 	type ChatSendMessage,
 	type ChatSendOptions,
 } from "./chatClient";
-import type { ChatMessage } from "./types";
+import type {
+	ChatMessage,
+	ChatTranscriptItem,
+	DirectQueryCardItem,
+} from "./types";
 import { useAuthStore } from "../../stores/auth";
 
 export interface ChatController {
-	messages: Ref<ChatMessage[]>;
+	messages: Ref<ChatTranscriptItem[]>;
 	isSending: Ref<boolean>;
 	errorMessage: Ref<string | null>;
 	modelLabel: Ref<string>;
 	extendedThinking: Ref<boolean>;
 	submit: (value: string) => Promise<void>;
+	appendDirectQueryCard: (input: Omit<DirectQueryCardItem, "id">) => string;
+	updateDirectQueryCard: (
+		id: string,
+		input: Partial<Omit<DirectQueryCardItem, "id" | "kind">>,
+	) => void;
 }
 
 const seedMessages: ChatMessage[] = [
@@ -35,11 +44,38 @@ export function createChatController(
 	) => Promise<{ reply: string; model: string }>,
 	getConfig?: () => Promise<{ model: string }>,
 ): ChatController {
-	const messages = ref<ChatMessage[]>([...seedMessages]);
+	const messages = ref<ChatTranscriptItem[]>([...seedMessages]);
 	const isSending = ref(false);
 	const errorMessage = ref<string | null>(null);
 	const modelLabel = ref("Unknown model");
 	const extendedThinking = ref(false);
+
+	const appendDirectQueryCard = (
+		input: Omit<DirectQueryCardItem, "id">,
+	): string => {
+		const nextId = crypto.randomUUID();
+		messages.value.push({
+			...input,
+			id: nextId,
+		});
+		return nextId;
+	};
+
+	const updateDirectQueryCard = (
+		id: string,
+		input: Partial<Omit<DirectQueryCardItem, "id" | "kind">>,
+	): void => {
+		messages.value = messages.value.map((message) => {
+			if (message.id !== id || !("kind" in message)) {
+				return message;
+			}
+
+			return {
+				...message,
+				...input,
+			};
+		});
+	};
 
 	const submit = async (value: string) => {
 		const content = value.trim();
@@ -62,7 +98,8 @@ export function createChatController(
 			const payload = messages.value
 				.filter(
 					(message): message is ChatMessage & { role: "assistant" | "user" } =>
-						message.role === "assistant" || message.role === "user",
+						"role" in message &&
+						(message.role === "assistant" || message.role === "user"),
 				)
 				.map((message) => ({ role: message.role, content: message.content }));
 			const requestOptions = {
@@ -98,6 +135,8 @@ export function createChatController(
 		modelLabel,
 		extendedThinking,
 		submit,
+		appendDirectQueryCard,
+		updateDirectQueryCard,
 	};
 }
 
