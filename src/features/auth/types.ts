@@ -8,6 +8,15 @@ export interface AuthSession {
 	user: AuthUserSummary;
 }
 
+export interface LoginStartResult {
+	status: "approved" | "invite_required";
+}
+
+export interface OtpRequestResult {
+	status: "otp_sent";
+	resendAfterSeconds: number;
+}
+
 export interface SessionCheckResult {
 	authenticated: boolean;
 	session?: {

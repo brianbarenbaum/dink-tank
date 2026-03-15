@@ -1,4 +1,5 @@
 import {
+	handleAuthLoginStart,
 	handleAuthRefresh,
 	handleAuthSession,
 	handleAuthSignOut,
@@ -51,6 +52,7 @@ export interface Env {
 	AUTH_TURNSTILE_BYPASS?: string;
 	AUTH_TURNSTILE_SECRET?: string;
 	AUTH_IP_HASH_SALT?: string;
+	AUTH_INVITE_CODE_HASH_SECRET?: string;
 	LLM_MODEL?: string;
 	LLM_REASONING_LEVEL?: string;
 	SQL_QUERY_TIMEOUT_MS?: string;
@@ -69,6 +71,7 @@ export interface Env {
 }
 
 const isAuthRoute = (request: Request, pathname: string): boolean =>
+	(pathname === "/api/auth/login/start" && request.method === "POST") ||
 	(pathname === "/api/auth/otp/request" && request.method === "POST") ||
 	(pathname === "/api/auth/otp/verify" && request.method === "POST") ||
 	(pathname === "/api/auth/session" && request.method === "GET") ||
@@ -139,6 +142,7 @@ export const handleFetch = async (
 		AUTH_TURNSTILE_BYPASS: env.AUTH_TURNSTILE_BYPASS,
 		AUTH_TURNSTILE_SECRET: env.AUTH_TURNSTILE_SECRET,
 		AUTH_IP_HASH_SALT: env.AUTH_IP_HASH_SALT,
+		AUTH_INVITE_CODE_HASH_SECRET: env.AUTH_INVITE_CODE_HASH_SECRET,
 		LLM_MODEL: env.LLM_MODEL,
 		LLM_REASONING_LEVEL: env.LLM_REASONING_LEVEL,
 		SQL_QUERY_TIMEOUT_MS: env.SQL_QUERY_TIMEOUT_MS,
@@ -206,7 +210,12 @@ export const handleFetch = async (
 	}
 
 	let response: Response;
-	if (url.pathname === "/api/auth/otp/request" && request.method === "POST") {
+	if (url.pathname === "/api/auth/login/start" && request.method === "POST") {
+		response = await handleAuthLoginStart(request, envResult.value);
+	} else if (
+		url.pathname === "/api/auth/otp/request" &&
+		request.method === "POST"
+	) {
 		response = await handleOtpRequest(request, envResult.value);
 	} else if (
 		url.pathname === "/api/auth/otp/verify" &&

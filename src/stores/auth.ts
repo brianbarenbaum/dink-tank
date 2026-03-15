@@ -2,7 +2,11 @@ import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 
 import { createAuthClient } from "../features/auth/authClient";
-import type { AuthSession } from "../features/auth/types";
+import type {
+	AuthSession,
+	LoginStartResult,
+	OtpRequestResult,
+} from "../features/auth/types";
 
 const SESSION_STORAGE_KEY = "dink_tank.auth.session.v1";
 const PENDING_EMAIL_KEY = "dink_tank.auth.pending_email.v1";
@@ -189,14 +193,21 @@ export const useAuthStore = defineStore("auth", () => {
 		}
 	};
 
+	const startLogin = async (email: string): Promise<LoginStartResult> =>
+		authClient.startLogin({
+			email: normalizeEmail(email),
+		});
+
 	const requestOtp = async (
 		email: string,
 		turnstileToken: string | null,
-	): Promise<{ resendAfterSeconds: number }> => {
+		inviteCode: string | null = null,
+	): Promise<OtpRequestResult> => {
 		const normalized = normalizeEmail(email);
 		const result = await authClient.requestOtp({
 			email: normalized,
 			turnstileToken,
+			inviteCode,
 		});
 		persistPendingEmail(normalized);
 		return result;
@@ -247,6 +258,7 @@ export const useAuthStore = defineStore("auth", () => {
 		isAuthenticated,
 		accessToken,
 		bootstrap,
+		startLogin,
 		requestOtp,
 		verifyOtp,
 		signOut,

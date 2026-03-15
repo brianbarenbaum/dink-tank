@@ -1,8 +1,18 @@
-import type { AuthSession, SessionCheckResult } from "./types";
+import type {
+	AuthSession,
+	LoginStartResult,
+	OtpRequestResult,
+	SessionCheckResult,
+} from "./types";
+
+interface StartLoginInput {
+	email: string;
+}
 
 interface RequestOtpInput {
 	email: string;
 	turnstileToken: string | null;
+	inviteCode?: string | null;
 }
 
 interface VerifyOtpInput {
@@ -11,7 +21,8 @@ interface VerifyOtpInput {
 }
 
 interface AuthClient {
-	requestOtp(input: RequestOtpInput): Promise<{ resendAfterSeconds: number }>;
+	startLogin(input: StartLoginInput): Promise<LoginStartResult>;
+	requestOtp(input: RequestOtpInput): Promise<OtpRequestResult>;
 	verifyOtp(input: VerifyOtpInput): Promise<AuthSession>;
 	getSession(): Promise<SessionCheckResult>;
 	refresh(): Promise<AuthSession>;
@@ -20,6 +31,17 @@ interface AuthClient {
 
 const parseJson = async <T>(response: Response): Promise<T> =>
 	(await response.json()) as T;
+
+const normalizeLoginStart = (payload: unknown): LoginStartResult => {
+	if (!payload || typeof payload !== "object") {
+		throw new Error("Invalid login-start payload");
+	}
+	const value = payload as { status?: unknown };
+	if (value.status !== "approved" && value.status !== "invite_required") {
+		throw new Error("Invalid login-start payload");
+	}
+	return { status: value.status };
+};
 
 const normalizeSession = (session: unknown): AuthSession => {
 	if (!session || typeof session !== "object") {
@@ -46,6 +68,20 @@ const normalizeSession = (session: unknown): AuthSession => {
 };
 
 export const createAuthClient = (fetchImpl: typeof fetch): AuthClient => ({
+	async startLogin(input) {
+		const response = await fetchImpl("/api/auth/login/start", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+			},
+			body: JSON.stringify(input),
+		});
+		const payload = await parseJson<unknown>(response);
+		if (!response.ok) {
+			throw new Error("login_start_failed");
+		}
+		return normalizeLoginStart(payload);
+	},
 	async requestOtp(input) {
 		const response = await fetchImpl("/api/auth/otp/request", {
 			method: "POST",
@@ -67,6 +103,7 @@ export const createAuthClient = (fetchImpl: typeof fetch): AuthClient => ({
 		}
 
 		return {
+			status: "otp_sent",
 			resendAfterSeconds:
 				typeof payload.resendAfterSeconds === "number"
 					? payload.resendAfterSeconds

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import TurnstileWidget from "../features/auth/TurnstileWidget.vue";
@@ -15,10 +15,14 @@ const route = useRoute();
 const authStore = useAuthStore();
 
 const email = ref(authStore.pendingEmail ?? "");
+const inviteCode = ref("");
 const isSubmitting = ref(false);
+const isCheckingEligibility = ref(false);
 const errorMessage = ref<string | null>(null);
 const turnstileToken = ref<string | null>(null);
 const pendingSubmission = ref(false);
+const inviteRequired = ref(false);
+const inviteRequiredEmail = ref<string | null>(null);
 const turnstileRef = ref<TurnstileWidgetExpose | null>(null);
 
 const redirectTarget = computed(() =>
@@ -30,19 +34,44 @@ const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY ?? "";
 const requiresTurnstile = computed(
 	() => !turnstileBypass && turnstileSiteKey.trim().length > 0,
 );
+const isBusy = computed(
+	() => isSubmitting.value || isCheckingEligibility.value,
+);
+const submitLabel = computed(() => {
+	if (isSubmitting.value) {
+		return "Sending...";
+	}
+	if (isCheckingEligibility.value) {
+		return "Checking...";
+	}
+	return inviteRequired.value ? "Send Code" : "Continue";
+});
+
+const normalizeEmail = (value: string): string => value.trim().toLowerCase();
+
+watch(email, (value) => {
+	const normalized = normalizeEmail(value);
+	if (inviteRequiredEmail.value && inviteRequiredEmail.value !== normalized) {
+		inviteRequired.value = false;
+		inviteRequiredEmail.value = null;
+		inviteCode.value = "";
+		errorMessage.value = null;
+	}
+});
 
 const submitOtpRequest = async (token: string | null) => {
-	if (isSubmitting.value) {
-		return;
-	}
 	errorMessage.value = null;
 	isSubmitting.value = true;
 	try {
-		await authStore.requestOtp(email.value, token);
+		await authStore.requestOtp(
+			email.value,
+			token,
+			inviteRequired.value ? inviteCode.value.trim() : null,
+		);
 		await router.push({
 			path: "/auth/verify",
 			query: {
-				email: email.value.trim().toLowerCase(),
+				email: normalizeEmail(email.value),
 				...(redirectTarget.value ? { redirect: redirectTarget.value } : {}),
 			},
 		});
@@ -66,8 +95,38 @@ const submitOtpRequest = async (token: string | null) => {
 	}
 };
 
+const ensureLoginEligible = async (): Promise<boolean> => {
+	if (inviteRequired.value) {
+		return true;
+	}
+
+	isCheckingEligibility.value = true;
+	errorMessage.value = null;
+	try {
+		const result = await authStore.startLogin(email.value);
+		if (result.status === "invite_required") {
+			inviteRequired.value = true;
+			inviteRequiredEmail.value = normalizeEmail(email.value);
+			return false;
+		}
+		return true;
+	} catch {
+		errorMessage.value = "Unable to continue right now. Try again.";
+		return false;
+	} finally {
+		isCheckingEligibility.value = false;
+	}
+};
+
 const onSubmit = async () => {
-	if (!email.value.trim() || isSubmitting.value) {
+	if (!email.value.trim() || isBusy.value) {
+		return;
+	}
+	if (!(await ensureLoginEligible())) {
+		return;
+	}
+	if (inviteRequired.value && !inviteCode.value.trim()) {
+		errorMessage.value = "Enter the invite code to continue.";
 		return;
 	}
 	if (!requiresTurnstile.value) {
@@ -102,6 +161,12 @@ const onTurnstileError = () => {
       <p class="mt-2 text-sm text-[var(--chat-muted)]">
         Enter your email and we will send a one-time code.
       </p>
+      <p
+        v-if="inviteRequired"
+        class="mt-2 text-sm text-[var(--chat-muted)]"
+      >
+        This email needs the current group invite code before we can send a sign-in code.
+      </p>
 
       <form
         class="mt-6 space-y-4"
@@ -117,6 +182,21 @@ const onTurnstileError = () => {
             inputmode="email"
             required
             type="email"
+          >
+        </label>
+
+        <label
+          v-if="inviteRequired"
+          class="block space-y-2"
+        >
+          <span class="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--chat-muted)]">Invite code</span>
+          <input
+            v-model="inviteCode"
+            autocomplete="one-time-code"
+            class="h-11 w-full rounded-md border border-[var(--chat-divider)] bg-transparent px-3 text-sm uppercase tracking-[0.16em]"
+            data-testid="auth-invite-code-input"
+            required
+            type="text"
           >
         </label>
 
@@ -137,12 +217,12 @@ const onTurnstileError = () => {
         </p>
 
         <button
-          :disabled="isSubmitting"
+          :disabled="isBusy"
           class="h-11 w-full rounded-md border border-[var(--chat-divider)] text-xs font-semibold uppercase tracking-[0.16em] cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
           data-testid="auth-request-otp-button"
           type="submit"
         >
-          {{ isSubmitting ? "Sending..." : "Send Code" }}
+          {{ submitLabel }}
         </button>
       </form>
     </section>

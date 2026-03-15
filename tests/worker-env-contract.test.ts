@@ -8,6 +8,7 @@ const baseEnv = {
 	SUPABASE_URL: "https://example.supabase.co",
 	SUPABASE_ANON_KEY: "anon-key",
 	AUTH_IP_HASH_SALT: "test-salt",
+	AUTH_INVITE_CODE_HASH_SECRET: "invite-secret",
 	APP_ENV: "local",
 	AUTH_TURNSTILE_BYPASS: "true",
 };
@@ -256,6 +257,13 @@ describe("worker env contract", () => {
 			...baseEnv,
 			AUTH_TURNSTILE_BYPASS: "false",
 		});
+		expect(parsed.ok).toBe(false);
+	});
+
+	it("requires invite code hash secret", () => {
+		const { AUTH_INVITE_CODE_HASH_SECRET: _ignored, ...withoutInviteSecret } =
+			baseEnv;
+		const parsed = parseWorkerEnv(withoutInviteSecret);
 		expect(parsed.ok).toBe(false);
 	});
 });

@@ -26,8 +26,11 @@ The authenticated shell currently exposes three main tabs:
   - `src/stores/auth.ts`
 - Client:
   - `src/features/auth/authClient.ts`
+- Worker auth runtime:
+  - `worker/src/runtime/auth/handler.ts`
+  - `worker/src/runtime/auth/repository.ts`
 
-Use these when debugging login redirects, OTP flows, local auth bypass, session bootstrap, or 401 retry behavior.
+Use these when debugging login redirects, login-start invite gating, OTP flows, local auth bypass, session bootstrap, or 401 retry behavior.
 
 ### Chat
 

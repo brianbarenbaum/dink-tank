@@ -13,6 +13,7 @@ export interface WorkerEnv {
 	AUTH_TURNSTILE_BYPASS: boolean;
 	AUTH_TURNSTILE_SECRET?: string;
 	AUTH_IP_HASH_SALT: string;
+	AUTH_INVITE_CODE_HASH_SECRET: string;
 	LLM_MODEL: string;
 	LLM_REASONING_LEVEL: "low" | "medium" | "high";
 	SQL_QUERY_TIMEOUT_MS: number;
@@ -138,6 +139,11 @@ export const parseWorkerEnv = (
 	const AUTH_IP_HASH_SALT = env.AUTH_IP_HASH_SALT?.trim();
 	if (!AUTH_IP_HASH_SALT) {
 		return { ok: false, error: "Missing AUTH_IP_HASH_SALT" };
+	}
+
+	const AUTH_INVITE_CODE_HASH_SECRET = env.AUTH_INVITE_CODE_HASH_SECRET?.trim();
+	if (!AUTH_INVITE_CODE_HASH_SECRET) {
+		return { ok: false, error: "Missing AUTH_INVITE_CODE_HASH_SECRET" };
 	}
 
 	const AUTH_ALLOWED_ORIGINS = parseAllowedOrigins(env.AUTH_ALLOWED_ORIGINS);
@@ -275,6 +281,7 @@ export const parseWorkerEnv = (
 			AUTH_TURNSTILE_BYPASS,
 			AUTH_TURNSTILE_SECRET,
 			AUTH_IP_HASH_SALT,
+			AUTH_INVITE_CODE_HASH_SECRET,
 			LLM_MODEL: env.LLM_MODEL?.trim() || DEFAULT_MODEL,
 			LLM_REASONING_LEVEL: reasoningLevelRaw as "low" | "medium" | "high",
 			SQL_QUERY_TIMEOUT_MS,

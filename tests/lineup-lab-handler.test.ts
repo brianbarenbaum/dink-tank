@@ -76,6 +76,7 @@ describe("lineup lab handler", () => {
 		AUTH_BYPASS_ENABLED: false,
 		AUTH_TURNSTILE_BYPASS: true,
 		AUTH_IP_HASH_SALT: "test-salt",
+		AUTH_INVITE_CODE_HASH_SECRET: "invite-secret",
 		LLM_MODEL: "gpt-4.1-mini",
 		LLM_REASONING_LEVEL: "medium" as const,
 		SQL_QUERY_TIMEOUT_MS: 10_000,
@@ -225,6 +226,8 @@ describe("lineup lab handler", () => {
 			SUPABASE_URL: "https://example.supabase.co",
 			SUPABASE_ANON_KEY: "anon-key",
 			AUTH_IP_HASH_SALT: "test-salt",
+			AUTH_INVITE_CODE_HASH_SECRET: "invite-secret",
+			APP_ENV: "local",
 			AUTH_TURNSTILE_BYPASS: "true",
 			AUTH_BYPASS_ENABLED: "true",
 		});

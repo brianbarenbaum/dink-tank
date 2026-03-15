@@ -18,9 +18,14 @@ export interface AuthSessionResponse {
 	};
 }
 
+export interface AuthLoginStartBody {
+	email: string;
+}
+
 export interface OtpRequestBody {
 	email: string;
 	turnstileToken: string | null;
+	inviteCode?: string | null;
 }
 
 export interface OtpVerifyBody {
@@ -41,4 +46,14 @@ export interface VerifyStateSnapshot {
 	cooldownUntil: Date | null;
 	lockedUntil: Date | null;
 	lastFailedAt: Date | null;
+}
+
+export interface ActiveInviteCodeSnapshot {
+	id: number;
+	expiresAt: Date;
+}
+
+export interface PendingEnrollmentSnapshot {
+	inviteCodeId: number;
+	expiresAt: Date;
 }

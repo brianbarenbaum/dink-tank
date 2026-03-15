@@ -16,6 +16,7 @@ const baseEnv: WorkerEnv = {
 	AUTH_BYPASS_ENABLED: false,
 	AUTH_TURNSTILE_BYPASS: true,
 	AUTH_IP_HASH_SALT: "test-salt",
+	AUTH_INVITE_CODE_HASH_SECRET: "invite-secret",
 	LLM_MODEL: "gpt-4.1-mini",
 	LLM_REASONING_LEVEL: "medium",
 	SQL_QUERY_TIMEOUT_MS: 10_000,

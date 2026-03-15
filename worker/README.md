@@ -8,6 +8,7 @@
    - `SUPABASE_URL`
    - `SUPABASE_ANON_KEY`
    - `AUTH_IP_HASH_SALT`
+   - `AUTH_INVITE_CODE_HASH_SECRET`
    - `AUTH_ALLOWED_ORIGINS` (comma-separated; defaults to `http://localhost:5173` in local)
    - `AUTH_TURNSTILE_SECRET` (required unless `AUTH_TURNSTILE_BYPASS=true`)
    - `AUTH_JWT_AUDIENCE` (default `authenticated`)
@@ -41,7 +42,7 @@ export CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE="postgresql://<u
 2. Run local dev without `--remote`:
 
 ```bash
-npx wrangler dev --config worker/wrangler.toml
+npm run worker:dev
 ```
 
 Why this is recommended:
@@ -73,6 +74,7 @@ Notes:
 
 - Worker enforces authentication on protected `/api/*` routes.
 - Public auth bootstrap routes:
+  - `POST /api/auth/login/start`
   - `POST /api/auth/otp/request`
   - `POST /api/auth/otp/verify`
   - `GET /api/auth/session`
@@ -80,6 +82,10 @@ Notes:
   - `POST /api/auth/refresh`
 - JWTs are validated against Supabase JWKS with issuer/audience checks.
 - OTP request endpoint enforces Cloudflare Turnstile by default (fail-closed).
+- Login flow:
+  - approved emails go straight from login-start to OTP request
+  - first-time emails must submit the active invite code before OTP is sent
+  - successful first-time OTP verification adds the email to the approved-email list
 
 ## Golden Eval Runner (Langfuse Dataset)
 

@@ -4,11 +4,17 @@ import { logError, logWarn } from "../runtimeLogger";
 import {
 	clearVerifyState,
 	cleanupExpiredAuthRecords,
+	deletePendingEnrollment,
 	fetchRecentOtpRequestCounts,
+	findActiveInviteCodeByHash,
+	getPendingEnrollment,
 	getVerifyState,
+	insertApprovedEmail,
 	insertAuthAuditEvent,
 	insertOtpRequestEvent,
 	insertOtpVerifyEvent,
+	isApprovedEmail,
+	upsertPendingEnrollment,
 	upsertVerifyState,
 } from "./repository";
 import {
@@ -26,6 +32,7 @@ import {
 } from "./http";
 import {
 	getRequestIpAddress,
+	hashInviteCode,
 	hashWithSalt,
 	isValidEmail,
 	normalizeEmail,
@@ -33,6 +40,7 @@ import {
 import { verifyAccessToken } from "./jwt";
 import { verifyTurnstileToken } from "./turnstile";
 import type {
+	AuthLoginStartBody,
 	OtpRequestBody,
 	OtpVerifyBody,
 	RefreshBody,
@@ -49,6 +57,7 @@ const OTP_VERIFY_LOCK_SECONDS = 5 * 60;
 const OTP_VERIFY_LOCK_ATTEMPTS = 5;
 const RETENTION_CLEANUP_PROBABILITY = 0.05;
 const VERIFY_FAILURE_RESET_WINDOW_SECONDS = 10 * 60;
+const PENDING_ENROLLMENT_TTL_SECONDS = 10 * 60;
 
 const GENERIC_AUTH_FAILURE_MESSAGE = "Unable to complete authentication.";
 const GENERIC_AUTH_REQUEST_MESSAGE =
@@ -95,6 +104,21 @@ const sanitizeRequestBody = (
 			body.turnstileToken.trim().length > 0
 				? body.turnstileToken.trim()
 				: null,
+		inviteCode:
+			typeof body.inviteCode === "string" && body.inviteCode.trim().length > 0
+				? body.inviteCode.trim()
+				: null,
+	};
+};
+
+const sanitizeLoginStartBody = (
+	body: AuthLoginStartBody | null,
+): AuthLoginStartBody | null => {
+	if (!body || typeof body.email !== "string") {
+		return null;
+	}
+	return {
+		email: body.email,
 	};
 };
 
@@ -137,6 +161,33 @@ const shouldResetFailedAttempts = (
 	return false;
 };
 
+const buildPendingEnrollmentExpiry = (inviteCodeExpiresAt: Date): Date =>
+	new Date(
+		Math.min(
+			Date.now() + PENDING_ENROLLMENT_TTL_SECONDS * 1000,
+			inviteCodeExpiresAt.getTime(),
+		),
+	);
+
+export const handleAuthLoginStart = async (
+	request: Request,
+	env: WorkerEnv,
+): Promise<Response> => {
+	const body = sanitizeLoginStartBody(
+		await parseJsonBody<AuthLoginStartBody>(request),
+	);
+	if (!body || !isValidEmail(body.email)) {
+		return json(
+			{ error: "auth_failed", message: GENERIC_AUTH_FAILURE_MESSAGE },
+			400,
+		);
+	}
+
+	const normalizedEmail = normalizeEmail(body.email);
+	const approved = await isApprovedEmail(env, normalizedEmail);
+	return json({ status: approved ? "approved" : "invite_required" }, 200);
+};
+
 export const handleOtpRequest = async (
 	request: Request,
 	env: WorkerEnv,
@@ -166,6 +217,48 @@ export const handleOtpRequest = async (
 		logWarn("auth_cleanup_failed", context, {
 			error: error instanceof Error ? error.message : String(error),
 		});
+	}
+
+	const approved = await isApprovedEmail(env, normalizedEmail);
+	const pendingEnrollment = approved
+		? null
+		: await getPendingEnrollment(env, normalizedEmail);
+	const inviteCodeMatch =
+		approved || pendingEnrollment || !body.inviteCode
+			? null
+			: await findActiveInviteCodeByHash(
+					env,
+					await hashInviteCode(
+						env.AUTH_INVITE_CODE_HASH_SECRET,
+						body.inviteCode,
+					),
+				);
+
+	if (!approved && !pendingEnrollment && !inviteCodeMatch) {
+		await Promise.all([
+			insertOtpRequestEvent(env, {
+				requestId: context.requestId,
+				emailNormalized: normalizedEmail,
+				emailHash,
+				ipHash,
+				outcome: "failure",
+				reason: body.inviteCode ? "invite_code_invalid" : "invite_required",
+			}),
+			insertAuthAuditEvent(env, {
+				requestId: context.requestId,
+				eventType: "otp_request",
+				status: "failure",
+				emailNormalized: normalizedEmail,
+				emailHash,
+				details: {
+					reason: body.inviteCode ? "invite_code_invalid" : "invite_required",
+				},
+			}),
+		]);
+		return json(
+			{ error: "auth_failed", message: GENERIC_AUTH_FAILURE_MESSAGE },
+			400,
+		);
 	}
 
 	const turnstileOk = await verifyTurnstileToken(
@@ -270,8 +363,21 @@ export const handleOtpRequest = async (
 		);
 	}
 
+	const createdPendingEnrollment =
+		!approved && !pendingEnrollment && Boolean(inviteCodeMatch);
+	if (createdPendingEnrollment && inviteCodeMatch) {
+		await upsertPendingEnrollment(env, {
+			emailNormalized: normalizedEmail,
+			inviteCodeId: inviteCodeMatch.id,
+			expiresAt: buildPendingEnrollmentExpiry(inviteCodeMatch.expiresAt),
+		});
+	}
+
 	const otpResult = await sendOtpRequest(env, normalizedEmail);
 	if (!otpResult.ok) {
+		if (createdPendingEnrollment) {
+			await deletePendingEnrollment(env, normalizedEmail);
+		}
 		await Promise.all([
 			insertOtpRequestEvent(env, {
 				requestId: context.requestId,
@@ -395,6 +501,17 @@ export const handleOtpVerify = async (
 		verifyState = null;
 	}
 
+	const approved = await isApprovedEmail(env, normalizedEmail);
+	const pendingEnrollment = approved
+		? null
+		: await getPendingEnrollment(env, normalizedEmail);
+	if (!approved && !pendingEnrollment) {
+		return json(
+			{ error: "auth_failed", message: GENERIC_AUTH_FAILURE_MESSAGE },
+			400,
+		);
+	}
+
 	if (verifyState?.lockedUntil && verifyState.lockedUntil.getTime() > nowMs) {
 		const retryAfterSeconds = toRetrySeconds(verifyState.lockedUntil, nowMs);
 		return jsonWithRetryAfter(
@@ -426,6 +543,13 @@ export const handleOtpVerify = async (
 
 	const result = await verifyOtpCode(env, normalizedEmail, body.code);
 	if (result.ok) {
+		if (!approved && pendingEnrollment) {
+			await insertApprovedEmail(env, {
+				emailNormalized: normalizedEmail,
+				inviteCodeId: pendingEnrollment.inviteCodeId,
+			});
+			await deletePendingEnrollment(env, normalizedEmail);
+		}
 		await Promise.allSettled([
 			clearVerifyState(env, emailHash),
 			insertOtpVerifyEvent(env, {
@@ -441,6 +565,10 @@ export const handleOtpVerify = async (
 				status: "success",
 				emailNormalized: normalizedEmail,
 				emailHash,
+				details:
+					!approved && pendingEnrollment
+						? { approvedEmailInserted: true }
+						: undefined,
 			}),
 		]);
 		return appendAuthCookies(
