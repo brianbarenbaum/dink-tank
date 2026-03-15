@@ -158,6 +158,7 @@ describe("data browser repository", () => {
 		const executedQuery = poolQueryMock.mock.calls[0]?.[0];
 		expect(executedQuery).toContain("public.vw_player_stats_per_season");
 		expect(executedQuery).toContain("where d.division_id = $1::uuid");
+		expect(executedQuery).toContain("sd.division_id = v.division_id");
 	});
 
 	it("queries division standings through the team standings view", async () => {
@@ -218,6 +219,7 @@ describe("data browser repository", () => {
 		const executedQuery = poolQueryMock.mock.calls[0]?.[0];
 		expect(executedQuery).toContain("public.vw_team_standings");
 		expect(executedQuery).toContain("where d.division_id = $1::uuid");
+		expect(executedQuery).toContain("sd.division_id = v.division_id");
 	});
 
 	it("queries team players through the season player stats view with a scoped team-name filter", async () => {
@@ -285,6 +287,7 @@ describe("data browser repository", () => {
 		const executedQuery = poolQueryMock.mock.calls[0]?.[0];
 		expect(executedQuery).toContain("public.vw_player_stats_per_season");
 		expect(executedQuery).toContain("v.team_name = $5");
+		expect(executedQuery).toContain("sd.division_id = v.division_id");
 		expect(executedQuery).not.toContain("selected_team as (");
 		expect(executedQuery).not.toContain("where t.team_id = $5::uuid");
 		expect(poolQueryMock.mock.calls[0]?.[1]).toEqual([
@@ -313,6 +316,7 @@ describe("data browser repository", () => {
 					home_record: "4-1",
 					away_record: "4-1",
 					win_percentage: "80.0",
+					game_win_rate: "66.7",
 					men_win_rate: "75.0",
 					women_win_rate: "82.0",
 					mixed_win_rate: "85.0",
@@ -370,7 +374,7 @@ describe("data browser repository", () => {
 				podRank: 2,
 			},
 			winBreakdown: {
-				overallWinPercentage: 80,
+				overallWinPercentage: 66.7,
 				menWinPercentage: 75,
 				womenWinPercentage: 82,
 				mixedWinPercentage: 85,
@@ -386,6 +390,7 @@ describe("data browser repository", () => {
 		const executedQuery = poolQueryMock.mock.calls[0]?.[0];
 		expect(executedQuery).toContain("public.vw_team_standings");
 		expect(executedQuery).toContain("v.team_name = $5");
+		expect(executedQuery).toContain("sd.division_id = v.division_id");
 		expect(executedQuery).toContain("scoped_standings as (");
 		expect(executedQuery).not.toContain("selected_team as (");
 		expect(executedQuery).not.toContain("where t.team_id = $5::uuid");
@@ -486,6 +491,7 @@ describe("data browser repository", () => {
 		const executedQuery = poolQueryMock.mock.calls[0]?.[0];
 		expect(executedQuery).toContain("public.vw_team_matches");
 		expect(executedQuery).toContain("v.team_name = $5");
+		expect(executedQuery).toContain("sd.division_id = v.division_id");
 		expect(executedQuery).not.toContain("selected_team as (");
 		expect(executedQuery).not.toContain("where t.team_id = $5::uuid");
 		expect(poolQueryMock.mock.calls[0]?.[1]).toEqual([

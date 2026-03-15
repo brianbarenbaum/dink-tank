@@ -4,6 +4,18 @@ import {
 	type SyncMode,
 } from "./pipeline.ts";
 
+const REQUIRED_SUPABASE_ENV_VARS = [
+	"SUPABASE_URL",
+	"SUPABASE_SERVICE_ROLE_KEY",
+] as const;
+
+interface RunnerOptions {
+	mode: SyncMode;
+	phase: IngestPhase;
+	dryRun: boolean;
+	strictDependencyGuard: boolean;
+}
+
 const VALID_PHASES: IngestPhase[] = [
 	"all",
 	"players",
@@ -40,6 +52,83 @@ const readStrictDependencyGuardFlag = (): boolean =>
 	process.argv.includes("--strict-dependency-guard");
 const hasHelpFlag = (): boolean =>
 	process.argv.includes("--help") || process.argv.includes("-h");
+
+const readRunnerOptions = (): RunnerOptions => ({
+	mode: readModeArg(),
+	phase: readPhaseArg(),
+	dryRun: readDryRunFlag(),
+	strictDependencyGuard: readStrictDependencyGuardFlag(),
+});
+
+const isEnvVarSet = (name: string): boolean =>
+	Boolean(process.env[name]?.trim());
+
+const formatEnvStatus = (): string =>
+	REQUIRED_SUPABASE_ENV_VARS.map(
+		(name) => `${name}=${isEnvVarSet(name) ? "set" : "missing"}`,
+	).join(", ");
+
+const getMissingSupabaseEnvVars = (dryRun: boolean): string[] =>
+	dryRun ? [] : REQUIRED_SUPABASE_ENV_VARS.filter((name) => !isEnvVarSet(name));
+
+const getErrorCauseMessage = (error: unknown): string | null => {
+	if (!(error instanceof Error)) {
+		return null;
+	}
+
+	const cause = error.cause;
+	if (cause instanceof Error) {
+		return cause.message || null;
+	}
+
+	return typeof cause === "string" && cause.trim() ? cause.trim() : null;
+};
+
+const formatCliError = (error: unknown, options: RunnerOptions): string => {
+	const message = error instanceof Error ? error.message : "unknown error";
+	const lines: string[] = [];
+	const missingSupabaseEnvVars = getMissingSupabaseEnvVars(options.dryRun);
+
+	if (missingSupabaseEnvVars.length > 0) {
+		lines.push(
+			`Missing required environment variables: ${missingSupabaseEnvVars.join(", ")}`,
+		);
+		lines.push(`Env check: ${formatEnvStatus()}`);
+		lines.push(
+			`This repo's .envrc sources ~/.config/dink-tank/env for ingestion commands.`,
+		);
+		lines.push(
+			`Load it manually in your current shell: set -a; source "$HOME/.config/dink-tank/env"; set +a`,
+		);
+		lines.push(`Or allow direnv in this repo: direnv allow`);
+		return lines.map((line) => `[crossclub-ingest] ${line}`).join("\n");
+	}
+
+	if (message === "fetch failed") {
+		lines.push(
+			`CrossClub request failed before a response was received: ${message}`,
+		);
+		const causeMessage = getErrorCauseMessage(error);
+		if (causeMessage) {
+			lines.push(`Fetch cause: ${causeMessage}`);
+		}
+	} else {
+		lines.push(message);
+	}
+
+	if (!options.dryRun) {
+		lines.push(`Env check: ${formatEnvStatus()}`);
+		lines.push(
+			`This repo's .envrc sources ~/.config/dink-tank/env for ingestion commands.`,
+		);
+		lines.push(
+			`Load it manually in your current shell: set -a; source "$HOME/.config/dink-tank/env"; set +a`,
+		);
+		lines.push(`Or allow direnv in this repo: direnv allow`);
+	}
+
+	return lines.map((line) => `[crossclub-ingest] ${line}`).join("\n");
+};
 
 const printHelp = (): void => {
 	console.log(`CrossClub ingestion runner
@@ -94,7 +183,6 @@ const main = async (): Promise<void> => {
 };
 
 main().catch((error: unknown) => {
-	const message = error instanceof Error ? error.message : "unknown error";
-	console.error(`[crossclub-ingest] ${message}`);
+	console.error(formatCliError(error, readRunnerOptions()));
 	process.exitCode = 1;
 });

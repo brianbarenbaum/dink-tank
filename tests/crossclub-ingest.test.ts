@@ -16,6 +16,7 @@ import {
 	extractDivisionsFromRegions,
 	findMissingDetailDependencies,
 	handleLineupAnalyticsRefresh,
+	ingestCrossClub,
 	uniqueByCompositeKey,
 	planEndpointWork,
 	normalizeLineupsFromDetail,
@@ -270,6 +271,96 @@ describe("crossclub ingest helpers", () => {
 
 		expect(filtered).toHaveLength(1);
 		expect(filtered[0]?.divisionId).toBe("d-40");
+	});
+
+	it("skips divisions whose players endpoint returns 404 and continues ingesting other divisions", async () => {
+		const apiBaseUrl = "https://crossclub.test";
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+		const log = vi.spyOn(console, "log").mockImplementation(() => {});
+		const fetchMock = vi.fn(async (input: string | URL | Request) => {
+			const url =
+				typeof input === "string"
+					? input
+					: input instanceof URL
+						? input.toString()
+						: input.url;
+
+			if (`${apiBaseUrl}/regions?latitude=1&longitude=2` === url) {
+				return new Response(
+					JSON.stringify([
+						{
+							regionId: "region-1",
+							location: "Test Region",
+							divisions: [
+								{
+									divisionId: "division-missing",
+									regionId: "region-1",
+									divisionName: "4.0",
+									seasonNumber: 1,
+									seasonYear: 2026,
+								},
+								{
+									divisionId: "division-ok",
+									regionId: "region-1",
+									divisionName: "4.5",
+									seasonNumber: 1,
+									seasonYear: 2026,
+								},
+							],
+						},
+					]),
+				);
+			}
+
+			if (`${apiBaseUrl}/divisions/division-missing/players` === url) {
+				return new Response(JSON.stringify({ title: "Not Found" }), {
+					status: 404,
+					headers: { "content-type": "application/json" },
+				});
+			}
+
+			if (`${apiBaseUrl}/divisions/division-ok/players` === url) {
+				return new Response(JSON.stringify([]), {
+					status: 200,
+					headers: { "content-type": "application/json" },
+				});
+			}
+
+			throw new Error(`Unexpected fetch URL: ${url}`);
+		});
+
+		vi.stubGlobal("fetch", fetchMock);
+
+		await expect(
+			ingestCrossClub({
+				apiBaseUrl,
+				mode: "bootstrap",
+				phase: "players",
+				dryRun: true,
+				lat: "1",
+				lng: "2",
+				retryAttempts: 3,
+				retryBaseDelayMs: 0,
+				retryJitterRatio: 0,
+				delayMs: 0,
+			}),
+		).resolves.toBeUndefined();
+
+		expect(fetchMock.mock.calls.map((call) => String(call[0]))).toEqual([
+			`${apiBaseUrl}/regions?latitude=1&longitude=2`,
+			`${apiBaseUrl}/divisions/division-missing/players`,
+			`${apiBaseUrl}/divisions/division-ok/players`,
+		]);
+		expect(warn).toHaveBeenCalledWith(
+			expect.stringContaining(
+				"skipping missing players endpoint division=division-missing status=404",
+			),
+		);
+		expect(log).toHaveBeenCalledWith(expect.stringContaining("warnings=1"));
+
+		vi.unstubAllGlobals();
+		warn.mockRestore();
+		log.mockRestore();
 	});
 
 	it("dedupes rows by composite key preserving last row", () => {

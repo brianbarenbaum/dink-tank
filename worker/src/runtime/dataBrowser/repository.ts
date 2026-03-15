@@ -353,6 +353,7 @@ type TeamOverviewQueryRow = {
 	home_record: string | null;
 	away_record: string | null;
 	win_percentage: string | number | null;
+	game_win_rate: string | number | null;
 	men_win_rate: string | number | null;
 	women_win_rate: string | number | null;
 	mixed_win_rate: string | number | null;
@@ -394,7 +395,7 @@ const buildTeamOverviewPayload = (
 			podRank: row.pod_ranking,
 		},
 		winBreakdown: {
-			overallWinPercentage: parseNullableNumber(row.win_percentage),
+			overallWinPercentage: parseNullableNumber(row.game_win_rate),
 			menWinPercentage: parseNullableNumber(row.men_win_rate),
 			womenWinPercentage: parseNullableNumber(row.women_win_rate),
 			mixedWinPercentage: parseNullableNumber(row.mixed_win_rate),
@@ -450,7 +451,7 @@ const fetchPlayersTableQuery = async (
 	const result = await runWithContextPoolRetry(env, (pool) =>
 		pool.query<PlayerStatsQueryRow>(
 			`with scoped_division as (
-			   select d.division_name, d.season_year, d.season_number
+			   select d.division_id
 			   from public.divisions d
 			   join public.regions r on r.region_id = d.region_id
 			   where d.division_id = $1::uuid
@@ -469,9 +470,7 @@ const fetchPlayersTableQuery = async (
 			   v.dupr_rating
 			 from public.vw_player_stats_per_season v
 			 join scoped_division sd
-			   on sd.division_name = v.division_name
-			  and sd.season_year = v.season_year
-			  and sd.season_number = v.season_number${teamFilterClause}
+			   on sd.division_id = v.division_id${teamFilterClause}
 			 order by ${orderBy}
 			 limit ${limitPlaceholder}
 			 offset ${offsetPlaceholder}`,
@@ -725,7 +724,7 @@ export const fetchDivisionStandingsQuery = async (
 			team_point_diff: number | null;
 		}>(
 			`with scoped_division as (
-			   select d.division_name, d.season_year, d.season_number
+			   select d.division_id
 			   from public.divisions d
 			   join public.regions r on r.region_id = d.region_id
 			   where d.division_id = $1::uuid
@@ -743,9 +742,7 @@ export const fetchDivisionStandingsQuery = async (
 			   v.team_point_diff
 			 from public.vw_team_standings v
 			 join scoped_division sd
-			   on sd.division_name = v.division_name
-			  and sd.season_year = v.season_year
-			  and sd.season_number = v.season_number
+			   on sd.division_id = v.division_id
 			 order by ${orderBy}
 			 limit $5
 			 offset $6`,
@@ -797,7 +794,7 @@ export const fetchTeamOverviewQuery = async (
 	const result = await runWithContextPoolRetry(env, (pool) =>
 		pool.query<TeamOverviewQueryRow>(
 			`with scoped_division as (
-			   select d.division_name, d.season_year, d.season_number
+			   select d.division_id
 			   from public.divisions d
 			   join public.regions r on r.region_id = d.region_id
 			   where d.division_id = $1::uuid
@@ -818,6 +815,7 @@ export const fetchTeamOverviewQuery = async (
 			     v.home_record,
 			     v.away_record,
 			     v.win_percentage,
+			     v.game_win_rate,
 			     v.men_win_rate,
 			     v.women_win_rate,
 			     v.mixed_win_rate,
@@ -827,9 +825,7 @@ export const fetchTeamOverviewQuery = async (
 			     v.team_point_diff
 			   from public.vw_team_standings v
 			   join scoped_division sd
-			     on sd.division_name = v.division_name
-			    and sd.season_year = v.season_year
-			    and sd.season_number = v.season_number
+			     on sd.division_id = v.division_id
 			 )
 			 select v.*
 			 from scoped_standings v
@@ -890,7 +886,7 @@ export const fetchTeamScheduleQuery = async (
 	const result = await runWithContextPoolRetry(env, (pool) =>
 		pool.query<TeamScheduleQueryRow>(
 			`with scoped_division as (
-			   select d.division_name, d.season_year, d.season_number
+			   select d.division_id
 			   from public.divisions d
 			   join public.regions r on r.region_id = d.region_id
 			   where d.division_id = $1::uuid
@@ -911,9 +907,7 @@ export const fetchTeamScheduleQuery = async (
 			   v.is_past_match
 			 from public.vw_team_matches v
 			 join scoped_division sd
-			   on sd.division_name = v.division_name
-			  and sd.season_year = v.season_year
-			  and sd.season_number = v.season_number
+			   on sd.division_id = v.division_id
 			 where v.team_name = $5
 			 order by ${orderBy}
 			 limit $6

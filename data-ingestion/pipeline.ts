@@ -822,6 +822,26 @@ interface FetchRetryConfig {
 	onRetry?: (url: string, attempt: number, waitMs: number) => void;
 }
 
+class CrossClubHttpError extends Error {
+	public readonly status: number;
+	public readonly url: string;
+
+	public constructor(url: string, status: number) {
+		super(`CrossClub fetch failed (${url}) status ${status}`);
+		this.name = "CrossClubHttpError";
+		this.status = status;
+		this.url = url;
+	}
+}
+
+const shouldSkipMissingPlayersEndpoint = (
+	endpointName: EndpointName,
+	error: unknown,
+): error is CrossClubHttpError =>
+	endpointName === "players" &&
+	error instanceof CrossClubHttpError &&
+	error.status === 404;
+
 const fetchJson = async (
 	url: string,
 	retryConfig: FetchRetryConfig,
@@ -832,12 +852,13 @@ const fetchJson = async (
 		try {
 			const response = await fetch(url);
 			if (!response.ok) {
-				throw new Error(
-					`CrossClub fetch failed (${url}) status ${response.status}`,
-				);
+				throw new CrossClubHttpError(url, response.status);
 			}
 			return parseJsonResponseSafely(response);
 		} catch (error) {
+			if (error instanceof CrossClubHttpError && error.status === 404) {
+				throw error;
+			}
 			if (attempt >= maxAttempts) {
 				throw error;
 			}
@@ -1325,14 +1346,27 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 							divisionId,
 							endpointName,
 						);
-						const payload = await fetchJson(`${apiBaseUrl}${endpointPath}`, {
-							retryAttempts,
-							retryBaseDelayMs,
-							retryJitterRatio,
-							onRetry: () => {
-								retries += 1;
-							},
-						});
+						let payload: unknown;
+						try {
+							payload = await fetchJson(`${apiBaseUrl}${endpointPath}`, {
+								retryAttempts,
+								retryBaseDelayMs,
+								retryJitterRatio,
+								onRetry: () => {
+									retries += 1;
+								},
+							});
+						} catch (error) {
+							if (shouldSkipMissingPlayersEndpoint(endpointName, error)) {
+								warnings += 1;
+								console.warn(
+									`[crossclub-ingest] skipping missing players endpoint division=${divisionId} status=${error.status} url=${error.url}`,
+								);
+								await delay(delayMs);
+								continue;
+							}
+							throw error;
+						}
 						if (supabase) {
 							await supabase.insert("api_raw_ingest", [
 								{
