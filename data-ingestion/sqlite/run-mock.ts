@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import {
 	denormalizeDotNetJson,
 	extractDivisionsFromRegions,
+	normalizeCrossClubScheduledTime,
 	sanitizeTeamForeignKey,
 	type IngestPhase,
 	type SyncMode,
@@ -234,7 +235,8 @@ export const runMockIngestion = (
 					division_id: String(row.divisionId),
 					home_team_id: sanitizeTeamForeignKey(row.homeTeamId),
 					away_team_id: sanitizeTeamForeignKey(row.awayTeamId),
-					scheduled_time: String(row.scheduledTime ?? ""),
+					scheduled_time:
+						normalizeCrossClubScheduledTime(row.scheduledTime) ?? "",
 					season_year: Number(row.seasonYear),
 					season_number: Number(row.seasonNumber),
 				}));
@@ -258,7 +260,8 @@ export const runMockIngestion = (
 					division_id: String(row.divisionId),
 					home_team_id: sanitizeTeamForeignKey(row.homeTeamId),
 					away_team_id: sanitizeTeamForeignKey(row.awayTeamId),
-					scheduled_time: String(row.scheduledTime ?? ""),
+					scheduled_time:
+						normalizeCrossClubScheduledTime(row.scheduledTime) ?? "",
 					season_year: Number(row.seasonYear),
 					season_number: Number(row.seasonNumber),
 				}));

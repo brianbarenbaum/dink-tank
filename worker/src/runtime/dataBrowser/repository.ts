@@ -186,6 +186,56 @@ const buildTableResponse = (
 	payload,
 });
 
+const buildSummaryResponse = (
+	request: DataBrowserQueryRequest,
+	title: string,
+	leafLabel: string,
+	payload: DataBrowserQueryResponse["payload"],
+	options?: {
+		breadcrumb?: string[];
+		totalRows?: number;
+	},
+): DataBrowserQueryResponse => {
+	const totalRows = options?.totalRows ?? 1;
+
+	return {
+		queryId: crypto.randomUUID(),
+		queryType: request.queryType,
+		layout: "summary",
+		breadcrumb: options?.breadcrumb ?? [
+			`${request.scope.seasonYear} S${request.scope.seasonNumber}`,
+			request.scope.divisionName,
+			request.scope.teamName ?? "",
+			leafLabel,
+		],
+		title,
+		fetchedAt: new Date().toISOString(),
+		page: request.viewState.page,
+		pageSize: request.viewState.pageSize,
+		totalRows,
+		totalPages: totalRows > 0 ? 1 : 0,
+		sortKey: request.viewState.sortKey,
+		sortDirection: request.viewState.sortDirection,
+		payload,
+	};
+};
+
+const parseNullableNumber = (
+	value: string | number | null | undefined,
+): number | null => {
+	if (typeof value === "number") {
+		return Number.isFinite(value) ? value : null;
+	}
+	if (typeof value === "string") {
+		const parsed = Number.parseFloat(value);
+		return Number.isFinite(parsed) ? parsed : null;
+	}
+	return null;
+};
+
+const roundToSingleDecimal = (value: number): number =>
+	Math.round(value * 10) / 10;
+
 type PlayerStatsQueryRow = {
 	total_rows: number | string;
 	ranking: number | null;
@@ -238,6 +288,126 @@ const buildPlayerTableRows = (
 				: String(row.dupr_rating),
 	}));
 
+type TeamScheduleQueryRow = {
+	total_rows: number | string;
+	week_number: number | null;
+	match_datetime: string | null;
+	opponent_team_name: string | null;
+	match_result: string | null;
+	team_points: number | null;
+	opponent_points: number | null;
+	playoffs: boolean | null;
+	playoff_game: number | null;
+	is_past_match: boolean | null;
+};
+
+const TEAM_SCHEDULE_TABLE_COLUMNS = [
+	{ key: "weekNumber", label: "Week" },
+	{ key: "matchDateTime", label: "Match Time" },
+	{ key: "opponentTeamName", label: "Opponent" },
+	{ key: "matchResult", label: "Result" },
+	{ key: "score", label: "Score" },
+	{ key: "stage", label: "Stage" },
+] satisfies DataBrowserQueryResponse["payload"] extends infer Payload
+	? Payload extends { columns: infer Columns }
+		? Columns
+		: never
+	: never;
+
+const TEAM_SCHEDULE_SORTS = {
+	weekNumber: "v.week_number",
+	opponentTeamName: "v.opponent_team_name",
+	matchResult: "v.match_result",
+	stage: "v.playoffs",
+} satisfies Record<string, string>;
+
+const buildTeamScheduleRows = (
+	rows: TeamScheduleQueryRow[],
+): Record<string, string | number | boolean | null>[] =>
+	rows.map((row) => ({
+		weekNumber: row.week_number,
+		matchDateTime: row.match_datetime,
+		opponentTeamName: row.opponent_team_name,
+		matchResult:
+			row.match_result ?? (row.is_past_match ? "Completed" : "Scheduled"),
+		score:
+			row.team_points === null || row.opponent_points === null
+				? null
+				: `${row.team_points}-${row.opponent_points}`,
+		stage: row.playoffs
+			? row.playoff_game === null
+				? "Playoff"
+				: `Playoff ${row.playoff_game}`
+			: "Regular",
+	}));
+
+type TeamOverviewQueryRow = {
+	division_team_count: number | string;
+	team_name: string | null;
+	ranking: number | null;
+	pod_ranking: number | null;
+	wins: number | null;
+	losses: number | null;
+	draws: number | null;
+	record: string | null;
+	home_record: string | null;
+	away_record: string | null;
+	win_percentage: string | number | null;
+	men_win_rate: string | number | null;
+	women_win_rate: string | number | null;
+	mixed_win_rate: string | number | null;
+	game_record: string | null;
+	total_points_won: number | null;
+	average_points_per_game: string | number | null;
+	team_point_diff: number | null;
+};
+
+const buildTeamOverviewPayload = (
+	row: TeamOverviewQueryRow,
+): Record<string, unknown> => {
+	const wins = row.wins ?? 0;
+	const losses = row.losses ?? 0;
+	const draws = row.draws ?? 0;
+	const totalMatches = wins + losses + draws;
+	const totalPointsWon = row.total_points_won;
+
+	return {
+		teamName: row.team_name,
+		matchRecord: {
+			wins,
+			losses,
+			draws,
+			record: row.record,
+			homeRecord: row.home_record,
+			awayRecord: row.away_record,
+		},
+		totalPoints: {
+			totalPointsWon,
+			averagePerMatch:
+				totalPointsWon !== null && totalMatches > 0
+					? roundToSingleDecimal(totalPointsWon / totalMatches)
+					: null,
+		},
+		leagueRank: {
+			rank: row.ranking,
+			teamCount: parseCount(row.division_team_count),
+			podRank: row.pod_ranking,
+		},
+		winBreakdown: {
+			overallWinPercentage: parseNullableNumber(row.win_percentage),
+			menWinPercentage: parseNullableNumber(row.men_win_rate),
+			womenWinPercentage: parseNullableNumber(row.women_win_rate),
+			mixedWinPercentage: parseNullableNumber(row.mixed_win_rate),
+		},
+		otherStats: {
+			gameRecord: row.game_record,
+			totalPointsWon,
+			averagePointsPerGame: parseNullableNumber(row.average_points_per_game),
+			teamPointDiff: row.team_point_diff,
+		},
+	};
+};
+
 const fetchPlayersTableQuery = async (
 	env: WorkerEnv,
 	request: DataBrowserQueryRequest,
@@ -255,34 +425,17 @@ const fetchPlayersTableQuery = async (
 	);
 	const pageSize = request.viewState.pageSize;
 	const offset = getOffset(request.viewState.page, pageSize);
-	const teamId = options.teamId ?? null;
-	const teamCteClause = teamId
-		? `,
-			 selected_team as (
-			   select coalesce(ts.team_name, t.team_name) as team_name
-			   from public.teams t
-			   left join public.team_seasons ts
-			     on ts.team_id = t.team_id
-			    and ts.division_id = t.division_id
-			    and ts.season_year = $2
-			    and ts.season_number = $3
-			   where t.team_id = $5::uuid
-			     and t.division_id = $1::uuid
-			   limit 1
-			 )`
-		: "";
-	const teamJoinClause = teamId
-		? "\n\t\t\t join selected_team st on st.team_name = v.team_name"
-		: "";
-	const limitPlaceholder = teamId ? "$6" : "$5";
-	const offsetPlaceholder = teamId ? "$7" : "$6";
-	const params = teamId
+	const teamName = options.teamId ? request.scope.teamName : null;
+	const teamFilterClause = teamName ? "\n\t\t\t where v.team_name = $5" : "";
+	const limitPlaceholder = teamName ? "$6" : "$5";
+	const offsetPlaceholder = teamName ? "$7" : "$6";
+	const params = teamName
 		? [
 				request.scope.divisionId,
 				request.scope.seasonYear,
 				request.scope.seasonNumber,
 				NJ_PA_REGION_KEY,
-				teamId,
+				teamName,
 				pageSize,
 				offset,
 			]
@@ -304,7 +457,7 @@ const fetchPlayersTableQuery = async (
 			     and d.season_year = $2
 			     and d.season_number = $3
 			     and ${buildDataScopeFilter(4)}
-			 )${teamCteClause}
+			 )
 			 select
 			   count(*) over() as total_rows,
 			   v.ranking,
@@ -318,7 +471,7 @@ const fetchPlayersTableQuery = async (
 			 join scoped_division sd
 			   on sd.division_name = v.division_name
 			  and sd.season_year = v.season_year
-			  and sd.season_number = v.season_number${teamJoinClause}
+			  and sd.season_number = v.season_number${teamFilterClause}
 			 order by ${orderBy}
 			 limit ${limitPlaceholder}
 			 offset ${offsetPlaceholder}`,
@@ -326,7 +479,7 @@ const fetchPlayersTableQuery = async (
 		),
 	);
 	const totalRows = parseCount(result.rows[0]?.total_rows);
-	const breadcrumb = teamId
+	const breadcrumb = teamName
 		? [
 				`${request.scope.seasonYear} S${request.scope.seasonNumber}`,
 				request.scope.divisionName,
@@ -467,9 +620,6 @@ const getQueryLayout = (
 ): DataBrowserQueryLayout => {
 	if (queryType === "team_overview") {
 		return "summary";
-	}
-	if (queryType === "team_schedule") {
-		return "schedule";
 	}
 	return "table";
 };
@@ -641,9 +791,79 @@ export const fetchDivisionStandingsQuery = async (
 };
 
 export const fetchTeamOverviewQuery = async (
-	_env: WorkerEnv,
+	env: WorkerEnv,
 	request: DataBrowserQueryRequest,
-): Promise<DataBrowserQueryResponse> => buildDefaultQueryResponse(request);
+): Promise<DataBrowserQueryResponse> => {
+	const result = await runWithContextPoolRetry(env, (pool) =>
+		pool.query<TeamOverviewQueryRow>(
+			`with scoped_division as (
+			   select d.division_name, d.season_year, d.season_number
+			   from public.divisions d
+			   join public.regions r on r.region_id = d.region_id
+			   where d.division_id = $1::uuid
+			     and d.season_year = $2
+			     and d.season_number = $3
+			     and ${buildDataScopeFilter(4)}
+			 ),
+			 scoped_standings as (
+			   select
+			     count(*) over() as division_team_count,
+			     v.team_name,
+			     v.ranking,
+			     v.pod_ranking,
+			     v.wins,
+			     v.losses,
+			     v.draws,
+			     v.record,
+			     v.home_record,
+			     v.away_record,
+			     v.win_percentage,
+			     v.men_win_rate,
+			     v.women_win_rate,
+			     v.mixed_win_rate,
+			     v.game_record,
+			     v.total_points_won,
+			     v.average_points_per_game,
+			     v.team_point_diff
+			   from public.vw_team_standings v
+			   join scoped_division sd
+			     on sd.division_name = v.division_name
+			    and sd.season_year = v.season_year
+			    and sd.season_number = v.season_number
+			 )
+			 select v.*
+			 from scoped_standings v
+			 where v.team_name = $5
+			 limit 1`,
+			[
+				request.scope.divisionId,
+				request.scope.seasonYear,
+				request.scope.seasonNumber,
+				NJ_PA_REGION_KEY,
+				request.scope.teamName,
+			],
+		),
+	);
+	const row = result.rows[0];
+	if (!row) {
+		return buildDefaultQueryResponse(request);
+	}
+
+	return buildSummaryResponse(
+		request,
+		"Team Overview",
+		"Overview",
+		buildTeamOverviewPayload(row),
+		{
+			breadcrumb: [
+				`${request.scope.seasonYear} S${request.scope.seasonNumber}`,
+				request.scope.divisionName,
+				request.scope.teamName ?? row.team_name ?? "",
+				"Overview",
+			],
+		},
+	);
+};
 
 export const fetchTeamPlayersQuery = async (
 	env: WorkerEnv,
@@ -656,6 +876,77 @@ export const fetchTeamPlayersQuery = async (
 	});
 
 export const fetchTeamScheduleQuery = async (
-	_env: WorkerEnv,
+	env: WorkerEnv,
 	request: DataBrowserQueryRequest,
-): Promise<DataBrowserQueryResponse> => buildDefaultQueryResponse(request);
+): Promise<DataBrowserQueryResponse> => {
+	const orderBy = buildOrderBy(
+		request.viewState.sortKey,
+		request.viewState.sortDirection,
+		TEAM_SCHEDULE_SORTS,
+		"weekNumber",
+	);
+	const pageSize = request.viewState.pageSize;
+	const offset = getOffset(request.viewState.page, pageSize);
+	const result = await runWithContextPoolRetry(env, (pool) =>
+		pool.query<TeamScheduleQueryRow>(
+			`with scoped_division as (
+			   select d.division_name, d.season_year, d.season_number
+			   from public.divisions d
+			   join public.regions r on r.region_id = d.region_id
+			   where d.division_id = $1::uuid
+			     and d.season_year = $2
+			     and d.season_number = $3
+			     and ${buildDataScopeFilter(4)}
+			 )
+			 select
+			   count(*) over() as total_rows,
+			   v.week_number,
+			   v.match_datetime,
+			   v.opponent_team_name,
+			   v.match_result,
+			   v.team_points,
+			   v.opponent_points,
+			   v.playoffs,
+			   v.playoff_game,
+			   v.is_past_match
+			 from public.vw_team_matches v
+			 join scoped_division sd
+			   on sd.division_name = v.division_name
+			  and sd.season_year = v.season_year
+			  and sd.season_number = v.season_number
+			 where v.team_name = $5
+			 order by ${orderBy}
+			 limit $6
+			 offset $7`,
+			[
+				request.scope.divisionId,
+				request.scope.seasonYear,
+				request.scope.seasonNumber,
+				NJ_PA_REGION_KEY,
+				request.scope.teamName,
+				pageSize,
+				offset,
+			],
+		),
+	);
+	const totalRows = parseCount(result.rows[0]?.total_rows);
+
+	return buildTableResponse(
+		request,
+		"Team Schedule",
+		"Schedule",
+		{
+			columns: TEAM_SCHEDULE_TABLE_COLUMNS,
+			rows: buildTeamScheduleRows(result.rows),
+		},
+		totalRows,
+		{
+			breadcrumb: [
+				`${request.scope.seasonYear} S${request.scope.seasonNumber}`,
+				request.scope.divisionName,
+				request.scope.teamName ?? "",
+				"Schedule",
+			],
+		},
+	);
+};

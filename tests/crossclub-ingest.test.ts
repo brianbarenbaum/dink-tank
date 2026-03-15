@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import * as pipelineModule from "../data-ingestion/pipeline";
 
 import {
 	buildClubRowsFromPlayers,
@@ -22,6 +23,15 @@ import {
 	sanitizeTeamForeignKey,
 	selectDetailMatchups,
 } from "../data-ingestion/pipeline";
+
+const getNormalizeCrossClubScheduledTime = () =>
+	(
+		pipelineModule as {
+			normalizeCrossClubScheduledTime?: (
+				scheduledTime: string | null | undefined,
+			) => string | null;
+		}
+	).normalizeCrossClubScheduledTime;
 
 describe("crossclub ingest helpers", () => {
 	it("declares sqlite ingestion helper scripts", () => {
@@ -142,6 +152,26 @@ describe("crossclub ingest helpers", () => {
 		expect(
 			selectDetailMatchups(all, "weekly", now).map((x) => x.matchupId),
 		).toEqual(["a"]);
+	});
+
+	it("normalizes winter Cross Club scheduled times from Eastern wall clock to real UTC", () => {
+		const normalizeCrossClubScheduledTime =
+			getNormalizeCrossClubScheduledTime();
+
+		expect(normalizeCrossClubScheduledTime).toBeTypeOf("function");
+		expect(normalizeCrossClubScheduledTime?.("2026-02-26T19:30:00Z")).toBe(
+			"2026-02-27T00:30:00.000Z",
+		);
+	});
+
+	it("normalizes daylight-saving Cross Club scheduled times from Eastern wall clock to real UTC", () => {
+		const normalizeCrossClubScheduledTime =
+			getNormalizeCrossClubScheduledTime();
+
+		expect(normalizeCrossClubScheduledTime).toBeTypeOf("function");
+		expect(normalizeCrossClubScheduledTime?.("2026-03-12T19:30:00Z")).toBe(
+			"2026-03-12T23:30:00.000Z",
+		);
 	});
 
 	it("computes retry delays with exponential backoff and jitter", () => {

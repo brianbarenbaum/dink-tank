@@ -5,6 +5,7 @@ import DirectQueryCard from "../../chat/components/DirectQueryCard.vue";
 import DirectQueryTableCard from "../../chat/components/DirectQueryTableCard.vue";
 import type { DataBrowserController } from "../../chat/data-browser/useDataBrowserController";
 import type { DirectQueryCardItem } from "../../chat/types";
+import TeamOverviewCard from "./TeamOverviewCard.vue";
 
 interface PropsDataBrowserTabShell {
 	controller: DataBrowserController;
@@ -72,6 +73,10 @@ const onActiveCardSortChange = async (sortKey: string): Promise<void> => {
         :card="activeCard"
         :show-pagination="false"
         @sort="(sortKey) => void onActiveCardSortChange(sortKey)"
+      />
+      <TeamOverviewCard
+        v-else-if="activeCard.queryType === 'team_overview'"
+        :card="activeCard"
       />
       <DirectQueryCard
         v-else

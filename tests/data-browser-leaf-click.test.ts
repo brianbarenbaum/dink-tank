@@ -254,7 +254,35 @@ describe("data browser dedicated page leaf clicks", () => {
 				breadcrumb: ["2025 S3", "3.5", "Drop Shotters", "Overview"],
 				payload: {
 					teamName: "Drop Shotters",
-					record: "7-1",
+					matchRecord: {
+						wins: 8,
+						losses: 2,
+						draws: 0,
+						record: "8-2-0",
+						homeRecord: "4-1",
+						awayRecord: "4-1",
+					},
+					totalPoints: {
+						totalPointsWon: 1240,
+						averagePerMatch: 124,
+					},
+					leagueRank: {
+						rank: 3,
+						teamCount: 16,
+						podRank: 2,
+					},
+					winBreakdown: {
+						overallWinPercentage: 80,
+						menWinPercentage: 75,
+						womenWinPercentage: 82,
+						mixedWinPercentage: 85,
+					},
+					otherStats: {
+						gameRecord: "24-12",
+						totalPointsWon: 1240,
+						averagePointsPerGame: 48.2,
+						teamPointDiff: 125,
+					},
 				},
 			}),
 		);
@@ -314,7 +342,20 @@ describe("data browser dedicated page leaf clicks", () => {
 		expect(wrapper.text()).toContain(
 			"2025 S3 / 3.5 / Drop Shotters / Overview",
 		);
-		expect(wrapper.text()).toContain("Result ready.");
+		expect(wrapper.find("[data-testid='team-overview-card']").exists()).toBe(
+			true,
+		);
+		expect(wrapper.text()).toContain("MATCH RECORD");
+		expect(wrapper.text()).toContain("TOTAL POINTS");
+		expect(wrapper.text()).toContain("LEAGUE RANK");
+		expect(wrapper.text()).toContain("WIN PERCENTAGE BREAKDOWN");
+		expect(wrapper.text()).toContain("OTHER STATS");
+		expect(wrapper.text()).toContain("Home Record: 4 - 1");
+		expect(wrapper.text()).toContain("Away Record: 4 - 1");
+		expect(wrapper.text()).toContain("1,240");
+		expect(wrapper.text()).toContain("#03 / 16");
+		expect(wrapper.text()).toContain("80.0%");
+		expect(wrapper.text()).not.toContain("Result ready.");
 	});
 
 	it("clicking the team players leaf shows the player table filtered to the selected team", async () => {
@@ -403,5 +444,101 @@ describe("data browser dedicated page leaf clicks", () => {
 		expect(
 			wrapper.find("[data-testid='direct-query-player-search']").exists(),
 		).toBe(true);
+	});
+
+	it("clicking the team schedule leaf shows a loading table and then the schedule table", async () => {
+		const team = {
+			teamId: "22222222-2222-4222-8222-222222222222",
+			teamName: "Drop Shotters",
+		};
+		let resolveQuery:
+			| ((
+					value:
+						| DataBrowserQueryResponse
+						| PromiseLike<DataBrowserQueryResponse>,
+			  ) => void)
+			| undefined;
+		const queryPromise = new Promise<DataBrowserQueryResponse>((resolve) => {
+			resolveQuery = resolve;
+		});
+		const { wrapper, client } = mountHarness(() => queryPromise);
+		client.getTeams.mockResolvedValue({ teams: [team] });
+
+		await flushPromises();
+		await wrapper
+			.get("[data-testid='data-browser-season-2025-3']")
+			.trigger("click");
+		await flushPromises();
+		await wrapper
+			.get(
+				"[data-testid='data-browser-division-11111111-1111-4111-8111-111111111111']",
+			)
+			.trigger("click");
+		await wrapper
+			.get(
+				"[data-testid='data-browser-teams-branch-11111111-1111-4111-8111-111111111111']",
+			)
+			.trigger("click");
+		await flushPromises();
+		await wrapper
+			.get(
+				"[data-testid='data-browser-team-22222222-2222-4222-8222-222222222222']",
+			)
+			.trigger("click");
+		await wrapper
+			.get(
+				"[data-testid='data-browser-leaf-team_schedule-22222222-2222-4222-8222-222222222222']",
+			)
+			.trigger("click");
+		await flushPromises();
+
+		expect(wrapper.findAll("[data-testid='direct-query-card']")).toHaveLength(
+			1,
+		);
+		expect(wrapper.text()).toContain(
+			"2025 S3 / 3.5 / Drop Shotters / Schedule",
+		);
+		expect(wrapper.text()).toContain("Loading query results");
+
+		resolveQuery?.(
+			buildQueryResponse({
+				queryType: "team_schedule",
+				layout: "table",
+				title: "Team Schedule",
+				breadcrumb: ["2025 S3", "3.5", "Drop Shotters", "Schedule"],
+				sortKey: "weekNumber",
+				sortDirection: "asc",
+				payload: {
+					columns: [
+						{ key: "weekNumber", label: "Week" },
+						{ key: "matchDateTime", label: "Match Time" },
+						{ key: "opponentTeamName", label: "Opponent" },
+						{ key: "matchResult", label: "Result" },
+						{ key: "score", label: "Score" },
+					],
+					rows: [
+						{
+							weekNumber: 4,
+							matchDateTime: "Mar 08, 2026 06:00pm",
+							opponentTeamName: "Kitchen Kings",
+							matchResult: "Win",
+							score: "21-16",
+						},
+					],
+				},
+			}),
+		);
+		await flushPromises();
+
+		expect(wrapper.findAll("[data-testid='direct-query-card']")).toHaveLength(
+			1,
+		);
+		expect(
+			wrapper.find("[data-testid='direct-query-table-scroll-region']").exists(),
+		).toBe(true);
+		expect(wrapper.text()).toContain("Mar 08, 2026 06:00pm");
+		expect(wrapper.text()).toContain("Kitchen Kings");
+		expect(wrapper.text()).toContain("21-16");
+		expect(wrapper.text()).not.toContain("Result ready.");
 	});
 });

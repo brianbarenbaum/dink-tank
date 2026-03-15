@@ -24,7 +24,9 @@ import {
 	fetchDataBrowserTeams,
 	fetchDivisionPlayersQuery,
 	fetchDivisionStandingsQuery,
+	fetchTeamOverviewQuery,
 	fetchTeamPlayersQuery,
+	fetchTeamScheduleQuery,
 } from "../worker/src/runtime/dataBrowser/repository";
 
 const env = {
@@ -217,7 +219,7 @@ describe("data browser repository", () => {
 		expect(executedQuery).toContain("where d.division_id = $1::uuid");
 	});
 
-	it("queries team players through the season player stats view with a team filter", async () => {
+	it("queries team players through the season player stats view with a scoped team-name filter", async () => {
 		poolQueryMock.mockResolvedValueOnce({
 			rows: [
 				{
@@ -281,15 +283,216 @@ describe("data browser repository", () => {
 
 		const executedQuery = poolQueryMock.mock.calls[0]?.[0];
 		expect(executedQuery).toContain("public.vw_player_stats_per_season");
-		expect(executedQuery).toContain("selected_team as (");
-		expect(executedQuery).toContain("where t.team_id = $5::uuid");
-		expect(executedQuery).toContain("st.team_name = v.team_name");
+		expect(executedQuery).toContain("v.team_name = $5");
+		expect(executedQuery).not.toContain("selected_team as (");
+		expect(executedQuery).not.toContain("where t.team_id = $5::uuid");
 		expect(poolQueryMock.mock.calls[0]?.[1]).toEqual([
 			"e8d04726-4c07-447c-a609-9914d1378e8d",
 			2025,
 			3,
 			"NJ/PA",
-			"a7d5c302-9ee0-4bd6-9205-971efe6af562",
+			"Drop Shotters",
+			20,
+			0,
+		]);
+	});
+
+	it("queries team overview through the standings view with a scoped team-name filter", async () => {
+		poolQueryMock.mockResolvedValueOnce({
+			rows: [
+				{
+					division_team_count: 16,
+					team_name: "Drop Shotters",
+					ranking: 3,
+					pod_ranking: 2,
+					wins: 8,
+					losses: 2,
+					draws: 0,
+					record: "8-2-0",
+					home_record: "4-1",
+					away_record: "4-1",
+					win_percentage: "80.0",
+					men_win_rate: "75.0",
+					women_win_rate: "82.0",
+					mixed_win_rate: "85.0",
+					game_record: "24-12",
+					total_points_won: 1240,
+					average_points_per_game: "48.2",
+					team_point_diff: 125,
+				},
+			],
+		});
+
+		const result = await fetchTeamOverviewQuery(env, {
+			queryType: "team_overview",
+			scope: {
+				seasonYear: 2025,
+				seasonNumber: 3,
+				divisionId: "e8d04726-4c07-447c-a609-9914d1378e8d",
+				divisionName: "3.5",
+				teamId: "a7d5c302-9ee0-4bd6-9205-971efe6af562",
+				teamName: "Drop Shotters",
+			},
+			viewState: {
+				page: 1,
+				pageSize: 20,
+				sortKey: null,
+				sortDirection: null,
+			},
+		});
+
+		expect(result.title).toBe("Team Overview");
+		expect(result.layout).toBe("summary");
+		expect(result.breadcrumb).toEqual([
+			"2025 S3",
+			"3.5",
+			"Drop Shotters",
+			"Overview",
+		]);
+		expect(result.payload).toEqual({
+			teamName: "Drop Shotters",
+			matchRecord: {
+				wins: 8,
+				losses: 2,
+				draws: 0,
+				record: "8-2-0",
+				homeRecord: "4-1",
+				awayRecord: "4-1",
+			},
+			totalPoints: {
+				totalPointsWon: 1240,
+				averagePerMatch: 124,
+			},
+			leagueRank: {
+				rank: 3,
+				teamCount: 16,
+				podRank: 2,
+			},
+			winBreakdown: {
+				overallWinPercentage: 80,
+				menWinPercentage: 75,
+				womenWinPercentage: 82,
+				mixedWinPercentage: 85,
+			},
+			otherStats: {
+				gameRecord: "24-12",
+				totalPointsWon: 1240,
+				averagePointsPerGame: 48.2,
+				teamPointDiff: 125,
+			},
+		});
+
+		const executedQuery = poolQueryMock.mock.calls[0]?.[0];
+		expect(executedQuery).toContain("public.vw_team_standings");
+		expect(executedQuery).toContain("v.team_name = $5");
+		expect(executedQuery).toContain("scoped_standings as (");
+		expect(executedQuery).not.toContain("selected_team as (");
+		expect(executedQuery).not.toContain("where t.team_id = $5::uuid");
+		expect(poolQueryMock.mock.calls[0]?.[1]).toEqual([
+			"e8d04726-4c07-447c-a609-9914d1378e8d",
+			2025,
+			3,
+			"NJ/PA",
+			"Drop Shotters",
+		]);
+	});
+
+	it("queries team schedule through the team matches view with a scoped team-name filter", async () => {
+		poolQueryMock.mockResolvedValueOnce({
+			rows: [
+				{
+					total_rows: 2,
+					week_number: 3,
+					match_datetime: "Mar 01, 2026 06:00pm",
+					opponent_team_name: "Topspin Club",
+					match_result: null,
+					team_points: null,
+					opponent_points: null,
+					playoffs: false,
+					playoff_game: null,
+					is_past_match: false,
+				},
+				{
+					total_rows: 2,
+					week_number: 4,
+					match_datetime: "Mar 08, 2026 06:00pm",
+					opponent_team_name: "Kitchen Kings",
+					match_result: "Win",
+					team_points: 21,
+					opponent_points: 16,
+					playoffs: true,
+					playoff_game: 2,
+					is_past_match: true,
+				},
+			],
+		});
+
+		const result = await fetchTeamScheduleQuery(env, {
+			queryType: "team_schedule",
+			scope: {
+				seasonYear: 2025,
+				seasonNumber: 3,
+				divisionId: "e8d04726-4c07-447c-a609-9914d1378e8d",
+				divisionName: "3.5",
+				teamId: "a7d5c302-9ee0-4bd6-9205-971efe6af562",
+				teamName: "Drop Shotters",
+			},
+			viewState: {
+				page: 1,
+				pageSize: 20,
+				sortKey: "weekNumber",
+				sortDirection: "asc",
+			},
+		});
+
+		expect(result.title).toBe("Team Schedule");
+		expect(result.layout).toBe("table");
+		expect(result.breadcrumb).toEqual([
+			"2025 S3",
+			"3.5",
+			"Drop Shotters",
+			"Schedule",
+		]);
+		expect(result.payload).toEqual({
+			columns: [
+				{ key: "weekNumber", label: "Week" },
+				{ key: "matchDateTime", label: "Match Time" },
+				{ key: "opponentTeamName", label: "Opponent" },
+				{ key: "matchResult", label: "Result" },
+				{ key: "score", label: "Score" },
+				{ key: "stage", label: "Stage" },
+			],
+			rows: [
+				{
+					weekNumber: 3,
+					matchDateTime: "Mar 01, 2026 06:00pm",
+					opponentTeamName: "Topspin Club",
+					matchResult: "Scheduled",
+					score: null,
+					stage: "Regular",
+				},
+				{
+					weekNumber: 4,
+					matchDateTime: "Mar 08, 2026 06:00pm",
+					opponentTeamName: "Kitchen Kings",
+					matchResult: "Win",
+					score: "21-16",
+					stage: "Playoff 2",
+				},
+			],
+		});
+
+		const executedQuery = poolQueryMock.mock.calls[0]?.[0];
+		expect(executedQuery).toContain("public.vw_team_matches");
+		expect(executedQuery).toContain("v.team_name = $5");
+		expect(executedQuery).not.toContain("selected_team as (");
+		expect(executedQuery).not.toContain("where t.team_id = $5::uuid");
+		expect(poolQueryMock.mock.calls[0]?.[1]).toEqual([
+			"e8d04726-4c07-447c-a609-9914d1378e8d",
+			2025,
+			3,
+			"NJ/PA",
+			"Drop Shotters",
 			20,
 			0,
 		]);

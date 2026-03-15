@@ -148,6 +148,86 @@ const delay = async (ms: number): Promise<void> =>
 		setTimeout(resolve, ms);
 	});
 
+const CROSSCLUB_TIME_ZONE = "America/New_York";
+const CROSSCLUB_SCHEDULED_TIME_PATTERN =
+	/^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})[T ](?<hour>\d{2}):(?<minute>\d{2})(?::(?<second>\d{2})(?:\.(?<millisecond>\d{1,3}))?)?(?<offset>Z|[+-]\d{2}:\d{2})?$/;
+const CROSSCLUB_TIME_ZONE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+	timeZone: CROSSCLUB_TIME_ZONE,
+	year: "numeric",
+	month: "2-digit",
+	day: "2-digit",
+	hour: "2-digit",
+	minute: "2-digit",
+	second: "2-digit",
+	hourCycle: "h23",
+});
+
+const getTimeZoneOffsetMinutes = (instantMs: number): number => {
+	const parts = CROSSCLUB_TIME_ZONE_FORMATTER.formatToParts(
+		new Date(instantMs),
+	);
+	const lookup = Object.fromEntries(
+		parts
+			.filter((part) => part.type !== "literal")
+			.map((part) => [part.type, part.value]),
+	);
+	const zonedInstantMs = Date.UTC(
+		Number(lookup.year),
+		Number(lookup.month) - 1,
+		Number(lookup.day),
+		Number(lookup.hour),
+		Number(lookup.minute),
+		Number(lookup.second),
+	);
+
+	return Math.round((zonedInstantMs - instantMs) / 60_000);
+};
+
+export const normalizeCrossClubScheduledTime = (
+	scheduledTime: unknown,
+): string | null => {
+	if (typeof scheduledTime !== "string") {
+		return null;
+	}
+
+	const trimmed = scheduledTime.trim();
+	if (!trimmed) {
+		return null;
+	}
+
+	const match = CROSSCLUB_SCHEDULED_TIME_PATTERN.exec(trimmed);
+	if (!match?.groups) {
+		const parsed = new Date(trimmed);
+		return Number.isNaN(parsed.getTime()) ? trimmed : parsed.toISOString();
+	}
+
+	const offset = match.groups.offset ?? null;
+	if (offset && offset !== "Z" && offset !== "+00:00" && offset !== "-00:00") {
+		const parsed = new Date(trimmed);
+		return Number.isNaN(parsed.getTime()) ? trimmed : parsed.toISOString();
+	}
+
+	const localAsUtcMs = Date.UTC(
+		Number(match.groups.year),
+		Number(match.groups.month) - 1,
+		Number(match.groups.day),
+		Number(match.groups.hour),
+		Number(match.groups.minute),
+		Number(match.groups.second ?? "0"),
+		Number((match.groups.millisecond ?? "0").padEnd(3, "0")),
+	);
+
+	let offsetMinutes = getTimeZoneOffsetMinutes(localAsUtcMs);
+	let actualUtcMs = localAsUtcMs - offsetMinutes * 60_000;
+	const correctedOffsetMinutes = getTimeZoneOffsetMinutes(actualUtcMs);
+	if (correctedOffsetMinutes !== offsetMinutes) {
+		offsetMinutes = correctedOffsetMinutes;
+		actualUtcMs = localAsUtcMs - offsetMinutes * 60_000;
+	}
+
+	return new Date(actualUtcMs).toISOString();
+};
+
 export const parseJsonResponseSafely = async (
 	response: Response,
 ): Promise<unknown | null> => {
@@ -548,7 +628,9 @@ export const selectDetailMatchups = (
 		if (!scheduledTime) {
 			return true;
 		}
-		const parsed = new Date(scheduledTime);
+		const normalizedScheduledTime =
+			normalizeCrossClubScheduledTime(scheduledTime) ?? scheduledTime;
+		const parsed = new Date(normalizedScheduledTime);
 		return !Number.isNaN(parsed.getTime()) && parsed >= cutoff;
 	});
 };
@@ -1535,7 +1617,9 @@ export const ingestCrossClub = async (config: IngestConfig): Promise<void> => {
 									end_result: matchup.endResult ?? null,
 									away_lineup_locked: matchup.awayLineupLocked ?? null,
 									home_lineup_locked: matchup.homeLineupLocked ?? null,
-									scheduled_time: matchup.scheduledTime ?? null,
+									scheduled_time: normalizeCrossClubScheduledTime(
+										matchup.scheduledTime,
+									),
 									home_name: matchup.homeName ?? null,
 									away_name: matchup.awayName ?? null,
 									playoffs: matchup.playoffs ?? false,

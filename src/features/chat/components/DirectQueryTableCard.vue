@@ -38,6 +38,14 @@ const FALLBACK_LOADING_COLUMNS: Partial<
 		{ key: "winRate", label: "Win %" },
 		{ key: "dupr", label: "DUPR" },
 	],
+	team_schedule: [
+		{ key: "weekNumber", label: "Week" },
+		{ key: "matchDateTime", label: "Match Time" },
+		{ key: "opponentTeamName", label: "Opponent" },
+		{ key: "matchResult", label: "Result" },
+		{ key: "score", label: "Score" },
+		{ key: "stage", label: "Stage" },
+	],
 };
 
 const DEFAULT_LOADING_COLUMNS: DirectQueryTablePayload["columns"] = [
@@ -50,6 +58,7 @@ const SORTABLE_COLUMNS: Partial<
 	division_players: ["ranking", "playerName", "teamName"],
 	team_players: ["ranking", "playerName", "teamName"],
 	division_standings: ["ranking", "teamName", "winPercentage", "podName"],
+	team_schedule: ["weekNumber", "opponentTeamName", "matchResult", "stage"],
 };
 
 const LOADING_CELL_WIDTH_CLASSES = [

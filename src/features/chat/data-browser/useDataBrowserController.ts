@@ -124,8 +124,8 @@ const QUERY_VIEW_STATE_DEFAULTS: Record<
 		sortDirection: "asc",
 	},
 	team_schedule: {
-		sortKey: null,
-		sortDirection: null,
+		sortKey: "weekNumber",
+		sortDirection: "asc",
 	},
 };
 
@@ -232,12 +232,7 @@ const buildLoadingCard = (
 	id: input.id ?? crypto.randomUUID(),
 	queryId: crypto.randomUUID(),
 	queryType: request.queryType,
-	layout:
-		request.queryType === "team_overview"
-			? "summary"
-			: request.queryType === "team_schedule"
-				? "schedule"
-				: "table",
+	layout: request.queryType === "team_overview" ? "summary" : "table",
 	title: metadata.title,
 	breadcrumb: metadata.breadcrumb,
 	createdAt: input.createdAt ?? new Date().toISOString(),
